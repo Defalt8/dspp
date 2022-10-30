@@ -1,0 +1,105 @@
+#pragma once
+#ifndef COUNTER
+#define COUNTER
+
+struct Counter
+{
+	using value_t = int;
+	value_t _value = 0;
+
+	static thread_local value_t _count;
+	static thread_local value_t _active;
+	static thread_local value_t _moves;
+	static thread_local value_t _copies;
+
+	~Counter()
+	{
+		_active--;
+	}
+
+	Counter()
+	{
+		_count++;
+		_active++;
+	}
+
+	Counter(int value_)
+		: _value { value_ }
+	{
+		_count++;
+		_active++;
+	}
+
+	Counter(Counter && rhs)
+		: _value { rhs._value }
+	{
+		_count++;
+		_active++;
+		_moves++;
+	}
+
+	Counter(Counter const & rhs)
+		: _value { rhs._value }
+	{
+		_count++;
+		_active++;
+		_copies++;
+	}
+
+	Counter & 
+	operator=(Counter && rhs)
+	{
+		_value = rhs._value;
+		_count++;
+		_moves++;
+		return *this;
+	}
+
+	Counter & 
+	operator=(Counter const & rhs)
+	{
+		_value = rhs._value;
+		_count++;
+		_copies++;
+		return *this;
+	}
+
+	Counter & 
+	operator=(value_t value_)
+	{
+		_value = value_;
+		return *this;
+	}
+
+	operator value_t()       { return _value; } 
+	operator value_t() const { return _value; } 
+
+	static void 
+	reset() 
+	{
+		_count  = 0;
+		_active = 0;
+		_moves  = 0;
+		_copies = 0;
+	} 
+
+	static value_t count()  { return _count; }
+	static value_t active() { return _active; }
+	static value_t moves()  { return _moves; }
+	static value_t copies() { return _copies; }
+
+	static bool zero_count()  { return _count  == 0; }
+	static bool none_active() { return _active == 0; }
+	static bool no_moves()    { return _moves  == 0; }
+	static bool no_copies()   { return _copies == 0; }
+
+};
+
+thread_local Counter::value_t Counter::_count  = 0;
+thread_local Counter::value_t Counter::_active  = 0;
+thread_local Counter::value_t Counter::_moves  = 0;
+thread_local Counter::value_t Counter::_copies = 0;
+
+using counter = Counter;
+
+#endif // COUNTER

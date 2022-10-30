@@ -1,0 +1,177 @@
+#pragma once
+#ifndef DS_MACROS
+#define DS_MACROS
+
+// DS_exceptions
+//   1 if exceptions are enables and 0 otherwsie 
+#ifndef DS_exceptions
+#	if defined(__cpp_exceptions) && (__cpp_exceptions == 199711)
+#		define DS_exceptions 1
+#	else
+#		define DS_exceptions 0
+#	endif
+#endif
+
+// utility macros for helping with toggled exceptions
+#if DS_exceptions
+#	define ds_throw(...) throw __VA_ARGS__
+#	define ds_throw_if(condition, ...) if(condition) throw __VA_ARGS__
+#	define ds_throw_again() throw
+#	define ds_try try
+#	define ds_catch(...) catch(__VA_ARGS__)
+#	define ds_catch_block(exception, ...) catch(exception) __VA_ARGS__
+#	define ds_throw_alt(...)
+#	define ds_throw_if_alt(condition, ...)
+#else
+#	define ds_throw(...)
+#	define ds_throw_if(condition, ...)
+#	define ds_throw_again()
+#	define ds_try if(true)
+#	define ds_catch(...) if(false) 
+#	define ds_catch_block(...)
+#	define ds_throw_alt(...) __VA_ARGS__
+#	define ds_throw_if_alt(condition, ...) if(condition) __VA_ARGS__
+#endif
+
+// C++ standard versions
+#define DS_Cxx_Version_98     199711L
+#define DS_Cxx_Version_11     201103L
+#define DS_Cxx_Version_14     201402L
+#define DS_Cxx_Version_17     201703L
+#define DS_Cxx_Version_20     202002L
+
+
+// DS_Cxx_Version
+#ifdef __cplusplus
+#	if defined(_MSC_VER) && (__cplusplus <= DS_Cxx_Version_98)
+#		if _MSC_VER >= 1900 // 2015
+#			define DS_Cxx_Version DS_Cxx_Version_14
+#		elif _MSC_VER >= 1800 // 2013
+#			define DS_Cxx_Version DS_Cxx_Version_11
+#		else
+#			define DS_Cxx_Version __cplusplus
+#		endif
+#	else
+#		define DS_Cxx_Version __cplusplus
+#	endif
+#else
+#	error "__cplusplus not defined!"
+#endif
+
+
+// C++20 attributes and helper macros
+#if DS_Cxx_Version >= DS_Cxx_Version_20
+#	define DS_Likely [[likely]]
+#	define DS_Unlikely [[unlikely]]
+#	define DS_No_Unique_Address [[no_unique_address]]
+#endif
+
+
+// C++17 attributes and helper macros
+#if DS_Cxx_Version >= DS_Cxx_Version_17
+#   define DS_constexpr17 constexpr
+#	define DS_inline17 inline
+#	define DS_fallthrough [[fallthrough]]
+#	define DS_maybe_unused [[maybe_unused]]
+#else
+#   define DS_constexpr17
+#	define DS_inline17
+#endif
+
+
+// C++14 attributes and helper macros
+#if DS_Cxx_Version >= DS_Cxx_Version_14
+#	define DS_deprecated [[deprecated]]
+#	define DS_deprecated_x(...) [[deprecated(__VA_ARGS__)]]
+#endif
+
+
+// C++11 attributes and helper macros
+#if DS_Cxx_Version >= DS_Cxx_Version_11
+#	define DS_noreturn [[noreturn]]
+#	define DS_carries_dependency [[carries_dependency]]
+#endif
+
+
+// DS_has_cpp_attribute and C++ attributes
+#if defined(__has_cpp_attribute)
+#	define DS_has_cpp_attribute(...) __has_cpp_attribute(__VA_ARGS__)
+#	ifndef DS_noreturn
+#		if DS_has_cpp_attribute(noreturn)
+#			define DS_noreturn [[noreturn]]
+#		else
+#			define DS_noreturn
+#		endif
+#	endif
+#	ifndef DS_carries_dependency
+#		if DS_has_cpp_attribute(carries_dependency)
+#			define DS_carries_dependency [[carries_dependency]]
+#		else
+#			define DS_carries_dependency
+#		endif
+#	endif
+#	ifndef DS_deprecated
+#		if DS_has_cpp_attribute(deprecated)
+#			define DS_deprecated [[deprecated]]
+#			define DS_deprecated_x(...) [[deprecated(__VA_ARGS__)]]
+#		else
+#			define DS_deprecated
+#			define DS_deprecated_x(...)
+#		endif
+#	endif
+#	ifndef DS_fallthrough
+#		if DS_has_cpp_attribute(fallthrough)
+#			define DS_fallthrough [[fallthrough]]
+#		else
+#			define DS_fallthrough
+#		endif
+#	endif
+#	ifndef DS_nodiscard
+#		if DS_has_cpp_attribute(nodiscard) >= 201603
+#			define DS_nodiscard [[nodiscard]]
+#			define AXL_NODISCARD_CTOR
+#		else
+#			define DS_nodiscard
+#		endif
+#	endif
+#	ifndef DS_maybe_unused
+#		if DS_has_cpp_attribute(maybe_unused)
+#			define DS_maybe_unused [[maybe_unused]]
+#		else
+#			define DS_maybe_unused
+#		endif
+#	endif
+#	ifndef DS_likely
+#		if DS_has_cpp_attribute(likely)
+#			define DS_likely [[likely]]
+#		else
+#			define DS_likely
+#		endif
+#	endif
+#	ifndef DS_unlikely
+#		if DS_has_cpp_attribute(unlikely)
+#			define DS_unlikely [[unlikely]]
+#		else
+#			define DS_unlikely
+#		endif
+#	endif
+#	ifndef DS_no_unique_address
+#		if DS_has_cpp_attribute(no_unique_address)
+#			define DS_no_unique_address [[no_unique_address]]
+#		else
+#			define DS_no_unique_address
+#		endif
+#	endif
+#	ifndef DS_optimize_for_synchronized
+#		if DS_has_cpp_attribute(optimize_for_synchronized)
+#			define DS_optimize_for_synchronized [[optimize_for_synchronized]]
+#		else
+#			define DS_optimize_for_synchronized
+#		endif
+#	endif
+#else
+#	define DS_has_cpp_attribute(...) 0
+#endif
+
+
+#endif // DS_MACROS
