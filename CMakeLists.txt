@@ -5,8 +5,9 @@ set( DS_HEADER_FILES
 	include/ds/macros
 )
 
-add_library( dspp INTERFACE ${DS_HEADER_FILES} )
+add_library( dspp INTERFACE )
 target_include_directories( dspp INTERFACE include )
+set_target_properties( dspp PROPERTIES PUBLIC_HEADER "${DS_HEADER_FILES}" )
 
 #################################################################
 
@@ -17,5 +18,5 @@ endif()
 set( DSPP_TESTING ${DSPP_STANDALONE} CACHE BOOL "" )
 
 if( DSPP_TESTING )
-	add_subdirectory( test testing_dspp )
+	add_subdirectory( dep/pptest dspp_pptest )
 endif()
