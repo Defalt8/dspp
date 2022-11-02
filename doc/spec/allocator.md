@@ -22,6 +22,6 @@ Allocators:
 
 - must return a unique valid memory block address of size `size`. Or else throw an exception or return a null pointer on failure. This applies for size zero as well.
 
-`Allocator::allocate`:
+`Allocator::deallocate`:
 
 - must free the block of memory pointed to by `block` if `block` is not null, and must do nothing to it if it is.
