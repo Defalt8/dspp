@@ -16,4 +16,5 @@ if( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}
 	AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dep/pptest/CMakeLists.txt" )
 	add_subdirectory( dep/pptest dspp_pptest )
 	add_subdirectory( test dspp_testing )
+	enable_testing()
 endif()
