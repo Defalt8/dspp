@@ -1,0 +1,64 @@
+#pragma once
+#ifndef DS_ALLOCATOR
+#define DS_ALLOCATOR
+
+#include <cstddef>
+#include <exception>
+#include "macros"
+
+namespace ds {
+
+// throwing allocator
+class Allocator 
+{
+ public:
+	struct allocation_failure : public std::exception
+	{
+		char const * 
+		what() const noexcept override
+		{
+			return "failed to allocate the requested size of memory";
+		}
+	};
+
+	DS_nodiscard static inline void * 
+	allocate(size_t size_, DS_maybe_unused size_t align_ = 0) noexcept(false)
+	{
+		void * block_ = ::operator new(size_, std::nothrow);
+		ds_throw_if(!block_, allocation_failure());
+		ds_throw_if_alt(!block_, return nullptr);
+		return block_;
+	}
+
+	static inline void 
+	deallocate(void * block_) noexcept
+	{
+		::operator delete(block_);
+	}
+
+};
+
+// no throw allocator
+class AllocatorNT 
+{
+ public:
+	DS_nodiscard static inline void * 
+	allocate(size_t size_, DS_maybe_unused size_t align_ = 0) noexcept
+	{
+		return ::operator new(size_, std::nothrow);
+	}
+
+	static inline void 
+	deallocate(void * block_) noexcept
+	{
+		::operator delete(block_);
+	}
+
+};
+
+using allocator = Allocator;
+using allocator_nt = AllocatorNT;
+
+} // namespace ds
+
+#endif // DS_ALLOCATOR

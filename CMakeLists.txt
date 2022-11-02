@@ -1,8 +1,9 @@
 cmake_minimum_required( VERSION 3.4 )
-project( dspp VERSION 0.1.0 )
+project( dspp VERSION 0.2.1 LANGUAGES CXX )
 
 set( DS_HEADER_FILES
 	include/ds/macros
+	include/ds/allocator
 )
 
 add_library( dspp INTERFACE )
@@ -11,12 +12,8 @@ set_target_properties( dspp PROPERTIES PUBLIC_HEADER "${DS_HEADER_FILES}" )
 
 #################################################################
 
-set( DSPP_STANDALONE FALSE )
-if( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} )
-	set( DSPP_STANDALONE TRUE )
-endif()
-set( DSPP_TESTING ${DSPP_STANDALONE} CACHE BOOL "" )
-
-if( DSPP_TESTING )
+if( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} 
+	AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dep/pptest/CMakeLists.txt" )
 	add_subdirectory( dep/pptest dspp_pptest )
+	add_subdirectory( test dspp_testing )
 endif()
