@@ -1,0 +1,162 @@
+#pragma once
+#ifndef DS_COMMON
+#define DS_COMMON
+
+#include <cstddef>
+#include <cstdint>
+#include <type_traits>
+#include <new>
+#include "macros"
+
+namespace ds {
+
+static constexpr double nan = __builtin_nan("0");
+
+using std::remove_cv_t;
+using std::remove_reference_t;
+using std::enable_if_t;
+using std::conditional_t;
+using std::is_scalar;
+using std::is_const;
+using std::is_same;
+using std::is_constructible;
+using std::is_copy_constructible;
+using std::is_move_constructible;
+using std::is_destructible;
+using std::exception;
+using std::forward;
+using std::swap;
+
+template <typename T> static constexpr T decl();
+
+template <typename T>
+using remove_cvref_t = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
+
+template <typename To, typename From, typename... Ts>
+struct is_constructible_by_all
+{
+	static constexpr bool value = ds::is_constructible<To,From>::value 
+		? is_constructible_by_all<To,Ts...>::value
+		: false;
+};
+
+template <typename To, typename From>
+struct is_constructible_by_all<To,From>
+{
+	static constexpr bool value = ds::is_constructible<To,From>::value;
+};
+
+// cast to T && -- non-const move
+// ds::move does not support moving const types unlike std::move
+template <typename T, ds::enable_if_t<(!ds::is_const<ds::remove_reference_t<T>>::value),int> = 0>
+DS_nodiscard
+static constexpr ds::remove_reference_t<T> &&
+move(T && rhs) noexcept
+{
+	return static_cast<ds::remove_reference_t<T> &&>(rhs);
+}
+
+// cast to T const && -- const move
+template <typename T, ds::enable_if_t<(ds::is_const<ds::remove_reference_t<T>>::value),int> = 0>
+DS_nodiscard
+static constexpr ds::remove_reference_t<T> const &&
+cmove(T && rhs) noexcept
+{
+	return static_cast<ds::remove_reference_t<T> const &&>(rhs);
+}
+
+// cast to T & -- non-const reference
+template <typename T, ds::enable_if_t<(!ds::is_const<ds::remove_reference_t<T>>::value),int> = 0>
+static constexpr ds::remove_reference_t<T> &
+ref(T && object) noexcept
+{
+	return static_cast<ds::remove_reference_t<T> &>(object);
+}
+
+// cast to T const & -- const reference
+template <typename T>
+static constexpr ds::remove_reference_t<T> const &
+cref(T && object) noexcept
+{
+	return static_cast<ds::remove_reference_t<T> const &>(object);
+}
+
+template <class C, typename T>
+static inline size_t 
+offset_of(T C::* const member_ptr) 
+{
+	static_assert(sizeof(size_t) == sizeof(decltype(member_ptr)), "<---");
+	union U { decltype(member_ptr) ptr_; size_t size_; };
+	return U { member_ptr }.size_;
+}
+
+template <typename T, bool = ds::is_destructible<T>::value>
+struct SafeDestructor
+{
+	static constexpr void destruct(T & object) {}
+};
+
+template <typename T>
+struct SafeDestructor<T,true>
+{
+	static constexpr void destruct(T & object) { object.~T(); }
+};
+
+template <typename T>
+static constexpr void
+destruct(T & object)
+{
+	return SafeDestructor<T>::destruct(object);
+}
+
+template <typename T, typename... Args>
+static inline T *
+construct_at(void * addr, Args &&... args)
+{
+	return new (addr) T(ds::forward<Args>(args)...);
+}
+
+
+template <typename E, size_t size_>
+static constexpr E * size(E (& array_)[size_]) { return size_; }
+
+template <typename E, size_t size_>
+static constexpr E const * size(E const (& array_)[size_]) { return size_; }
+
+
+template <typename E, size_t size_>
+static constexpr E * begin(E (& array_)[size_]) { return &array_[0]; }
+
+template <typename E, size_t size_>
+static constexpr E * end(E (& array_)[size_]) { return &array_[size_]; }
+
+template <typename E, size_t size_>
+static constexpr E const * begin(E const (& array_)[size_]) { return &array_[0]; }
+
+template <typename E, size_t size_>
+static constexpr E const * end(E const (& array_)[size_]) { return &array_[size_]; }
+
+
+template <class C, typename sz_t = decltype(ds::decl<C>().size())>
+static constexpr sz_t size(C & object_) { return object_.size(); }
+
+template <class C, typename sz_t = decltype(ds::decl<C const>().size())>
+static constexpr sz_t size(C const & object_) { return object_.size(); }
+
+
+template <class C, typename it_t = decltype(ds::decl<C>().begin())>
+static constexpr it_t begin(C & object_) { return object_.begin(); }
+
+template <class C, typename it_t = decltype(ds::decl<C>().end())>
+static constexpr it_t end(C & object_) { return object_.end(); }
+
+template <class C, typename it_t = decltype(ds::decl<C const>().begin())>
+static constexpr it_t begin(C const & object_) { return object_.begin(); }
+
+template <class C, typename it_t = decltype(ds::decl<C const>().end())>
+static constexpr it_t end(C const & object_) { return object_.end(); }
+
+
+} // namespace ds
+
+#endif // DS_COMMON
