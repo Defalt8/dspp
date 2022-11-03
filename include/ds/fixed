@@ -1,0 +1,114 @@
+#pragma once
+#ifndef DS_FIXED
+#define DS_FIXED
+
+#include "common"
+#include "traits/iterator"
+
+namespace ds {
+
+template <typename E, size_t size_> class Fixed;
+
+namespace traits {
+
+	template <typename E, size_t size_>
+	struct iterator<ds::Fixed<E,size_>> : public ds::iterator_traits<E,E *,E const *,E *,E const *> {};
+
+	template <typename E, size_t size_>
+	struct iterator<ds::Fixed<E,size_> const> : public ds::iterator_traits<E,void,E const *,void,E const *> {};
+
+} // namespace trait
+
+
+template <typename E, size_t size_>
+class Fixed
+{
+ public:
+	using array_t = E[size_];
+
+ protected:
+	array_t m_array {};
+
+	constexpr void
+	_validate_index(size_t index) const noexcept(false)
+	{
+		if(index >= size_)
+			ds_throw(index_out_of_bounds());
+	}
+
+ public:
+	constexpr Fixed() = default;
+	constexpr Fixed(Fixed &&) = default;
+	constexpr Fixed(Fixed const &) = default;
+
+	template <typename T, typename... Ts
+		, ds::enable_if_t<((sizeof...(Ts)+1 <= size_) && ds::is_constructible_by_all<T,Ts...>::value),int> = 0>
+	constexpr Fixed(T && value, Ts &&... values)
+		: m_array { static_cast<E>(ds::forward<T>(value)), static_cast<E>(ds::forward<Ts>(values))... }
+	{}
+
+	Fixed & operator=(Fixed &&) = default;
+	Fixed & operator=(Fixed const &) = default;
+
+	constexpr E       & operator[](size_t index)       noexcept { return m_array[index]; }
+	constexpr E const & operator[](size_t index) const noexcept { return m_array[index]; }
+	
+	constexpr E & 
+	at(size_t index) noexcept(false)
+	{
+		_validate_index(index);
+		return m_array[index];
+	}
+
+	constexpr E const & 
+	at(size_t index) const noexcept(false)
+	{
+		_validate_index(index);
+		return m_array[index];
+	}
+
+	constexpr array_t       & array()       noexcept { return m_array; }
+	constexpr array_t const & array() const noexcept { return m_array; }
+
+	constexpr size_t size()       noexcept { return size_; }
+	constexpr size_t size() const noexcept { return size_; }
+	
+	constexpr E       * begin()       noexcept { return &m_array[0]; }
+	constexpr E const * begin() const noexcept { return &m_array[0]; }
+	constexpr E       * end  ()       noexcept { return &m_array[size_]; }
+	constexpr E const * end  () const noexcept { return &m_array[size_]; }
+	
+	struct index_out_of_bounds : public std::exception
+	{
+		char const * 
+		what() const noexcept override
+		{
+			return "fixed array index out of bounds";
+		}
+	};
+
+};
+
+
+template <typename E, size_t size_> 
+using fixed = Fixed<E,size_>;
+
+template <typename E, typename T, typename... Ts
+	, ds::enable_if_t<ds::is_constructible_by_all<E,T,Ts...>::value,int> = 0> 
+static constexpr Fixed<E,sizeof...(Ts)+1>
+make_fixed(T && value, Ts &&... values)
+{
+	return { ds::forward<T>(value), ds::forward<Ts>(values)... };
+}
+
+template <typename E, size_t size_, typename T, typename... Ts
+	, ds::enable_if_t<((sizeof...(Ts)+1 <= size_) && ds::is_constructible_by_all<E,T,Ts...>::value),int> = 0>
+static constexpr Fixed<E,size_>
+make_fixed(T && value, Ts &&... values)
+{
+	return { ds::forward<T>(value), ds::forward<Ts>(values)... };
+}
+
+}  // namespace ds
+
+#endif // DS_FIXED
