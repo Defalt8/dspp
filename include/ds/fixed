@@ -42,7 +42,8 @@ class Fixed
 	constexpr Fixed(Fixed const &) = default;
 
 	template <typename T, typename... Ts
-		, ds::enable_if_t<((sizeof...(Ts)+1 <= size_) && ds::is_constructible_by_all<T,Ts...>::value),int> = 0>
+		, ds::enable_if_t<((sizeof...(Ts)+1 <= size_) 
+			&& ds::is_constructible_by_all<E,T,Ts...>::value),int> = 0>
 	constexpr Fixed(T && value, Ts &&... values)
 		: m_array { static_cast<E>(ds::forward<T>(value)), static_cast<E>(ds::forward<Ts>(values))... }
 	{}
@@ -94,7 +95,7 @@ template <typename E, size_t size_>
 using fixed = Fixed<E,size_>;
 
 template <typename E, typename T, typename... Ts
-	, ds::enable_if_t<ds::is_constructible_by_all<E,T,Ts...>::value,int> = 0> 
+	, ds::enable_if_t<ds::is_constructible<Fixed<E,sizeof...(Ts)+1>,T,Ts...>::value,int> = 0> 
 static constexpr Fixed<E,sizeof...(Ts)+1>
 make_fixed(T && value, Ts &&... values)
 {
@@ -102,7 +103,7 @@ make_fixed(T && value, Ts &&... values)
 }
 
 template <typename E, size_t size_, typename T, typename... Ts
-	, ds::enable_if_t<((sizeof...(Ts)+1 <= size_) && ds::is_constructible_by_all<E,T,Ts...>::value),int> = 0>
+	, ds::enable_if_t<ds::is_constructible<Fixed<E,size_>,T,Ts...>::value,int> = 0>
 static constexpr Fixed<E,size_>
 make_fixed(T && value, Ts &&... values)
 {
