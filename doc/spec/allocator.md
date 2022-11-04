@@ -7,7 +7,7 @@ Allocators:
 - must define a static function that *may throw or not* called `allocate`.
 
 ```c++
-    static void * allocate(size_t size, size_t align = 0);
+    static void * allocate(size_t size, size_t align = alignof(std::max_align_t));
 ```
 
 - must define a static function that *cannot throw* called `deallocate`.

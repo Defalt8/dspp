@@ -1,0 +1,33 @@
+#pragma once
+#ifndef DS_TRAITS_ALLOCATOR
+#define DS_TRAITS_ALLOCATOR
+
+#include "../common"
+
+namespace ds {
+
+template <typename _allocator_t  = void>
+struct allocator_traits
+{
+	using allocator_t = _allocator_t;
+};
+
+namespace traits {
+
+template <typename T>
+struct allocator : public ds::allocator_traits<> {};
+
+} // namespace traits
+
+template <typename T>
+struct supports_allocator
+{
+	static constexpr bool value = !ds::is_same<typename ds::traits::allocator<T>::allocator_t,void>::value;
+};
+
+template <typename T>
+using allocator_t = typename ds::traits::allocator<ds::remove_cvref_t<T>>::allocator_t;
+
+} // namespace ds
+
+#endif // DS_TRAITS_ALLOCATOR

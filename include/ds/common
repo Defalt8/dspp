@@ -27,6 +27,35 @@ using std::exception;
 using std::forward;
 using std::swap;
 
+template <typename T>
+static constexpr void
+swap(T * & lhs, T * & rhs) noexcept
+{
+	T * tmp = lhs;
+	lhs = rhs;
+	rhs = tmp;
+}
+
+template <typename E>
+using array_ptr_t = E (*)[];
+
+template <typename E>
+static constexpr void
+swap(array_ptr_t<E> & lhs, array_ptr_t<E> & rhs) noexcept
+{
+	E (*tmp)[] = lhs;
+	lhs = rhs;
+	rhs = tmp;
+}
+
+static constexpr void
+swap(size_t & lhs, size_t & rhs) noexcept
+{
+	size_t tmp = lhs;
+	lhs = rhs;
+	rhs = tmp;
+}
+
 template <typename T> static constexpr T decl();
 
 template <typename T>
@@ -81,15 +110,6 @@ cref(T && object) noexcept
 	return static_cast<ds::remove_reference_t<T> const &>(object);
 }
 
-template <class C, typename T>
-static inline size_t 
-offset_of(T C::* const member_ptr) 
-{
-	static_assert(sizeof(size_t) == sizeof(decltype(member_ptr)), "<---");
-	union U { decltype(member_ptr) ptr_; size_t size_; };
-	return U { member_ptr }.size_;
-}
-
 template <typename T, bool = ds::is_destructible<T>::value>
 struct SafeDestructor
 {
@@ -109,7 +129,7 @@ destruct(T & object)
 	return SafeDestructor<T>::destruct(object);
 }
 
-template <typename T, typename... Args>
+template <typename T, typename... Args, ds::enable_if_t<ds::is_constructible<T,Args...>::value,int> = 0>
 static inline T *
 construct_at(void * addr, Args &&... args)
 {

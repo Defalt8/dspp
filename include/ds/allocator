@@ -12,17 +12,17 @@ namespace ds {
 class Allocator 
 {
  public:
-	struct allocation_failure : public std::exception
+	struct allocation_failure : public std::bad_alloc
 	{
 		char const * 
 		what() const noexcept override
 		{
-			return "failed to allocate the requested size of memory";
+			return "failed to allocate the requested amount of memory";
 		}
 	};
 
 	DS_nodiscard static inline void * 
-	allocate(size_t size_, DS_maybe_unused size_t align_ = 0) noexcept(false)
+	allocate(size_t size_, DS_maybe_unused size_t align_ = alignof(std::max_align_t)) noexcept(false)
 	{
 		void * block_ = ::operator new(size_, std::nothrow);
 		ds_throw_if(!block_, allocation_failure());
@@ -43,7 +43,7 @@ class AllocatorNT
 {
  public:
 	DS_nodiscard static inline void * 
-	allocate(size_t size_, DS_maybe_unused size_t align_ = 0) noexcept
+	allocate(size_t size_, DS_maybe_unused size_t align_ = alignof(std::max_align_t)) noexcept
 	{
 		return ::operator new(size_, std::nothrow);
 	}

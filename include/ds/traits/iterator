@@ -63,50 +63,73 @@ struct iterator<C<E,size_>> : public ds::iterator_traits<
 {};
 
 
+} // namespace traits
+
 template <typename T>
-struct iterator_has_element
+struct has_element
 {
 	static constexpr bool value = !ds::is_same<typename ds::traits::iterator<T>::element_t,void>::value;
 };
 
 template <typename T>
-struct iterator_has_indexable_iterator
+struct has_indexable_iterator
 {
 	static constexpr bool value = !ds::is_same<typename ds::traits::iterator<T>::indexable_iterator_t,void>::value;
 };
 
 template <typename T>
-struct iterator_has_const_indexable_iterator
+struct has_const_indexable_iterator
 {
 	static constexpr bool value = !ds::is_same<typename ds::traits::iterator<T>::const_indexable_iterator_t,void const>::value;
 };
 
 template <typename T>
-struct iterator_has_forward_iterator
+struct has_forward_iterator
 {
 	static constexpr bool value = !ds::is_same<typename ds::traits::iterator<T>::forward_iterator_t,void>::value;
 };
 
 template <typename T>
-struct iterator_has_const_forward_iterator
+struct has_const_forward_iterator
 {
 	static constexpr bool value = !ds::is_same<typename ds::traits::iterator<T>::const_forward_iterator_t,void const>::value;
 };
 
 template <typename T>
-struct iterator_has_reverse_iterator
+struct has_reverse_iterator
 {
 	static constexpr bool value = !ds::is_same<typename ds::traits::iterator<T>::reverse_iterator_t,void>::value;
 };
 
 template <typename T>
-struct iterator_has_const_reverse_iterator
+struct has_const_reverse_iterator
 {
 	static constexpr bool value = !ds::is_same<typename ds::traits::iterator<T>::const_reverse_iterator_t,void const>::value;
 };
 
 
-} // namespace traits
+template <typename T>
+using iterator_element_t = typename ds::traits::iterator<ds::remove_reference_t<T>>::element_t;
+
+template <typename T>
+using iterator_indexable_t = typename ds::traits::iterator<ds::remove_reference_t<T>>::indexable_iterator_t;
+
+template <typename T>
+using const_iterator_indexable_t = typename ds::traits::iterator<ds::remove_reference_t<T>>::const_indexable_iterator_t;
+
+template <typename T>
+using iterator_forward_t = typename ds::traits::iterator<ds::remove_reference_t<T>>::forward_iterator_t;
+
+template <typename T>
+using const_iterator_forward_t = typename ds::traits::iterator<ds::remove_reference_t<T>>::const_forward_iterator_t;
+
+template <typename T>
+using iterator_reverse_t = typename ds::traits::iterator<ds::remove_reference_t<T>>::reverse_iterator_t;
+
+template <typename T>
+using const_iterator_reverse_t = typename ds::traits::iterator<ds::remove_reference_t<T>>::const_reverse_iterator_t;
+
+
 } // namespace ds
 
 #endif // DS_TRAITS_ITERATOR
