@@ -71,6 +71,9 @@ struct Counter
 		return *this;
 	}
 
+	value_t       & value()       { return _value; } 
+	value_t const & value() const { return _value; } 
+
 	operator value_t()       { return _value; } 
 	operator value_t() const { return _value; } 
 
