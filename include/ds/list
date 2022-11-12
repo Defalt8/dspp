@@ -1,0 +1,1362 @@
+#pragma once
+#ifndef DS_LIST
+#define DS_LIST
+
+#include "common"
+#include "traits/allocator"
+#include "traits/iterable"
+#include "allocator"
+
+namespace ds {
+
+template <int type_, typename E> struct ListNode;
+template <int type_, typename E, class A = DefaultAllocator> class ListIterator;
+template <int type_, typename E, class A = DefaultAllocator> class ConstListIterator;
+template <int type_, typename E, class A = DefaultAllocator> class List;
+
+namespace traits {
+
+	template <typename E, class A>
+	struct iterable<List<1,E,A>> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, void const
+			, ListIterator<1,E,A>
+			, ConstListIterator<1,E,A>
+			, void
+			, void const
+		> 
+	{};
+
+	template <typename E, class A>
+	struct iterable<List<1,E,A> const> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, void const
+			, void
+			, ConstListIterator<1,E,A>
+			, void
+			, void const
+		> 
+	{};
+
+	template <typename E, class A>
+	struct iterable<List<2,E,A>> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, void const
+			, ListIterator<2,E,A>
+			, ConstListIterator<2,E,A>
+			, ListIterator<2,E,A>
+			, ConstListIterator<2,E,A>
+		> 
+	{};
+
+	template <typename E, class A>
+	struct iterable<List<2,E,A> const> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, void const
+			, void
+			, ConstListIterator<2,E,A>
+			, void
+			, ConstListIterator<2,E,A>
+		> 
+	{};
+
+	template <int type_, typename E, class A>
+	struct allocator<List<type_,E,A>> : public allocator_traits<A> {};
+
+	template <int type_, typename E, class A>
+	struct allocator<List<type_,E,A> const> : public allocator_traits<A> {};
+
+} // namespace trait
+
+template <int type_, typename E>
+struct ListNode {};
+
+template <typename E>
+struct ListNode<1,E>
+{
+	E          object  {};
+	ListNode * next = nullptr;
+
+	template <typename... Args, enable_if_t<is_constructible<E,Args...>::value,int> = 0>
+	ListNode(Args &&... args)
+		: object (ds::forward<Args>(args)...)
+	{}
+
+};
+
+template <typename E>
+struct ListNode<2,E>
+{
+	E          object  {};
+	ListNode * prev = nullptr;
+	ListNode * next = nullptr;
+
+	template <typename... Args>
+	ListNode(Args &&... args)
+		: object (ds::forward<Args>(args)...)
+	{}
+
+};
+
+
+template <int type_, typename E, class A>
+class ListIterator {};
+
+template <typename E, class A>
+class ListIterator<1,E,A>
+{
+	static constexpr int type_ = 1;
+	friend class List<type_,E,A>;
+	friend class ConstListIterator<type_,E,A>;
+	using node_t           = ListNode<type_,E>;
+	using const_iterator_t = ConstListIterator<type_,E,A>;
+
+	node_t * m_node = nullptr;
+	
+	ListIterator(node_t * node_)
+		: m_node { node_ }
+	{}
+
+ public:
+	struct null_iterator : public exception
+	{
+		char const * what() const noexcept override { return "null iterator"; }
+	};
+
+	ListIterator() = default;
+	ListIterator(ListIterator const &) = default;
+	ListIterator(ListIterator &&) = default;
+	ListIterator & operator=(ListIterator const &) = default;
+	ListIterator & operator=(ListIterator &&) = default;
+
+	inline E       & operator*()        noexcept { return m_node->object ; }
+	inline E const & operator*()  const noexcept { return m_node->object ; }
+
+	inline E       * operator->()       noexcept { return &m_node->object ; }
+	inline E const * operator->() const noexcept { return &m_node->object ; }
+
+	inline bool operator!() const noexcept { return m_node == nullptr; }
+
+	explicit inline operator bool()          noexcept { return m_node != nullptr; }
+	explicit inline operator bool()    const noexcept { return m_node != nullptr; }
+
+	inline bool 
+	operator==(ListIterator const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node;
+	}
+
+	inline bool 
+	operator!=(ListIterator const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node;
+	}
+	
+	inline bool 
+	operator==(const_iterator_t const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node;
+	}
+
+	inline bool 
+	operator!=(const_iterator_t const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node;
+	}
+
+	ListIterator &
+	operator++() noexcept
+	{
+		if(m_node)
+			m_node = m_node->next;
+		return *this;
+	}
+	
+	ListIterator
+	operator++(int) noexcept
+	{
+		auto it_ = *this;
+		this->operator++();
+		return ds::move(it_);
+	}
+	
+	inline E       * ptr()       noexcept { return m_node == nullptr ? nullptr : &m_node->object ; }
+	inline E const * ptr() const noexcept { return m_node == nullptr ? nullptr : &m_node->object ; }
+
+	inline E & 
+	ref() noexcept(false) 
+	{ 
+		ds_throw_if(!m_node, null_iterator());
+		return m_node->object ; 
+	}
+
+	inline E const & 
+	ref() const noexcept(false) 
+	{ 
+		ds_throw_if(!m_node, null_iterator());
+		return m_node->object ; 
+	}
+
+	inline void
+	swap(ListIterator & rhs) noexcept
+	{
+		ds::swap(m_node, rhs.m_node);
+	}
+
+};
+
+template <typename E, class A>
+class ListIterator<2,E,A>
+{
+	static constexpr int type_ = 2;
+	friend class List<type_,E,A>;
+	friend class ConstListIterator<type_,E,A>;
+	using node_t           = ListNode<type_,E>;
+	using list_t           = List<type_,E,A>;
+	using const_iterator_t = ConstListIterator<type_,E,A>;
+
+	list_t * m_list = nullptr;
+	node_t * m_node = nullptr;
+	int      m_end  = 0; // at end if > 0 and null node, else at reverse end if < 0 and null node  
+	
+	ListIterator(list_t * list_, node_t * node_, int end_ = 0)
+		: m_list { list_ }
+		, m_node { node_ }
+		, m_end  { end_  }
+	{}
+
+ public:
+	struct null_iterator : public exception
+	{
+		char const * what() const noexcept override { return "null iterator"; }
+	};
+
+	ListIterator() = default;
+	ListIterator(ListIterator const &) = default;
+	ListIterator(ListIterator &&) = default;
+	ListIterator & operator=(ListIterator const &) = default;
+	ListIterator & operator=(ListIterator &&) = default;
+
+	inline E       & operator*()        noexcept { return m_node->object ; }
+	inline E const & operator*()  const noexcept { return m_node->object ; }
+
+	inline E       * operator->()       noexcept { return &m_node->object ; }
+	inline E const * operator->() const noexcept { return &m_node->object ; }
+
+	inline bool operator!() const noexcept { return m_node == nullptr; }
+
+	explicit inline operator bool()          noexcept { return m_node != nullptr; }
+	explicit inline operator bool()    const noexcept { return m_node != nullptr; }
+
+	inline bool 
+	operator==(ListIterator const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node && (m_end * rhs.m_end >= 0);
+	}
+
+	inline bool 
+	operator!=(ListIterator const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node || (m_end * rhs.m_end < 0);
+	}
+	
+	inline bool 
+	operator==(const_iterator_t const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node && (m_end * rhs.m_end >= 0);
+	}
+
+	inline bool 
+	operator!=(const_iterator_t const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node || (m_end * rhs.m_end < 0);
+	}
+
+	ListIterator &
+	operator++() noexcept
+	{
+		if(m_node)
+		{
+			m_node = m_node->next;
+			if(!m_node)
+				m_end = 1; // at the end
+		}
+		else if(m_list != nullptr && m_end < 0)
+		{
+			m_node = m_list->m_first;
+			m_end  = 0;
+		}
+		return *this;
+	}
+	
+	ListIterator
+	operator++(int) noexcept
+	{
+		auto it_ = *this;
+		this->operator++();
+		return ds::move(it_);
+	}
+	
+	ListIterator &
+	operator--() noexcept
+	{
+		if(m_node)
+		{
+			m_node = m_node->prev;
+			if(!m_node)
+				m_end = -1; // at the reverse-end
+		}
+		else if(m_list != nullptr && m_end > 0)
+		{
+			m_node = m_list->m_last;
+			m_end  = 0;
+		}
+		return *this;
+	}
+
+	ListIterator
+	operator--(int) noexcept
+	{
+		auto it_ = *this;
+		this->operator--();
+		return ds::move(it_);
+	}
+	
+	inline E       * ptr()       noexcept { return m_node == nullptr ? nullptr : &m_node->object ; }
+	inline E const * ptr() const noexcept { return m_node == nullptr ? nullptr : &m_node->object ; }
+
+	inline E & 
+	ref() noexcept(false) 
+	{ 
+		ds_throw_if(!m_node, null_iterator());
+		return m_node->object ; 
+	}
+
+	inline E const & 
+	ref() const noexcept(false) 
+	{ 
+		ds_throw_if(!m_node, null_iterator());
+		return m_node->object ; 
+	}
+
+	inline void
+	swap(ListIterator & rhs) noexcept
+	{
+		ds::swap(m_list, rhs.m_list);
+		ds::swap(m_node, rhs.m_node);
+		ds::swap(m_end,  rhs.m_end);
+	}
+
+};
+
+
+template <int type_, typename E, class A>
+class ConstListIterator {};
+
+template <typename E, class A>
+class ConstListIterator<1,E,A>
+{
+	static constexpr int type_ = 1;
+	friend class List<type_,E,A>;
+	friend class ListIterator<type_,E,A>;
+	using node_t      = ListNode<type_,E>;
+	using list_t      = List<type_,E,A>;
+	using iterator_t  = ListIterator<type_,E,A>;
+
+	node_t * m_node = nullptr;
+	
+	ConstListIterator(node_t * node_)
+		: m_node { node_ }
+	{}
+
+ public:
+	struct null_iterator : public exception
+	{
+		char const * what() const noexcept override { return "null iterator"; }
+	};
+
+	ConstListIterator() = default;
+	ConstListIterator(ConstListIterator const &) = default;
+	ConstListIterator(ConstListIterator &&) = default;
+	ConstListIterator & operator=(ConstListIterator const &) = default;
+	ConstListIterator & operator=(ConstListIterator &&) = default;
+
+	inline E const & operator*()  const noexcept { return m_node->object ; }
+
+	inline E const * operator->() const noexcept { return &m_node->object ; }
+
+	inline bool operator!() const noexcept { return m_node == nullptr; }
+
+	explicit inline operator bool()          noexcept { return m_node != nullptr; }
+	explicit inline operator bool()    const noexcept { return m_node != nullptr; }
+
+	inline bool 
+	operator==(ConstListIterator const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node;
+	}
+
+	inline bool 
+	operator!=(ConstListIterator const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node;
+	}
+	
+	inline bool 
+	operator==(iterator_t const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node;
+	}
+
+	inline bool 
+	operator!=(iterator_t const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node;
+	}
+
+	ConstListIterator &
+	operator++() noexcept
+	{
+		if(m_node != nullptr )
+			m_node = m_node->next;
+		return *this;
+	}
+	
+	ConstListIterator
+	operator++(int) noexcept
+	{
+		auto it_ = *this;
+		this->operator++();
+		return ds::move(it_);
+	}
+	
+	inline E const * ptr() const noexcept { return m_node == nullptr ? nullptr : &m_node->object ; }
+
+	inline E const & 
+	ref() const noexcept(false) 
+	{ 
+		ds_throw_if(!m_node, null_iterator());
+		return m_node->object ; 
+	}
+
+	inline void
+	swap(ConstListIterator & rhs) noexcept
+	{
+		ds::swap(m_node, rhs.m_node);
+	}
+
+};
+
+template <typename E, class A>
+class ConstListIterator<2,E,A>
+{
+	static constexpr int type_ = 2;
+	friend class List<type_,E,A>;
+	friend class ListIterator<type_,E,A>;
+	using node_t     = ListNode<type_,E>;
+	using list_t     = List<type_,E,A>;
+	using iterator_t = ListIterator<type_,E,A>;
+
+	list_t const * m_list = nullptr;
+	node_t       * m_node = nullptr;
+	int            m_end  = 0; // at end if > 0 and null node, else at reverse end if < 0 and null node  
+	
+	ConstListIterator(list_t const * list_, node_t * node_, int end_ = 0)
+		: m_list { list_ }
+		, m_node { node_ }
+		, m_end  { end_  }
+	{}
+
+ public:
+	struct null_iterator : public exception
+	{
+		char const * what() const noexcept override { return "null iterator"; }
+	};
+
+	ConstListIterator() = default;
+	ConstListIterator(ConstListIterator const &) = default;
+	ConstListIterator(ConstListIterator &&) = default;
+	ConstListIterator & operator=(ConstListIterator const &) = default;
+	ConstListIterator & operator=(ConstListIterator &&) = default;
+
+	inline E const & operator*()  const noexcept { return m_node->object ; }
+
+	inline E const * operator->() const noexcept { return &m_node->object ; }
+
+	inline bool operator!() const noexcept { return m_node == nullptr; }
+
+	explicit inline operator bool()          noexcept { return m_node != nullptr; }
+	explicit inline operator bool()    const noexcept { return m_node != nullptr; }
+
+	inline bool 
+	operator==(ConstListIterator const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node && (m_end * rhs.m_end >= 0);
+	}
+
+	inline bool 
+	operator!=(ConstListIterator const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node || (m_end * rhs.m_end < 0);
+	}
+	
+	inline bool 
+	operator==(iterator_t const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node && (m_end * rhs.m_end >= 0);
+	}
+
+	inline bool 
+	operator!=(iterator_t const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node || (m_end * rhs.m_end < 0);
+	}
+
+	ConstListIterator &
+	operator++() noexcept
+	{
+		if(m_node)
+		{
+			m_node = m_node->next;
+			if(!m_node)
+				m_end = 1; // at the end
+		}
+		else if(m_list != nullptr && m_end < 0)
+		{
+			m_node = m_list->m_first;
+			m_end  = 0;
+		}
+		return *this;
+	}
+	
+	ConstListIterator
+	operator++(int) noexcept
+	{
+		auto it_ = *this;
+		this->operator++();
+		return ds::move(it_);
+	}
+	
+	ConstListIterator &
+	operator--() noexcept
+	{
+		if(m_node)
+		{
+			m_node = m_node->prev;
+			if(!m_node)
+				m_end = -1; // at the reverse-end
+		}
+		else if(m_list != nullptr && m_end > 0)
+		{
+			m_node = m_list->m_last;
+			m_end  = 0;
+		}
+		return *this;
+	}
+
+	ConstListIterator
+	operator--(int) noexcept
+	{
+		auto it_ = *this;
+		this->operator--();
+		return ds::move(it_);
+	}
+	
+	inline E const * ptr() const noexcept { return m_node == nullptr ? nullptr : &m_node->object ; }
+
+	inline E const & 
+	ref() const noexcept(false) 
+	{ 
+		ds_throw_if(!m_node, null_iterator());
+		return m_node->object ; 
+	}
+
+	inline void
+	swap(ConstListIterator & rhs) noexcept
+	{
+		ds::swap(m_list, rhs.m_list);
+		ds::swap(m_node, rhs.m_node);
+		ds::swap(m_end,  rhs.m_end);
+	}
+
+};
+
+
+template <int type_, typename E, class A> 
+class List {};
+
+template <typename E, class A> 
+class List<1,E,A>
+{
+	static constexpr int type_ = 1;
+	friend class ListIterator<type_,E,A>;
+	friend class ConstListIterator<type_,E,A>;
+
+ public:
+	using node_t           = ListNode<type_,E>;
+	using iterator_t       = ListIterator<type_,E,A>;
+	using const_iterator_t = ConstListIterator<type_,E,A>;
+
+ private:
+	node_t  * m_first = nullptr;
+	node_t  * m_last  = nullptr;
+	size_t    m_size  = 0;
+
+	static inline void
+	_deallocate(void * block_) noexcept
+	{
+		return A::deallocate(block_);
+	}
+
+	DS_nodiscard static inline void *
+	_allocate(size_t size_, align_t align_)
+	{
+		return A::allocate(size_, align_);
+	}
+	
+	// insert node at the end of the list
+	iterator_t
+	_insert_node_last(node_t * const node) noexcept
+	{
+		if(!node)
+			return {};
+		if(!m_first)
+			m_first = m_last = node;
+		else
+		{
+			node->next   = nullptr;
+			m_last->next = node;
+			m_last       = node;
+		}
+		++m_size;
+		return { node };
+	}
+
+	// insert node at the begining of the list
+	iterator_t
+	_insert_node_first(node_t * const node) noexcept
+	{
+		if(!node)
+			return {};
+		if(!m_first)
+			m_first = m_last = node;
+		else
+		{
+			node->next    = m_first;
+			m_first       = node;
+		}
+		++m_size;
+		return { node };
+	}
+
+	iterator_t
+	_insert_node_after(node_t * const after_node, node_t * const node) noexcept
+	{
+		if(!node)
+			return {};
+		if(!m_first)
+			m_first = m_last = node;
+		else if(!after_node || after_node == m_last)
+		{
+			node->next    = nullptr;
+			m_last->next  = node;
+			m_last          = node;
+		}
+		else
+		{
+			node->next = after_node->next;
+			after_node->next = node;
+		}
+		++m_size;
+		return { node };
+	}
+
+ public:
+	List() = default;
+
+	~List() noexcept
+	{
+		this->destroy();
+	}
+
+	List(List && rhs) noexcept
+		: m_first { rhs.m_first }
+		, m_last  { rhs.m_last  }
+		, m_size  { rhs.m_size  }
+	{
+		rhs.m_first = nullptr;
+		rhs.m_last  = nullptr;
+		rhs.m_size  = 0;
+	}
+
+	List(List const & rhs)
+	{
+		for(auto node = rhs.m_first; node != nullptr && this->emplace_last(node->object); node = node->next);
+	}
+
+	template <typename Func, enable_if_t<is_constructible<E,decltype(decl<Func>()())>::value,int> = 0>
+	List(size_t size_, Func && func)
+	{
+		for(size_t i = 0; i < size_ && this->insert_last(func()); ++i);
+	}
+
+	template <typename Arg, enable_if_t<is_constructible<E,Arg>::value,int> = 0>
+	List(size_t size_, Arg && arg)
+	{
+		for(size_t i = 0; i < size_ && this->insert_last(arg); ++i);
+	}
+
+	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T &&>::value,int> = 0>
+	List(T (&& array_)[size_])
+	{
+		for(size_t i = 0; i < size_ && this->emplace_last(ds::move(array_[i])); ++i);
+	}
+
+	List & 
+	operator=(List && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	List & 
+	operator=(List const & rhs)
+	{
+		if(&rhs != this)
+		{
+			this->destroy();
+			for(auto node = rhs.m_first; node != nullptr && this->emplace_last(node->object); node = node->next);
+		}
+		return *this;
+	}
+
+	inline bool operator!() const noexcept { return m_first != nullptr; }
+
+	explicit inline operator bool()       noexcept { return m_first != nullptr; }
+	explicit inline operator bool() const noexcept { return m_first != nullptr; }
+
+	size_t size() const noexcept { return m_size; }
+
+	iterator_t       begin()       noexcept { return { m_first }; }
+	const_iterator_t begin() const noexcept { return { m_first }; }
+	iterator_t       end()         noexcept { return { nullptr }; }
+	const_iterator_t end()   const noexcept { return { nullptr }; }
+
+	void
+	destroy() noexcept
+	{
+		if(m_first)
+		{
+			for(auto node = m_first; node != nullptr;)
+			{
+				auto current = node;
+				node = node->next;
+				destruct(*current);
+				_deallocate(current);
+			}
+			m_first = nullptr;
+			m_last  = nullptr;
+			m_size  = 0;
+		}
+	}
+
+	inline void 
+	swap(List & rhs) noexcept 
+	{
+		ds::swap(m_first, rhs.m_first);
+		ds::swap(m_last, rhs.m_last);
+		ds::swap(m_size, rhs.m_size);
+	}
+
+	// construct object in-place and insert the node at the end of the list
+	template <typename... Args, enable_if_t<is_constructible<E,Args...>::value,int> = 0>
+	iterator_t
+	emplace_last(Args &&... args)
+	{
+		node_t * const node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<Args>(args)...);
+		return _insert_node_last(node);
+	}
+
+	// construct object in-place and insert the node at the beginning of the list
+	template <typename... Args, enable_if_t<is_constructible<E,Args...>::value,int> = 0>
+	iterator_t
+	emplace_first(Args &&... args)
+	{
+		node_t * const node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)),ds::forward<Args>(args)...);
+		return _insert_node_first(node);
+	}
+
+	// construct object in-place and insert it after the node at the given position
+	template <typename... Args, enable_if_t<is_constructible<E,Args...>::value,int> = 0>
+	iterator_t
+	emplace_after(iterator_t const & position, Args &&... args)
+	{
+		node_t * node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<Args>(args)...);
+		if(position.m_node == nullptr)
+			return _insert_node_last(node);
+		return _insert_node_after(position.m_node, node);
+	}
+
+	bool
+	remove_first() noexcept
+	{
+		if(m_first == nullptr)
+			return false;
+		node_t * const node = m_first;
+		if(m_first == m_last)
+			m_first = m_last = nullptr;
+		else
+			m_first = m_first->next;
+		destruct(*node);
+		_deallocate(node);
+		--m_size;
+		return true;
+	}
+
+	bool
+	remove_at(iterator_t const & position, iterator_t const & prev) noexcept
+	{
+		if(m_first == nullptr || position.m_node == nullptr)
+			return false;
+		node_t * const node      = position.m_node;
+		node_t * const prev_node = prev.m_node;
+		if(prev_node)
+			prev_node->next = node->next;
+		if(node == m_last)
+		{
+			if(m_first == m_last)
+				m_first = m_last = nullptr;
+			else
+				m_last = node->next;
+		}
+		else if(node == m_first)
+		{
+			if(m_first == m_last)
+				m_first = m_last = nullptr;
+			else
+				m_first = node->next;
+		}
+		destruct(*node);
+		_deallocate(node);
+		--m_size;
+		return true;
+	}
+
+	template <typename T = E, typename = decltype(decl<E &>() == decl<T const &>())>
+	iterator_t 
+	position_of(T const & value) noexcept
+	{
+		if(m_first)
+		{
+			for(auto node = m_first; node != nullptr; node = node->next)
+				if(node->object == value)
+					return { node };
+		}
+		return {};
+	}
+
+	template <typename T = E, typename = decltype(decl<E const &>() == decl<T const &>())>
+	const_iterator_t 
+	position_of(T const & value) const noexcept
+	{
+		if(m_first)
+		{
+			for(auto node = m_first; node != nullptr; node = node->next)
+				if(node->object == value)
+					return { node };
+		}
+		return {};
+	}
+
+	template <typename T = E, typename = decltype(decl<E &>() == decl<T const &>())>
+	iterator_t 
+	position_of(T const & value, iterator_t & out_previous) noexcept
+	{
+		node_t * prev_ = nullptr;
+		if(m_first)
+		{
+			for(node_t * node = m_first; node != nullptr; prev_ = node, node = node->next)
+			{
+				if(node->object == value)
+				{
+					out_previous = { prev_ };
+					return { node };
+				}
+			}
+		}
+		out_previous = { prev_ };
+		return {};
+	}
+
+	template <typename T = E, typename = decltype(decl<E const &>() == decl<T const &>())>
+	const_iterator_t 
+	position_of(T const & value, iterator_t & out_previous) const noexcept
+	{
+		node_t * prev_ = nullptr;
+		if(m_first)
+		{
+			for(node_t * node = m_first; node != nullptr; prev_ = node, node = node->next)
+			{
+				if(node->object == value)
+				{
+					out_previous = { prev_ };
+					return { node };
+				}
+			}
+		}
+		out_previous = { prev_ };
+		return {};
+	}
+
+};
+
+template <typename E, class A> 
+class List<2,E,A>
+{
+	static constexpr int type_ = 2;
+	friend class ListIterator<type_,E,A>;
+	friend class ConstListIterator<type_,E,A>;
+
+ public:
+	using node_t           = ListNode<type_,E>;
+	using iterator_t       = ListIterator<type_,E,A>;
+	using const_iterator_t = ConstListIterator<type_,E,A>;
+
+ private:
+	node_t  * m_first = nullptr;
+	node_t  * m_last  = nullptr;
+	size_t    m_size  = 0;
+
+	static inline void
+	_deallocate(void * block_) noexcept
+	{
+		return A::deallocate(block_);
+	}
+
+	DS_nodiscard static inline void *
+	_allocate(size_t size_, align_t align_)
+	{
+		return A::allocate(size_, align_);
+	}
+	
+	// insert node at the end of the list
+	iterator_t
+	_insert_node_last(node_t * const node) noexcept
+	{
+		if(!node)
+			return {};
+		if(!m_first)
+			m_first = m_last = node;
+		else
+		{
+			node->prev   = m_last;
+			node->next   = nullptr;
+			m_last->next = node;
+			m_last       = node;
+		}
+		++m_size;
+		return { this, node };
+	}
+
+	// insert node at the begining of the list
+	iterator_t
+	_insert_node_first(node_t * const node) noexcept
+	{
+		if(!node)
+			return {};
+		if(!m_first)
+			m_first = m_last = node;
+		else
+		{
+			node->prev    = nullptr;
+			node->next    = m_first;
+			m_first->prev = node;
+			m_first       = node;
+		}
+		++m_size;
+		return { this, node };
+	}
+
+	iterator_t
+	_insert_node_before(node_t * const before_node, node_t * const node) noexcept
+	{
+		if(!node)
+			return {};
+		if(!m_first)
+			m_first = m_last = node;
+		else if(!before_node || before_node == m_first)
+		{
+			node->prev    = nullptr;
+			node->next    = m_first;
+			m_first->prev = node;
+			m_first       = node;
+		}
+		else
+		{
+			node->prev = before_node->prev;
+			node->next = before_node;
+			before_node->prev = node;
+			if(node->prev)
+				node->prev->next = node;
+		}
+		++m_size;
+		return { this, node };
+	}
+
+	iterator_t
+	_insert_node_after(node_t * const after_node, node_t * const node) noexcept
+	{
+		if(!node)
+			return {};
+		if(!m_first)
+			m_first = m_last = node;
+		else if(!after_node || after_node == m_last)
+		{
+			node->prev    = m_last;
+			node->next    = nullptr;
+			m_last->next  = node;
+			m_last        = node;
+		}
+		else
+		{
+			node->prev = after_node;
+			node->next = after_node->next;
+			after_node->next = node;
+			if(node->next)
+				node->next->prev = node;
+		}
+		++m_size;
+		return { this, node };
+	}
+
+
+ public:
+	List() = default;
+
+	~List() noexcept
+	{
+		this->destroy();
+	}
+
+	List(List && rhs) noexcept
+		: m_first { rhs.m_first }
+		, m_last  { rhs.m_last  }
+		, m_size  { rhs.m_size  }
+	{
+		rhs.m_first = nullptr;
+		rhs.m_last  = nullptr;
+		rhs.m_size  = 0;
+	}
+
+	List(List const & rhs)
+	{
+		for(auto node = rhs.m_first; node != nullptr && this->emplace_last(node->object); node = node->next);
+	}
+
+	template <typename Func, enable_if_t<is_constructible<E,decltype(decl<Func>()())>::value,int> = 0>
+	List(size_t size_, Func && func)
+	{
+		for(size_t i = 0; i < size_ && this->insert_last(func()); ++i);
+	}
+
+	template <typename Arg, enable_if_t<is_constructible<E,Arg>::value,int> = 0>
+	List(size_t size_, Arg && arg)
+	{
+		for(size_t i = 0; i < size_ && this->insert_last(arg); ++i);
+	}
+
+	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T &&>::value,int> = 0>
+	List(T (&& array_)[size_])
+	{
+		for(size_t i = 0; i < size_ && this->insert_last(ds::move(array_[i])); ++i);
+	}
+
+	template <typename Begin, typename End
+		, typename T = decltype(*decl<Begin &>())
+		, typename   = decltype(++decl<Begin &>())
+		, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	List(Begin && begin_, End && end_)
+	{
+		for(auto it = begin_; it != end_ && this->insert_last(*it); ++it);
+	}
+
+	List & 
+	operator=(List && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	List & 
+	operator=(List const & rhs)
+	{
+		if(&rhs != this)
+		{
+			this->destroy();
+			for(auto node = rhs.m_first; node != nullptr && this->emplace_last(node->object); node = node->next);
+		}
+		return *this;
+	}
+
+	inline bool operator!() const noexcept { return m_first == nullptr; }
+
+	explicit inline operator bool()       noexcept { return m_first != nullptr; }
+	explicit inline operator bool() const noexcept { return m_first != nullptr; }
+
+	size_t size() const noexcept { return m_size; }
+
+	iterator_t       begin()        noexcept { return { this, m_first };  }
+	const_iterator_t begin()  const noexcept { return { this, m_first };  }
+	iterator_t       end()          noexcept { return { this, nullptr, 1 };    }
+	const_iterator_t end()    const noexcept { return { this, nullptr, 1 };    }
+
+	iterator_t       rbegin()       noexcept { return { this, m_last }; }
+	const_iterator_t rbegin() const noexcept { return { this, m_last }; }
+	iterator_t       rend()         noexcept { return { this, nullptr, -1 };   }
+	const_iterator_t rend()   const noexcept { return { this, nullptr, -1 };   }
+	
+	void
+	destroy() noexcept
+	{
+		if(m_first)
+		{
+			for(auto node = m_last; node;)
+			{
+				auto current = node;
+				node = node->prev;
+				destruct(*current);
+				_deallocate(current);
+			}
+			m_first = nullptr;
+			m_last  = nullptr;
+			m_size  = 0;
+		}
+	}
+	
+	inline void 
+	swap(List & rhs) noexcept 
+	{
+		swap(m_first, rhs.m_first);
+		swap(m_last, rhs.m_last);
+		swap(m_size, rhs.m_size);
+	}
+
+	// construct object in-place and insert the node at the end of the list
+	template <typename... Args, enable_if_t<is_constructible<E,Args...>::value,int> = 0>
+	iterator_t
+	emplace_last(Args &&... args)
+	{
+		node_t * const node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<Args>(args)...);
+		return _insert_node_last(node);
+	}
+
+	// construct object in-place and insert the node at the beginning of the list
+	template <typename... Args, enable_if_t<is_constructible<E,Args...>::value,int> = 0>
+	iterator_t
+	emplace_first(Args &&... args)
+	{
+		node_t * const node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)),ds::forward<Args>(args)...);
+		return _insert_node_first(node);
+	}
+
+	// construct object in-place and insert it before the node at the given position
+	template <typename... Args, enable_if_t<is_constructible<E,Args...>::value,int> = 0>
+	iterator_t
+	emplace_before(iterator_t const & position, Args &&... args)
+	{
+		node_t * node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<Args>(args)...);
+		if(position.m_node == nullptr)
+		{
+			if(position.m_end < 0)
+				return _insert_node_first(node);
+			else if(position.m_end > 0)
+				return _insert_node_last(node);
+		}
+		return _insert_node_before(position.m_node, node);
+	}
+
+	// construct object in-place and insert it after the node at the given position
+	template <typename... Args, enable_if_t<is_constructible<E,Args...>::value,int> = 0>
+	iterator_t
+	emplace_after(iterator_t const & position, Args &&... args)
+	{
+		node_t * node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<Args>(args)...);
+		if(position.m_node == nullptr)
+		{
+			if(position.m_end < 0)
+				return _insert_node_first(node);
+			else if(position.m_end > 0)
+				return _insert_node_last(node);
+		}
+		return _insert_node_after(position.m_node, node);
+	}
+	
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	iterator_t
+	insert_last(T && object)
+	{
+		node_t * const node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<T>(object));
+		return _insert_node_last(node);
+	}
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	iterator_t
+	insert_first(T && object)
+	{
+		node_t * const node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)),ds::forward<T>(object));
+		return _insert_node_first(node);
+	}
+
+	bool
+	remove_first() noexcept
+	{
+		if(m_first == nullptr)
+			return false;
+		node_t * const node = m_first;
+		if(m_first == m_last)
+			m_first = m_last = nullptr;
+		else
+		{
+			m_first = m_first->next;
+			m_first->prev = nullptr;
+		}
+		destruct(*node);
+		_deallocate(node);
+		--m_size;
+		return true;
+	}
+
+	bool
+	remove_last() noexcept
+	{
+		if(m_first == nullptr)
+			return false;
+		node_t * const node = m_last;
+		if(m_first == m_last)
+			m_first = m_last = nullptr;
+		else
+		{
+			m_last = m_last->prev;
+			m_last->next = nullptr;
+		}
+		destruct(*node);
+		_deallocate(node);
+		--m_size;
+		return true;
+	}
+
+	bool
+	remove_at(iterator_t const & position) noexcept
+	{
+		if(position.m_list != this || position.m_node == nullptr)
+			return false;
+		node_t * const node = position.m_node;
+		if(node->prev)
+			node->prev->next = node->next;
+		if(node->next)
+			node->next->prev = node->prev;
+		if(m_first == node)
+			m_first = node->next;
+		if(m_last == node)
+			m_last = node->prev;
+		destruct(*node);
+		_deallocate(node);
+		--m_size;
+		return true;
+	}
+
+	template <typename T = E, typename = decltype(decl<E &>() == decl<T const &>())>
+	iterator_t 
+	position_of(T const & value) noexcept
+	{
+		if(m_first)
+		{
+			for(auto node = m_first; node != nullptr; node = node->next)
+				if(node->object == value)
+					return { this, node };
+		}
+		return { this, nullptr, 1 };
+	}
+
+	template <typename T = E, typename = decltype(decl<E const &>() == decl<T const &>())>
+	const_iterator_t 
+	position_of(T const & value) const noexcept
+	{
+		if(m_first)
+		{
+			for(auto node = m_first; node != nullptr; node = node->next)
+				if(node->object == value)
+					return { this, node };
+		}
+		return { this, nullptr, 1 };
+	}
+
+	template <typename T = E, typename = decltype(decl<E &>() == decl<T const &>())>
+	iterator_t 
+	rposition_of(T const & value) noexcept
+	{
+		if(m_first)
+		{
+			for(auto node = m_last; node != nullptr; node = node->prev)
+				if(node->object == value)
+					return { this, node };
+		}
+		return { this, nullptr, -1 };
+	}
+
+	template <typename T = E, typename = decltype(decl<E const &>() == decl<T const &>())>
+	const_iterator_t 
+	rposition_of(T const & value) const noexcept
+	{
+		if(m_first)
+		{
+			for(auto node = m_last; node != nullptr; node = node->prev)
+				if(node->object == value)
+					return { this, node };
+		}
+		return { this, nullptr, -1 };
+	}
+
+};
+
+
+template <int type_, typename E, class A = DefaultAllocator> 
+using list_iterator = ListIterator<type_,E,A>;
+
+template <int type_, typename E, class A = DefaultAllocator> 
+using const_list_iterator = ListIterator<type_,E,A>;
+
+template <int type_, typename E, class A = DefaultAllocator> 
+using list = List<type_,E,A>;
+
+
+template <int type_, typename E, class A, size_t size_>
+struct usage_s<List<type_,E,A>,size_> { static constexpr size_t value = (sizeof(ListNode<type_,E>) + usage<E>::value) * size_; };
+
+template <int type_, typename E, class A, size_t size_, size_t count_>
+struct usage_sn<List<type_,E,A>,size_,count_>
+{
+	static constexpr size_t _single = usage_s<List<type_,E,A>,size_>::value;
+	static constexpr size_t value = (_single + (-_single & (alignof(ListNode<type_,E>) - 1))) * count_;
+};
+
+
+} // namespace ds
+
+#endif // DS_LIST
