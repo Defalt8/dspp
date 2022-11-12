@@ -3,24 +3,71 @@
 #define DS_FIXED
 
 #include "common"
-#include "traits/iterator"
+#include "traits/iterable"
 
 namespace ds {
 
-template <typename E, size_t size_> class Fixed;
+template <size_t size_, typename E> class Fixed;
 
 namespace traits {
 
-	template <typename E, size_t size_>
-	struct iterator<ds::Fixed<E,size_>> : public ds::iterator_traits<E,E *,E const *,E *,E const *> {};
+	template <size_t size_, typename E>
+	struct iterable<Fixed<size_,E>> : public iterable_traits<
+			  E
+			, size_t
+			, E *
+			, E const *
+			, E *
+			, E const *
+			, E *
+			, E const *
+		> 
+	{};
 
-	template <typename E, size_t size_>
-	struct iterator<ds::Fixed<E,size_> const> : public ds::iterator_traits<E,void,E const *,void,E const *> {};
+	template <size_t size_, typename E>
+	struct iterable<Fixed<size_,E> const> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, E const *
+			, void
+			, E const *
+			, void
+			, E const *
+		> 
+	{};
+
+
+	template <size_t size_, typename E>
+	struct iterable<Fixed<size_,E &>> : public iterable_traits<
+			  E &
+			, size_t
+			, typename Fixed<size_,E &>::Iterator
+			, typename Fixed<size_,E &>::ConstIterator
+			, typename Fixed<size_,E &>::Iterator
+			, typename Fixed<size_,E &>::ConstIterator
+			, typename Fixed<size_,E &>::Iterator
+			, typename Fixed<size_,E &>::ConstIterator
+		> 
+	{};
+
+	template <size_t size_, typename E>
+	struct iterable<Fixed<size_,E &> const> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, typename Fixed<size_,E &>::ConstIterator
+			, void
+			, typename Fixed<size_,E &>::ConstIterator
+			, void
+			, typename Fixed<size_,E &>::ConstIterator
+		> 
+	{};
 
 } // namespace trait
 
 
-template <typename E, size_t size_>
+template <size_t size_, typename E>
 class Fixed
 {
  public:
@@ -29,21 +76,14 @@ class Fixed
  protected:
 	array_t m_array {};
 
-	constexpr void
-	_validate_index(size_t index) const noexcept(false)
-	{
-		if(index >= size_)
-			ds_throw(index_out_of_bounds());
-	}
-
  public:
 	constexpr Fixed() = default;
 	constexpr Fixed(Fixed &&) = default;
 	constexpr Fixed(Fixed const &) = default;
 
 	template <typename T, typename... Ts
-		, ds::enable_if_t<((sizeof...(Ts)+1 <= size_) 
-			&& ds::is_constructible_by_all<E,T,Ts...>::value),int> = 0>
+		, enable_if_t<((sizeof...(Ts)+1 <= size_) 
+			&& is_constructible_by_all<E,T,Ts...>::value),int> = 0>
 	constexpr Fixed(T && value, Ts &&... values)
 		: m_array { static_cast<E>(ds::forward<T>(value)), static_cast<E>(ds::forward<Ts>(values))... }
 	{}
@@ -57,14 +97,14 @@ class Fixed
 	constexpr E & 
 	at(size_t index) noexcept(false)
 	{
-		_validate_index(index);
+		ds_throw_if(index >= size_, index_out_of_bounds());
 		return m_array[index];
 	}
 
 	constexpr E const & 
 	at(size_t index) const noexcept(false)
 	{
-		_validate_index(index);
+		ds_throw_if(index >= size_, index_out_of_bounds());
 		return m_array[index];
 	}
 
@@ -79,7 +119,12 @@ class Fixed
 	constexpr E       * end  ()       noexcept { return &m_array[size_]; }
 	constexpr E const * end  () const noexcept { return &m_array[size_]; }
 	
-	struct index_out_of_bounds : public std::exception
+	inline E       * rbegin()       noexcept { return &m_array[size_-1]; }
+	inline E const * rbegin() const noexcept { return &m_array[size_-1]; }
+	inline E       * rend  ()       noexcept { return &m_array[0]-1; }
+	inline E const * rend  () const noexcept { return &m_array[0]-1; }
+	
+	struct index_out_of_bounds : public exception
 	{
 		char const * 
 		what() const noexcept override
@@ -91,20 +136,201 @@ class Fixed
 };
 
 
-template <typename E, size_t size_> 
-using fixed = Fixed<E,size_>;
+template <size_t size_, typename E>
+class Fixed<size_,E &>
+{
+ public:
+	using array_t = E * [size_];
+
+ protected:
+	array_t m_array {};
+
+ public:
+	struct index_out_of_bounds : public exception
+	{
+		char const * 
+		what() const noexcept override
+		{
+			return "fixed array index out of bounds";
+		}
+	};
+
+	struct Iterator
+	{
+		E ** current = nullptr;
+		
+		constexpr Iterator & operator++()    { ++current; return *this; }
+		constexpr Iterator   operator++(int) { return { current++ }; }
+		
+		constexpr Iterator & operator--()    { --current; return *this; }
+		constexpr Iterator   operator--(int) { return { current-- }; }
+
+		constexpr E       & operator*()       { return **current; }
+		constexpr E const & operator*() const { return **current; }
+
+		constexpr E       & operator[](size_t index_)       { return *current[index_]; }
+		constexpr E const & operator[](size_t index_) const { return *current[index_]; }
+
+		constexpr ptrdiff_t operator-(Iterator const & rhs)       { return ptrdiff_t(current - rhs.current); }
+		constexpr ptrdiff_t operator-(Iterator const & rhs) const { return ptrdiff_t(current - rhs.current); }
+
+		constexpr Iterator operator-(size_t rhs)       { return { current - rhs }; }
+		constexpr Iterator operator-(size_t rhs) const { return { current - rhs }; }
+
+		constexpr Iterator operator+(size_t rhs)       { return { current + rhs }; }
+		constexpr Iterator operator+(size_t rhs) const { return { current + rhs }; }
+
+		constexpr bool operator<(Iterator const & rhs)       { return current < rhs.current; }
+		constexpr bool operator<(Iterator const & rhs) const { return current < rhs.current; }
+
+		constexpr bool operator>(Iterator const & rhs)       { return current > rhs.current; }
+		constexpr bool operator>(Iterator const & rhs) const { return current > rhs.current; }
+
+		constexpr bool operator<=(Iterator const & rhs)       { return current <= rhs.current; }
+		constexpr bool operator<=(Iterator const & rhs) const { return current <= rhs.current; }
+
+		constexpr bool operator>=(Iterator const & rhs)       { return current >= rhs.current; }
+		constexpr bool operator>=(Iterator const & rhs) const { return current >= rhs.current; }
+
+		constexpr bool operator==(Iterator const & rhs)       { return current == rhs.current; }
+		constexpr bool operator==(Iterator const & rhs) const { return current == rhs.current; }
+
+		constexpr bool operator!=(Iterator const & rhs)       { return current != rhs.current; }
+		constexpr bool operator!=(Iterator const & rhs) const { return current != rhs.current; }
+
+		constexpr bool operator!()       { return current == nullptr; }
+		constexpr bool operator!() const { return current == nullptr; }
+
+		constexpr explicit operator bool()       { return current != nullptr; }
+		constexpr explicit operator bool() const { return current != nullptr; }
+
+	};
+
+	struct ConstIterator
+	{
+		E * const * current = nullptr;
+		
+		constexpr ConstIterator & operator++()    { ++current; return *this; }
+		constexpr ConstIterator   operator++(int) { return { current++ }; }
+		
+		constexpr ConstIterator & operator--()    { --current; return *this; }
+		constexpr ConstIterator   operator--(int) { return { current-- }; }
+
+		constexpr E const & operator*() const { return **current; }
+
+		constexpr E const & operator[](size_t index_) const { return *current[index_]; }
+
+		constexpr ptrdiff_t operator-(ConstIterator const & rhs)       { return ptrdiff_t(current - rhs.current); }
+		constexpr ptrdiff_t operator-(ConstIterator const & rhs) const { return ptrdiff_t(current - rhs.current); }
+
+		constexpr ConstIterator operator-(size_t rhs)       { return { current - rhs }; }
+		constexpr ConstIterator operator-(size_t rhs) const { return { current - rhs }; }
+
+		constexpr ConstIterator operator+(size_t rhs)       { return { current + rhs }; }
+		constexpr ConstIterator operator+(size_t rhs) const { return { current + rhs }; }
+
+		constexpr bool operator<(ConstIterator const & rhs)       { return current < rhs.current; }
+		constexpr bool operator<(ConstIterator const & rhs) const { return current < rhs.current; }
+
+		constexpr bool operator>(ConstIterator const & rhs)       { return current > rhs.current; }
+		constexpr bool operator>(ConstIterator const & rhs) const { return current > rhs.current; }
+
+		constexpr bool operator<=(ConstIterator const & rhs)       { return current <= rhs.current; }
+		constexpr bool operator<=(ConstIterator const & rhs) const { return current <= rhs.current; }
+
+		constexpr bool operator>=(ConstIterator const & rhs)       { return current >= rhs.current; }
+		constexpr bool operator>=(ConstIterator const & rhs) const { return current >= rhs.current; }
+
+		constexpr bool operator==(ConstIterator const & rhs)       { return current == rhs.current; }
+		constexpr bool operator==(ConstIterator const & rhs) const { return current == rhs.current; }
+
+		constexpr bool operator!=(ConstIterator const & rhs)       { return current != rhs.current; }
+		constexpr bool operator!=(ConstIterator const & rhs) const { return current != rhs.current; }
+
+		constexpr bool operator!()       { return current == nullptr; }
+		constexpr bool operator!() const { return current == nullptr; }
+
+		constexpr explicit operator bool()       { return current != nullptr; }
+		constexpr explicit operator bool() const { return current != nullptr; }
+
+	};
+
+	constexpr Fixed() = default;
+	constexpr Fixed(Fixed &&) = default;
+	constexpr Fixed(Fixed const &) = default;
+
+	template <typename T, typename... Ts
+		, enable_if_t<((sizeof...(Ts)+1 <= size_) 
+			&& is_constructible_by_all<E *,decltype(&decl<T>()),decltype(&decl<Ts>())...>::value),int> = 0>
+	constexpr Fixed(T && value, Ts &&... values)
+		: m_array { static_cast<E *>(&value), static_cast<E *>(&values)... }
+	{}
+
+	Fixed & operator=(Fixed &&) = default;
+	Fixed & operator=(Fixed const &) = default;
+
+	constexpr E       & operator[](size_t index)       noexcept { return *m_array[index]; }
+	constexpr E const & operator[](size_t index) const noexcept { return *m_array[index]; }
+	
+	constexpr E & 
+	at(size_t index) noexcept(false)
+	{
+		ds_throw_if(index >= size_, index_out_of_bounds());
+		return *m_array[index];
+	}
+
+	constexpr E const & 
+	at(size_t index) const noexcept(false)
+	{
+		ds_throw_if(index >= size_, index_out_of_bounds());
+		return *m_array[index];
+	}
+
+	constexpr array_t       & array()       noexcept { return m_array; }
+	constexpr array_t const & array() const noexcept { return m_array; }
+
+	constexpr size_t size()       noexcept { return size_; }
+	constexpr size_t size() const noexcept { return size_; }
+	
+	constexpr Iterator       begin()       noexcept { return { &m_array[0] }; }
+	constexpr ConstIterator  begin() const noexcept { return { &m_array[0] }; }
+	constexpr Iterator       end  ()       noexcept { return { &m_array[size_] }; }
+	constexpr ConstIterator  end  () const noexcept { return { &m_array[size_] }; }
+	
+	inline Iterator       rbegin()       noexcept { return { &m_array[szie_-1] }; }
+	inline ConstIterator  rbegin() const noexcept { return { &m_array[szie_-1] }; }
+	inline Iterator       rend  ()       noexcept { return { &m_array[0]-1 }; }
+	inline ConstIterator  rend  () const noexcept { return { &m_array[0]-1 }; }
+	
+};
+
+
+template <size_t size_, typename E> 
+using fixed = Fixed<size_,E>;
+
+
+template <size_t fsz_, typename E, size_t size_>
+struct usage_s<Fixed<fsz_,E>,size_> { static constexpr size_t value = sizeof(E) * size_ + usage_n<E,size_>::value; };
+
+template <size_t fsz_, typename E, size_t size_, size_t count_>
+struct usage_sn<Fixed<fsz_,E>,size_,count_>
+{
+	static constexpr size_t _single = usage_s<Fixed<fsz_,E>,size_>::value;
+	static constexpr size_t value = (_single + (-_single & (alignof(E) - 1))) * count_;
+};
+
 
 template <typename E, typename T, typename... Ts
-	, ds::enable_if_t<ds::is_constructible<Fixed<E,sizeof...(Ts)+1>,T,Ts...>::value,int> = 0> 
-static constexpr Fixed<E,sizeof...(Ts)+1>
+	, enable_if_t<is_constructible<Fixed<sizeof...(Ts)+1,E>,T,Ts...>::value,int> = 0> 
+static constexpr Fixed<sizeof...(Ts)+1,E>
 make_fixed(T && value, Ts &&... values)
 {
 	return { ds::forward<T>(value), ds::forward<Ts>(values)... };
 }
 
-template <typename E, size_t size_, typename T, typename... Ts
-	, ds::enable_if_t<ds::is_constructible<Fixed<E,size_>,T,Ts...>::value,int> = 0>
-static constexpr Fixed<E,size_>
+template <size_t size_, typename E, typename T, typename... Ts
+	, enable_if_t<is_constructible<Fixed<size_,E>,T,Ts...>::value,int> = 0>
+static constexpr Fixed<size_,E>
 make_fixed(T && value, Ts &&... values)
 {
 	return { ds::forward<T>(value), ds::forward<Ts>(values)... };
