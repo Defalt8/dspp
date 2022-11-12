@@ -9,6 +9,7 @@ set( DS_HEADER_FILES
 	include/ds/allocator
 	include/ds/fixed
 	include/ds/unique
+	include/ds/persistent
 )
  
 add_library( dspp INTERFACE )

@@ -1,0 +1,208 @@
+#pragma once
+#ifndef DS_PERSISTENT
+#define DS_PERSISTENT
+
+#include "common"
+#include "traits/allocator"
+#include "allocator"
+
+namespace ds {
+
+template <typename T, class A = DefaultAllocator> class Persistent;
+
+namespace traits {
+
+	template <typename T, class A>
+	struct allocator<Persistent<T,A>> : public allocator_traits<A> {};
+
+	template <typename T, class A>
+	struct allocator<Persistent<T,A> const> : public allocator_traits<A> {};
+
+} // namespace trait
+
+/// @brief  Manages the dynamic lifetime of an object of type `T`.  
+/// @brief   The object is destroyed when the last `Persistent` instance
+/// @brief    referencing the same object is destroyed.  
+/// @brief   Both copies and moves are allowed.
+/// @tparam T object type.
+/// @tparam A allocator type. default is `DefaultAllocator`
+template <typename T, class A>
+class Persistent
+{
+	using count_t = size_t;
+	
+	struct Storage
+	{
+		T       object {};
+		count_t references = 1;
+
+		Storage() = default;
+		Storage(Storage &&) = delete;
+		Storage(Storage const &) = delete;
+
+		template <typename Arg, typename... Args>
+		Storage(Arg && arg, Args &&... args)
+			: object(ds::forward<Arg>(arg), ds::forward<Args>(args)...)
+		{}
+
+	};
+
+	Storage * _ptr = nullptr;
+
+	static inline void
+	_deallocate(void * block_) noexcept
+	{
+		A::deallocate(block_);
+	}
+
+	DS_nodiscard static inline void * 
+	_allocate(size_t size_, align_t align_)
+	{
+		return A::allocate(size_, align_);
+	}
+
+ public:
+	struct null_pointer : public exception
+	{
+		char const * what() const noexcept { return "null pointer"; }
+	};
+
+	static constexpr size_t usage() noexcept { return sizeof(Storage); }
+	// amount of dynamic memory required to continuously create 'count_' `Persistent` objects  
+	static constexpr size_t 
+	usage(size_t count_) noexcept 
+	{
+		constexpr size_t single_ = usage();
+		constexpr size_t offset_ = -single_ & (alignof(Storage) - 1);
+		return (single_ + offset_) * count_;
+	}
+
+	~Persistent() noexcept
+	{
+		if(_ptr && --_ptr->references == 0)
+		{
+			destruct(*_ptr);
+			_deallocate(_ptr);
+		}
+	}
+
+	Persistent(noinit_t)
+	{}
+
+	Persistent()
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage))) }
+	{}
+
+	template <typename Arg, typename... Args
+			, enable_if_t<!is_same<remove_cvref_t<Arg>,Persistent>::value,int> = 0
+			, enable_if_t<is_constructible<T,Arg,Args...>::value,int> = 0
+		>
+	Persistent(Arg && arg, Args &&... args)
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), ds::forward<Arg>(arg), ds::forward<Args>(args)...) }
+	{}
+
+	Persistent(Persistent && rhs) noexcept
+		: _ptr { rhs._ptr }
+	{
+		rhs._ptr = nullptr;
+	}
+
+	Persistent(Persistent const & rhs) noexcept
+		: _ptr { rhs._ptr }
+	{
+		if(_ptr)
+			++_ptr->references;
+	}
+
+	Persistent & 
+	operator=(Persistent && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	Persistent & 
+	operator=(Persistent const & rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->destroy();
+			if(rhs._ptr)
+			{
+				_ptr = rhs._ptr;
+				++_ptr->references;
+			}
+		}
+		return *this;
+	}
+	
+	inline bool operator!()       noexcept { return _ptr == nullptr; }
+	inline bool operator!() const noexcept { return _ptr == nullptr; }
+
+	explicit inline operator bool()        noexcept { return _ptr != nullptr; }
+	explicit inline operator bool()  const noexcept { return _ptr != nullptr; }
+
+	inline T       & operator*()        noexcept { return _ptr->object; }
+	inline T const & operator*()  const noexcept { return _ptr->object; }
+
+	inline T       * operator->()       noexcept { return _ptr ? &_ptr->object : nullptr; }
+	inline T const * operator->() const noexcept { return _ptr ? &_ptr->object : nullptr; }
+
+	inline T       * ptr()       noexcept { return _ptr ? &_ptr->object : nullptr; }
+	inline T const * ptr() const noexcept { return _ptr ? &_ptr->object : nullptr; }
+
+	inline count_t ref_count()        noexcept { return _ptr ? _ptr->references : 0; }
+	inline count_t ref_count()  const noexcept { return _ptr ? _ptr->references : 0; }
+
+	T & 
+	ref() noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr, null_pointer());
+		return _ptr->object;
+	}
+
+	T const & 
+	ref() const noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr, null_pointer());
+		return _ptr->object;
+	}
+
+	void 
+	destroy() noexcept
+	{
+		if(_ptr && --_ptr->references == 0)
+		{
+			destruct(*_ptr);
+			_deallocate(_ptr);
+			_ptr = nullptr;
+		}
+	}
+
+	inline void 
+	swap(Persistent & rhs) noexcept
+	{
+		ds::swap(_ptr, rhs._ptr);
+	}
+
+};
+
+
+template <typename T, class A = DefaultAllocator> 
+using persistent = Persistent<T,A>;
+
+
+template <typename T, class A>
+struct usage<Persistent<T,A>> { static constexpr size_t value = Persistent<T,A>::usage(); };
+
+template <typename T, class A, size_t count_>
+struct usage_n<Persistent<T,A>,count_> { static constexpr size_t value = Persistent<T,A>::usage(count_); };
+
+
+} // namespace ds
+
+#endif // DS_PERSISTENT
