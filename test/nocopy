@@ -1,0 +1,25 @@
+#pragma once
+#ifndef NOCOPY
+#define NOCOPY
+
+class NoCopy
+{
+	int _value = 0;
+ public:
+	~NoCopy() = default;
+	NoCopy() = default;
+	NoCopy(NoCopy &&) = default;
+	NoCopy(NoCopy const &) = delete;
+	NoCopy & operator=(NoCopy &&) = default;
+	NoCopy & operator=(NoCopy const &) = delete;
+
+	NoCopy(int value_)
+		: _value { value_ }
+	{}
+
+	operator int       & ()       { return _value; }
+	operator int const & () const { return _value; }
+
+};
+
+#endif // NOCOPY

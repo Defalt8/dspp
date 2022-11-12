@@ -1,0 +1,27 @@
+#pragma once
+#ifndef NOMOVE
+#define NOMOVE
+
+class NoMove
+{
+	int _value = 0;
+ public:
+	~NoMove() = default;
+	NoMove() = default;
+	NoMove(NoMove &&) = delete;
+	NoMove(NoMove const & rhs)
+		: _value { rhs._value }
+	{}
+	NoMove & operator=(NoMove &&) = delete;
+	NoMove & operator=(NoMove const &) = default;
+
+	NoMove(int value_)
+		: _value { value_ }
+	{}
+
+	operator int       & ()       { return _value; }
+	operator int const & () const { return _value; }
+
+};
+
+#endif // NOMOVE
