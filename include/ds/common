@@ -4,144 +4,800 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <type_traits>
+#include <exception>
 #include <new>
 #include "macros"
 
+#ifdef min
+#	undef min
+#endif
+#ifdef max
+#	undef max
+#endif
+
 namespace ds {
 
-static constexpr double nan = __builtin_nan("0");
-
-using std::remove_cv_t;
-using std::remove_reference_t;
-using std::enable_if_t;
-using std::conditional_t;
-using std::is_scalar;
-using std::is_const;
-using std::is_same;
-using std::is_constructible;
-using std::is_copy_constructible;
-using std::is_move_constructible;
-using std::is_destructible;
 using std::exception;
-using std::forward;
-using std::swap;
+using std::bad_alloc;
+using std::nothrow_t;
+using std::nothrow;
+using std::nullptr_t;
+using byte_t       = unsigned char;
+using align_t      = size_t;
+using byte_ptr_t   = byte_t *;
+using byte_cptr_t  = byte_t const *;
+using max_align_t  = std::max_align_t;
+using noinit_t     = struct {};
 
-template <typename T>
-static constexpr void
-swap(T * & lhs, T * & rhs) noexcept
-{
-	T * tmp = lhs;
-	lhs = rhs;
-	rhs = tmp;
-}
+template <size_t size_, typename T>
+using fixed_ref_t  = T (&)[size_];
+template <size_t size_, typename T>
+using fixed_cref_t = T const (&)[size_];
+template <size_t size_, typename T>
+using fixed_ptr_t  = T (*)[size_];
+template <size_t size_, typename T>
+using fixed_cptr_t = T const (*)[size_];
 
 template <typename E>
+using array_ref_t = E (&)[];
+template <typename E>
+using array_cref_t = E const (&)[];
+template <typename E>
 using array_ptr_t = E (*)[];
+template <typename E>
+using array_cptr_t = E const (*)[];
+
+template <typename T>
+struct in_place_t {};
+
+static constexpr noinit_t noinit = noinit_t {};
+static constexpr double   nan    = __builtin_nan("0");
+
+template <typename T> static constexpr T decl();
+
+template <typename T> struct remove_cv                   { using type = T; };
+template <typename T> struct remove_cv<T const>          { using type = T; };
+template <typename T> struct remove_cv<T volatile>       { using type = T; };
+template <typename T> struct remove_cv<T const volatile> { using type = T; };
+template <typename T>
+using remove_cv_t = typename remove_cv<T>::type;
+
+template <typename T> struct remove_reference       { using type = T; };
+template <typename T> struct remove_reference<T &>  { using type = T; };
+template <typename T> struct remove_reference<T &&> { using type = T; };
+template <typename T>
+using remove_reference_t = typename remove_reference<T>::type;
+
+template <typename T>
+using remove_cvref_t = remove_cv_t<remove_reference_t<T>>;
+
+template <bool condition_, typename T>
+struct enable_if {};
+template <typename T>
+struct enable_if<true,T> { using type = T; };
+template <bool condition_, typename T>
+using enable_if_t = typename enable_if<condition_,T>::type;
+
+template <bool condition_, typename T, typename F>
+struct conditional { using type = F; };
+template <typename T, typename F>
+struct conditional<true,T,F> { using type = T; };
+template <bool condition_, typename T, typename F>
+using conditional_t = typename conditional<condition_,T,F>::type;
+
+template <typename T, T value_>
+struct integral_constant
+{
+	static constexpr T value = value_;
+	constexpr integral_constant() = default;
+	constexpr T operator()() const noexcept { return value; };
+	constexpr operator T() const noexcept { return value; };
+};
+
+template <bool value_>
+using bool_constant = integral_constant<bool,value_>;
+
+using false_type = bool_constant<false>;
+using true_type  = bool_constant<true>;
+
+template <typename... Ts>
+struct are_all_true : false_type {};
+
+namespace _ {
+
+	template <typename T, bool = T::value, typename... Ts>
+	struct _are_all_true : false_type {};
+	template <typename T, typename... Ts>
+	struct _are_all_true<T,true,Ts...> : bool_constant<are_all_true<Ts...>::value> {};
+	template <typename T, typename... Ts>
+	struct _are_all_true<T,false,Ts...> : false_type {};
+
+} // namespace _
+
+template <typename T, typename... Ts>
+struct are_all_true<T,Ts...> : bool_constant<_::_are_all_true<T,T::value,Ts...>::value> {};
+
+template <typename... Ts>
+struct are_all_false : false_type {};
+
+namespace _ {
+
+	template <typename T, bool = T::value, typename... Ts>
+	struct _are_all_false : false_type {};
+	template <typename T, typename... Ts>
+	struct _are_all_false<T,false,Ts...> : bool_constant<are_all_false<Ts...>::value> {};
+	template <typename T, typename... Ts>
+	struct _are_all_false<T,true,Ts...> : false_type {};
+
+} // namespace _
+
+template <typename T, typename... Ts>
+struct are_all_false<T,Ts...> : bool_constant<_::_are_all_false<T,T::value,Ts...>::value> {};
+
+template <typename T> 
+struct is_const : false_type {};
+template <typename T> 
+struct is_const<T const> : true_type {};
+
+template <typename T> 
+struct is_reference : false_type {};
+template <typename T> 
+struct is_reference<T &> : true_type {};
+template <typename T> 
+struct is_reference<T &&> : true_type {};
+
+template <typename T, typename U> 
+struct is_same : false_type {};
+template <typename T> 
+struct is_same<T,T> : true_type {};
+
+template <typename T, typename... Ts>
+struct is_type_in_pack : false_type {};
+template <typename T>
+struct is_type_in_pack<T> : false_type {};
+template <typename T, typename U, typename... Ts>
+struct is_type_in_pack<T,U,Ts...> { static constexpr bool value = is_type_in_pack<T,Ts...>::value; };
+template <typename T, typename... Ts>
+struct is_type_in_pack<T,T,Ts...> : true_type {};
+
+template <typename T>
+struct is_integral 
+{
+	static constexpr bool value = is_type_in_pack<remove_cv_t<T>
+			, bool
+			, char, char16_t, char32_t, wchar_t
+			, signed char, unsigned char
+			, signed short, unsigned short
+			, signed int, unsigned int
+			, signed long, unsigned long
+			, signed long long, unsigned long long
+		>::value;
+};
+
+template <typename T>
+struct is_floating_point 
+{
+	static constexpr bool value = is_type_in_pack<remove_cv_t<T>
+			, float
+			, double
+			, long double
+		>::value;
+};
+
+template <typename T> 
+struct is_arithmetic { static constexpr bool value = is_integral<T>::value || is_floating_point<T>::value; }; 
+
+template <typename T> 
+struct is_enum { static constexpr bool value = __is_enum(T); };
+
+template <typename T> 
+struct is_union { static constexpr bool value = __is_union(T); };
+
+namespace _ {
+	template <typename T> bool_constant<!is_union<T>::value> class_test(int T::*);
+	template <typename T> false_type class_test(...);
+} // namespace _
+
+template <typename T>
+struct is_class : decltype(_::class_test<T>(nullptr)) {};
+
+template <typename T> 
+struct is_function 
+{
+	static constexpr bool value = 
+		!is_class<T>::value && !is_const<T const>::value && !is_reference<T>::value;
+};
+
+namespace _ {
+	template <typename T> 
+	struct is_pointer : false_type {};
+	template <typename T> 
+	struct is_pointer<T *> : true_type {};
+} // namespace _
+
+template <typename T> 
+struct is_pointer : bool_constant<_::is_pointer<remove_cv_t<T>>::value> {};
+
+template <typename T> 
+struct is_member_pointer : false_type {};
+template <typename T, class C> 
+struct is_member_pointer<T C::*> : true_type {};
+
+template <typename T> 
+struct is_member_object_pointer : false_type {};
+template <typename T, class C> 
+struct is_member_object_pointer<T C::*> : bool_constant<!is_function<T>::value> {};
+
+template <typename T> 
+struct is_member_function_pointer : false_type {};
+template <typename T, class C> 
+struct is_member_function_pointer<T C::*> : bool_constant<is_function<T>::value> {};
+
+template <typename T>
+struct is_scalar : bool_constant<
+		   is_arithmetic<T>::value 
+		|| is_enum<T>::value 
+		|| is_pointer<T>::value 
+		|| is_same<remove_cv_t<T>,nullptr_t>::value
+	> 
+{};
+
+namespace _ {
+	template <typename T, typename = decltype(decl<T &>().~T())>
+	true_type test_destructible(int); 
+	template <typename T>
+	false_type test_destructible(...); 
+} // namespace _
+
+template <typename T> 
+struct is_destructible : decltype(_::test_destructible<T>(0)) {};
+
+#if defined(_MSC_VER) || defined(__clang__)
+template <typename T> 
+struct is_trivially_destructible : bool_constant<__is_trivially_destructible(T)> {};
+#else
+template <typename T> 
+struct is_trivially_destructible : bool_constant<is_destructible<T>::value && __has_trivial_destructor(T)> 
+{};
+#endif
+
+template <typename T, typename... Args> 
+struct is_constructible : bool_constant<__is_constructible(T,Args...)> {};
+
+template <typename T, typename... Args> 
+struct is_trivially_constructible : bool_constant<__is_trivially_constructible(T,Args...)> {};
+
+template <typename T> 
+using is_copy_constructible = is_constructible<T,remove_cvref_t<T> const &>;
+
+template <typename T> 
+using is_trivially_copy_constructible = is_trivially_constructible<T,remove_cvref_t<T> const &>;
+
+template <typename T> 
+using is_move_constructible = is_constructible<T,remove_cvref_t<T> &&>;
+
+template <typename T> 
+using is_trivially_move_constructible = is_trivially_constructible<T,remove_cvref_t<T> &&>;
+
+template <typename T, typename U> 
+struct is_assignable : bool_constant<__is_assignable(T,U)> {};
+
+template <typename T, typename U> 
+struct is_trivially_assignable : bool_constant<__is_trivially_assignable(T,U)> {};
+
+template <typename T> 
+using is_copy_assignable = is_assignable<T,remove_cvref_t<T> const &>;
+
+template <typename T> 
+using is_move_assignable = is_assignable<T,remove_cvref_t<T> &&>;
+
+template <typename T> 
+using is_trivially_copy_assignable = is_trivially_assignable<T,remove_cvref_t<T> const &>;
+
+template <typename T> 
+using is_trivially_move_assignable = is_trivially_assignable<T,remove_cvref_t<T> &&>;
+
+template <typename To, typename From, typename... Ts>
+struct is_constructible_by_all : bool_constant<
+		   is_constructible<To,From>::value 
+		&& is_constructible_by_all<To,Ts...>::value
+	>
+{};
+
+template <typename To, typename From>
+struct is_constructible_by_all<To,From> : bool_constant<is_constructible<To,From>::value> {};
+
+namespace _ {
+
+	template <typename T, typename = decltype(decl<T &>().swap(decl<T &>()))>
+	true_type _has_swap(int);
+	template <typename T>
+	false_type _has_swap(...);
+
+} // namespace _
+
+template <typename T>
+struct has_swap : decltype(_::_has_swap<T>(0)) {};
+
+template <typename T>
+static constexpr bool 
+is_prime(T value) noexcept
+{
+	T N = value;
+	for(T i = 2; i <= N; ++i, N /= i)
+		if(value % i == 0)
+			return false;
+	return true;
+}
+
+template <typename T>
+static constexpr T 
+next_prime(T value) noexcept
+{
+	while(!is_prime(++value));
+	return value;
+}
+
+template <typename T, size_t size_>
+static fixed_cref_t<size_,T>
+gen_prime_squares() noexcept
+{
+	static size_t prime_squares[size_];
+	size_t prime_ = 1;
+	for(auto & e : prime_squares)
+	{
+		prime_ = next_prime<size_t>(prime_);
+		e = prime_ * prime_;
+	}
+	return prime_squares;
+}
+
+template <typename T, size_t size_>
+static fixed_cref_t<size_,T>
+init_prime_squares() noexcept
+{
+	static auto & prime_squares = gen_prime_squares<T,size_>();
+	return prime_squares;
+}
+
+template <typename T>
+struct usage { static constexpr size_t value = 0; };
+
+template <typename T, size_t count_>
+struct usage_n { static constexpr size_t value = 0; };
+
+template <typename T, size_t size_>
+struct usage_s { static constexpr size_t value = 0; };
+
+template <typename T, size_t size_, size_t count_>
+struct usage_sn { static constexpr size_t value = 0; };
+
+template<typename T> struct Hasher {};
+template<> struct Hasher<bool>               { static constexpr size_t hash(bool value)               noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<char>               { static constexpr size_t hash(char value)               noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<char16_t>           { static constexpr size_t hash(char16_t value)           noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<char32_t>           { static constexpr size_t hash(char32_t value)           noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<wchar_t>            { static constexpr size_t hash(wchar_t value)            noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<int8_t>             { static constexpr size_t ash(int8_t value)              noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<uint8_t>            { static constexpr size_t hash(uint8_t value)            noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<int16_t>            { static constexpr size_t hash(int16_t value)            noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<uint16_t>           { static constexpr size_t hash(uint16_t value)           noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<int32_t>            { static constexpr size_t hash(int32_t value)            noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<uint32_t>           { static constexpr size_t hash(uint32_t value)           noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<int64_t>            { static constexpr size_t hash(int64_t value)            noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<uint64_t>           { static constexpr size_t hash(uint64_t value)           noexcept { return static_cast<size_t>(value); } };
+template<> struct Hasher<nullptr_t>          { static constexpr size_t hash(nullptr_t)                noexcept { return 0; } };
+template<class T> struct Hasher<T *>         { static inline    size_t hash(T const * ptr)            noexcept { return size_t(ptr); } };
+
+template<size_t size_> 
+struct Hasher<char[size_]>
+{
+
+	static size_t 
+	hash(char const (&cstring)[size_]) noexcept
+	{
+		static constexpr size_t prime_sq_size = 512;
+		auto const & prime_squares = init_prime_squares<size_t,prime_sq_size>();
+		size_t hash_ = 0;
+		for(size_t i = 0; i < size_; ++i)
+			hash_ += size_t(cstring[i]) * prime_squares[i % prime_sq_size];
+		return hash_;
+	}
+
+	static size_t 
+	hash(char const * pstring) noexcept
+	{
+		static constexpr size_t prime_sq_size = 512;
+		auto const & prime_squares = init_prime_squares<size_t,prime_sq_size>();
+		if(!pstring)
+			return 0;
+		size_t hash_ = 0;
+		for(size_t i = 0; i < size_ && pstring[i] != '\0'; ++i)
+			hash_ += size_t(pstring[i]) * prime_squares[i % prime_sq_size];
+		return hash_;
+	}
+
+};
+
+template <>
+struct Hasher<char[]>
+{
+
+	static size_t 
+	hash(char const * pstring) noexcept
+	{
+		static constexpr size_t prime_sq_size = 512;
+		auto const & prime_squares = init_prime_squares<size_t,prime_sq_size>();
+		if(!pstring)
+			return 0;
+		size_t hash_ = 0;
+		for(size_t i = 0; pstring[i] != '\0'; ++i)
+			hash_ += size_t(pstring[i]) * prime_squares[i % prime_sq_size];
+		return hash_;
+	}
+
+};
+
+template<typename T>
+using hasher = Hasher<T>;
+
+
+template <typename T, T... sequence_>
+struct integer_sequence {};
+
+namespace _ {
+
+	template <typename T, T start_, T end_, bool = (start_ < end_), T i_ = start_, T... sequence_>
+	struct integer_sequence_maker
+	{};
+
+	template <typename T, T start_, T end_, T... sequence_>
+	struct integer_sequence_maker<T,start_,end_,true,start_,sequence_...>
+	{
+		using type = typename integer_sequence_maker<T,start_,end_,true,start_+1,sequence_...,start_>::type;
+	};
+
+	template <typename T, T start_, T end_, T i_, T... sequence_>
+	struct integer_sequence_maker<T,start_,end_,true,i_,sequence_...>
+	{
+		using type = typename integer_sequence_maker<T,start_,end_,true,i_+1,sequence_...,i_>::type;
+	};
+
+	template <typename T, T start_, T end_, T... sequence_>
+	struct integer_sequence_maker<T,start_,end_,true,end_,sequence_...>
+	{
+		using type = integer_sequence<T,sequence_...>;
+	};
+
+
+	template <typename T, T start_, T end_, T... sequence_>
+	struct integer_sequence_maker<T,start_,end_,false,start_,sequence_...>
+	{
+		using type = typename integer_sequence_maker<T,start_,end_,false,start_-1,sequence_...,start_>::type;
+	};
+
+	template <typename T, T start_, T end_, T i_, T... sequence_>
+	struct integer_sequence_maker<T,start_,end_,false,i_,sequence_...>
+	{
+		using type = typename integer_sequence_maker<T,start_,end_,false,i_-1,sequence_...,i_>::type;
+	};
+
+	template <typename T, T start_, T end_, T... sequence_>
+	struct integer_sequence_maker<T,start_,end_,false,end_,sequence_...>
+	{
+		using type = integer_sequence<T,sequence_...>;
+	};
+
+
+	template <typename T, T start_, T end_, bool = (start_ < end_), T i_ = start_, T... sequence_>
+	struct reverse_integer_sequence_maker
+	{};
+
+	template <typename T, T start_, T end_, T... sequence_>
+	struct reverse_integer_sequence_maker<T,start_,end_,true,start_,sequence_...>
+	{
+		using type = typename reverse_integer_sequence_maker<T,start_,end_,true,start_+1,start_,sequence_...>::type;
+	};
+
+	template <typename T, T start_, T end_, T i_, T... sequence_>
+	struct reverse_integer_sequence_maker<T,start_,end_,true,i_,sequence_...>
+	{
+		using type = typename reverse_integer_sequence_maker<T,start_,end_,true,i_+1,i_,sequence_...>::type;
+	};
+
+	template <typename T, T start_, T end_, T... sequence_>
+	struct reverse_integer_sequence_maker<T,start_,end_,true,end_,sequence_...>
+	{
+		using type = integer_sequence<T,sequence_...>;
+	};
+
+
+	template <typename T, T start_, T end_, T... sequence_>
+	struct reverse_integer_sequence_maker<T,start_,end_,false,start_,sequence_...>
+	{
+		using type = typename reverse_integer_sequence_maker<T,start_,end_,false,start_-1,start_,sequence_...>::type;
+	};
+
+	template <typename T, T start_, T end_, T i_, T... sequence_>
+	struct reverse_integer_sequence_maker<T,start_,end_,false,i_,sequence_...>
+	{
+		using type = typename reverse_integer_sequence_maker<T,start_,end_,false,i_-1,i_,sequence_...>::type;
+	};
+
+	template <typename T, T start_, T end_, T... sequence_>
+	struct reverse_integer_sequence_maker<T,start_,end_,false,end_,sequence_...>
+	{
+		using type = integer_sequence<T,sequence_...>;
+	};
+
+} // namespace _
+
+template <typename T, T start_, T end_>
+using make_integer_sequence_t = typename _::integer_sequence_maker<T,start_,end_>::type;
+
+template <typename T, T start_, T end_>
+using make_reverse_integer_sequence_t = typename _::reverse_integer_sequence_maker<T,start_,end_>::type;
+
+template <size_t... indices_>
+using index_sequence = integer_sequence<size_t,indices_...>;
+
+template <size_t start_, size_t end_>
+using make_index_sequence_t = typename _::integer_sequence_maker<size_t,start_,end_>::type;
+
+template <size_t start_, size_t end_>
+using make_reverse_index_sequence_t = typename _::reverse_integer_sequence_maker<size_t,start_,end_>::type;
+
+
+template <size_t index_, typename... Ts>
+struct type_at_index
+{
+	using type = void;
+};
+
+template <size_t index_, typename T, typename... Ts>
+struct type_at_index<index_,T,Ts...>
+{
+	using type = typename type_at_index<index_-1,Ts...>::type;
+};
+
+template <typename T, typename... Ts>
+struct type_at_index<0,T,Ts...>
+{
+	using type = T;
+};
+
+template <size_t index_, typename T, typename... Ts>
+using type_at_index_t = typename type_at_index<index_,T,Ts...>::type;
+
+
+template <typename T, size_t start_ = 0, typename... Ts>
+struct type_index : integral_constant<size_t,size_t(-1)> {};
+
+template <typename T, size_t start_, typename U, typename... Ts>
+struct type_index<T,start_,U,Ts...> : integral_constant<size_t,type_index<T,start_+1,Ts...>::value> {};
+
+template <typename T, size_t start_, typename... Ts>
+struct type_index<T,start_,T,Ts...> : integral_constant<size_t,start_> {};
+
+
+// equal to
+template <typename L, typename R = L>
+struct equal
+{ constexpr bool operator() (L const & lhs, R const & rhs) const noexcept { return lhs == rhs; } };
+
+// less than
+template <typename L, typename R = L>
+struct less
+{ constexpr bool operator() (L const & lhs, R const & rhs) const noexcept { return lhs < rhs; } };
+
+// greater than
+template <typename L, typename R = L>
+struct greater
+{ constexpr bool operator() (L const & lhs, R const & rhs) const noexcept { return lhs > rhs; } };
+
+// less than or equal to
+template <typename T>
+struct less_or_equal
+{ constexpr bool operator() (T const & lhs, T const & rhs) const noexcept { return lhs <= rhs; } };
+
+// greater than or equal to
+template <typename L, typename R = L>
+struct greater_or_equal
+{ constexpr bool operator() (L const & lhs, R const & rhs) const noexcept { return lhs >= rhs; } };
+
+
+
+/** 
+ * forward cast a universal reference.
+ * 
+ * T __________ T &&
+ * T const ____ T const &&
+ * T & ________ T &
+ * T const & __ T const &
+ * T && _______ T &&
+ * T const && _ T const &&
+ * 
+ */
+template <typename T> 
+DS_nodiscard static constexpr T && 
+forward(remove_reference_t<T> & t) noexcept 
+{ return static_cast<T &&>(t); }
+
+// cast to T && -- non-const move
+// ds::move does not support moving const types unlike std::move
+template <typename T, enable_if_t<(!is_const<remove_reference_t<T>>::value),int> = 0>
+DS_nodiscard static constexpr remove_reference_t<T> &&
+move(T && rhs) noexcept
+{
+	return static_cast<remove_reference_t<T> &&>(rhs);
+}
+
+// cast to T const && -- const move
+template <typename T, enable_if_t<(is_const<remove_reference_t<T>>::value),int> = 0>
+DS_nodiscard static constexpr remove_reference_t<T> const &&
+cmove(T && rhs) noexcept
+{
+	return static_cast<remove_reference_t<T> const &&>(rhs);
+}
+
+// cast to T & -- non-const reference
+template <typename T, enable_if_t<(!is_const<remove_reference_t<T>>::value),int> = 0>
+static constexpr remove_reference_t<T> &
+ref(T && object) noexcept
+{
+	return static_cast<remove_reference_t<T> &>(object);
+}
+
+// cast to T const & -- const reference
+template <typename T>
+static constexpr remove_reference_t<T> const &
+cref(T && object) noexcept
+{
+	return static_cast<remove_reference_t<T> const &>(object);
+}
+
+template <typename T, enable_if_t<has_swap<T>::value,int> = 0>
+static constexpr void
+swap(T & lhs, T & rhs) noexcept
+{
+	lhs.swap(rhs);
+}
+
+template <typename T, enable_if_t<
+		   !has_swap<T>::value 
+		&& is_move_constructible<remove_cvref_t<T>>::value
+		&& is_move_assignable<remove_cvref_t<T>>::value
+		,int> = 0>
+static constexpr void
+swap(T & lhs, T & rhs) noexcept
+{
+	T tmp = ds::move(lhs);
+	lhs   = ds::move(rhs);
+	rhs   = ds::move(tmp);
+}
+
+template <typename T, enable_if_t<!has_swap<T>::value 
+		&& (   is_trivially_copy_constructible<remove_cvref_t<T>>::value
+			|| is_trivially_copy_assignable<remove_cvref_t<T>>::value)
+	,int> = 0>
+static constexpr void
+swap(T & lhs, T & rhs) noexcept
+{
+	T tmp = lhs;
+	lhs   = rhs;
+	rhs   = tmp;
+}
 
 template <typename E>
 static constexpr void
 swap(array_ptr_t<E> & lhs, array_ptr_t<E> & rhs) noexcept
 {
-	E (*tmp)[] = lhs;
+	array_ptr_t<E> tmp = lhs;
 	lhs = rhs;
 	rhs = tmp;
 }
 
+template <typename E, size_t size_>
 static constexpr void
-swap(size_t & lhs, size_t & rhs) noexcept
+swap(fixed_ptr_t<size_,E> & lhs, fixed_ptr_t<size_,E> & rhs) noexcept
 {
-	size_t tmp = lhs;
+	fixed_ptr_t<size_,E> tmp = lhs;
 	lhs = rhs;
 	rhs = tmp;
 }
 
-template <typename T> static constexpr T decl();
-
 template <typename T>
-using remove_cvref_t = typename std::remove_cv<typename std::remove_reference<T>::type>::type;
+static constexpr void
+swap(T const & lhs, T const & rhs) noexcept = delete;
 
-template <typename To, typename From, typename... Ts>
-struct is_constructible_by_all
-{
-	static constexpr bool value = ds::is_constructible<To,From>::value 
-		? is_constructible_by_all<To,Ts...>::value
-		: false;
-};
-
-template <typename To, typename From>
-struct is_constructible_by_all<To,From>
-{
-	static constexpr bool value = ds::is_constructible<To,From>::value;
-};
-
-// cast to T && -- non-const move
-// ds::move does not support moving const types unlike std::move
-template <typename T, ds::enable_if_t<(!ds::is_const<ds::remove_reference_t<T>>::value),int> = 0>
-DS_nodiscard
-static constexpr ds::remove_reference_t<T> &&
-move(T && rhs) noexcept
-{
-	return static_cast<ds::remove_reference_t<T> &&>(rhs);
-}
-
-// cast to T const && -- const move
-template <typename T, ds::enable_if_t<(ds::is_const<ds::remove_reference_t<T>>::value),int> = 0>
-DS_nodiscard
-static constexpr ds::remove_reference_t<T> const &&
-cmove(T && rhs) noexcept
-{
-	return static_cast<ds::remove_reference_t<T> const &&>(rhs);
-}
-
-// cast to T & -- non-const reference
-template <typename T, ds::enable_if_t<(!ds::is_const<ds::remove_reference_t<T>>::value),int> = 0>
-static constexpr ds::remove_reference_t<T> &
-ref(T && object) noexcept
-{
-	return static_cast<ds::remove_reference_t<T> &>(object);
-}
-
-// cast to T const & -- const reference
-template <typename T>
-static constexpr ds::remove_reference_t<T> const &
-cref(T && object) noexcept
-{
-	return static_cast<ds::remove_reference_t<T> const &>(object);
-}
-
-template <typename T, bool = ds::is_destructible<T>::value>
-struct SafeDestructor
-{
-	static constexpr void destruct(T & object) {}
-};
-
-template <typename T>
-struct SafeDestructor<T,true>
+template <typename T, bool = is_destructible<T>::value && !is_trivially_destructible<T>::value>
+struct safe_destructor
 {
 	static constexpr void destruct(T & object) { object.~T(); }
+};
+
+template <typename T>
+struct safe_destructor<T,false>
+{
+	static constexpr void destruct(T & object) {}
 };
 
 template <typename T>
 static constexpr void
 destruct(T & object)
 {
-	return SafeDestructor<T>::destruct(object);
+	return safe_destructor<T>::destruct(object);
 }
 
-template <typename T, typename... Args, ds::enable_if_t<ds::is_constructible<T,Args...>::value,int> = 0>
+template <typename T, typename... Args, enable_if_t<is_constructible<T,Args...>::value,int> = 0>
 static inline T *
 construct_at(void * addr, Args &&... args)
 {
 	return new (addr) T(ds::forward<Args>(args)...);
 }
 
+template <typename T, typename... Args, enable_if_t<is_constructible<T,Args...>::value,int> = 0>
+static inline T *
+construct_at_safe(void * addr, Args &&... args)
+{
+	return addr == nullptr 
+		? nullptr 
+		: new (addr) T(ds::forward<Args>(args)...);
+}
+
+
+template <typename T, typename S = T>
+struct sequence
+{
+	T value = 0;
+	S step  = 1;
+
+	constexpr sequence() = default;
+
+	constexpr sequence(T start_)
+		: value { ds::move(start_) }
+	{}
+
+	constexpr sequence(T start_, S step_)
+		: value { ds::move(start_) }
+		, step  { ds::move(step_)  }
+	{}
+
+	constexpr operator T () noexcept 
+	{
+		auto next_ = value;
+		value += step;
+		return next_;
+	}
+
+};
+
+template <typename T>
+static constexpr T &&
+min(T && lhs, T && rhs) noexcept
+{
+	return lhs < rhs ? ds::forward<T>(lhs) : ds::forward<T>(rhs);
+}
+
+template <typename T>
+static constexpr T &&
+max(T && lhs, T && rhs) noexcept
+{
+	return lhs > rhs ? ds::forward<T>(lhs) : ds::forward<T>(rhs);
+}
+
+template <typename T>
+static constexpr T &&
+abs(T && rhs)
+{
+	return rhs < 0 ? -ds::forward<T>(rhs) : ds::forward<T>(rhs);
+}
 
 template <typename E, size_t size_>
-static constexpr E * size(E (& array_)[size_]) { return size_; }
+static constexpr size_t size(E (& array_)[size_]) { return size_; }
 
 template <typename E, size_t size_>
-static constexpr E const * size(E const (& array_)[size_]) { return size_; }
+static constexpr size_t size(E const (& array_)[size_]) { return size_; }
 
 
 template <typename E, size_t size_>
@@ -157,25 +813,168 @@ template <typename E, size_t size_>
 static constexpr E const * end(E const (& array_)[size_]) { return &array_[size_]; }
 
 
-template <class C, typename sz_t = decltype(ds::decl<C>().size())>
+template <class C, typename sz_t = decltype(decl<C &>().size())>
 static constexpr sz_t size(C & object_) { return object_.size(); }
 
-template <class C, typename sz_t = decltype(ds::decl<C const>().size())>
+template <class C, typename sz_t = decltype(decl<C const &>().size())>
 static constexpr sz_t size(C const & object_) { return object_.size(); }
 
 
-template <class C, typename it_t = decltype(ds::decl<C>().begin())>
+template <class C, typename it_t = decltype(decl<C &>().begin())>
 static constexpr it_t begin(C & object_) { return object_.begin(); }
 
-template <class C, typename it_t = decltype(ds::decl<C>().end())>
+template <class C, typename it_t = decltype(decl<C &>().end())>
 static constexpr it_t end(C & object_) { return object_.end(); }
 
-template <class C, typename it_t = decltype(ds::decl<C const>().begin())>
+template <class C, typename it_t = decltype(decl<C const &>().begin())>
 static constexpr it_t begin(C const & object_) { return object_.begin(); }
 
-template <class C, typename it_t = decltype(ds::decl<C const>().end())>
+template <class C, typename it_t = decltype(decl<C const &>().end())>
 static constexpr it_t end(C const & object_) { return object_.end(); }
 
+
+template <class C, typename it_t = decltype(decl<C &>().rbegin())>
+static constexpr it_t rbegin(C & object_) { return object_.rbegin(); }
+
+template <class C, typename it_t = decltype(decl<C &>().rend())>
+static constexpr it_t rend(C & object_) { return object_.rend(); }
+
+template <class C, typename it_t = decltype(decl<C const &>().rbegin())>
+static constexpr it_t rbegin(C const & object_) { return object_.rbegin(); }
+
+template <class C, typename it_t = decltype(decl<C const &>().rend())>
+static constexpr it_t rend(C const & object_) { return object_.rend(); }
+
+// efficient reverse.
+template <typename T
+		, typename = decltype(size(decl<T>()))
+		, typename = decltype(begin(decl<T>()))
+		, typename = decltype(rbegin(decl<T>()))
+	>
+static constexpr void
+reverse(T && forward_and_reverse_iterable)
+{
+	auto size_ = size(forward_and_reverse_iterable);
+	auto it    = begin(forward_and_reverse_iterable);
+	auto rit   = rbegin(forward_and_reverse_iterable);
+	if(size_ <= 1)
+		return;
+	size_ /= 2;
+	for(; size_-- > 0; ++it, --rit)
+		ds::swap(*it, *rit);
+}
+
+// a very fast quick sort.
+template<typename It, class C = less<decltype(*decl<It &>())>
+		, enable_if_t<is_integral<decltype(decl<It &>() - decl<It &>())>::value,int> = 0
+		, enable_if_t<is_same<decltype(decl<It &>() < decl<It &>()),bool>::value,int> = 0
+		, enable_if_t<is_same<decltype(decl<It &>() - size_t(1)),It>::value,int> = 0
+		, enable_if_t<is_same<decltype(decl<It &>() + size_t(1)),It>::value,int> = 0
+	> 
+void 
+sort(It begin_, It end_, C && compare = {}) noexcept
+{
+	while(begin_ < end_)
+	{
+		It const last_ = end_ - 1;
+		size_t const size_ = (end_ - begin_);
+		if(size_ == 1)
+			break;
+		if(size_ == 2)
+		{
+			auto & a = *(begin_), & b = *(begin_+1);
+			if(compare(b, a))
+				ds::swap(b, a);
+			break;
+		}
+		else if(size_ == 3)
+		{
+			auto & a = *(begin_), & b = *(begin_+1), & c = *(begin_+2);
+			if(compare(b, a))
+			{
+				if(compare(c, b))
+					ds::swap(c, a);
+				else if(compare(c, a))
+				{
+					auto ta = a;
+					a = b;
+					b = c;
+					c = ta;
+				}
+				else
+					ds::swap(b, a);
+			}
+			else if(compare(c, a))
+			{
+				auto ta = a;
+				a = c;
+				c = b;
+				b = ta;
+			}
+			else
+			{
+				if(compare(c, b))
+					ds::swap(c, b);
+			}
+			break;
+		}
+		else
+		{
+			{
+				bool sorted = true;
+				bool reverse_sorted = true;
+				for(It it = begin_; it < last_; ++it)
+				{
+					if(sorted)
+					{
+						if(compare(*(it+1), *it))
+						{
+							sorted = false;
+							if(!reverse_sorted)
+								break;
+						}
+					}
+					if(reverse_sorted)
+					{
+						if(compare(*it, *(it+1)))
+						{
+							reverse_sorted = false;
+							if(!sorted)
+								break;
+						}
+					}
+				}
+				if(sorted)
+					break;
+				else if(reverse_sorted)
+				{
+					for(It it = begin_, rit = last_; it < rit; ++it, --rit)
+						ds::swap(*it, *rit);
+					break;
+				}
+			}
+			{
+				It pivot = begin_;
+				It left  = begin_ + 1;
+				It right = last_;
+				while(left < right)
+				{
+					while(left < right && compare(*left, *pivot))
+						++left;
+					while(!(right < left) && !compare(*right, *pivot))
+						--right;
+					if(left < right)
+						ds::swap(*left, *right);
+				}
+				if(pivot < right)
+					ds::swap(*right, *pivot);
+				if((end_ - left) > 1)
+					ds::sort(left, end_, compare);
+				end_ = left;
+			}
+		}
+	}
+}
 
 } // namespace ds
 
