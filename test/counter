@@ -2,6 +2,8 @@
 #ifndef COUNTER
 #define COUNTER
 
+#include <ds/common>
+
 struct Counter
 {
 	using value_t = int;
@@ -104,5 +106,17 @@ thread_local Counter::value_t Counter::_moves  = 0;
 thread_local Counter::value_t Counter::_copies = 0;
 
 using counter = Counter;
+
+namespace ds {
+	
+template <>
+struct Hasher<Counter>
+{
+	static constexpr size_t hash(Counter const & c) { return Hasher<int>::hash(c.value()); }
+	static constexpr size_t hash(int i) { return Hasher<int>::hash(i); }
+};
+
+
+} // namespace ds
 
 #endif // COUNTER
