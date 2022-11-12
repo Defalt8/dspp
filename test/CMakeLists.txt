@@ -15,4 +15,7 @@ add_test( NAME unique COMMAND unique_test )
 add_executable( persistent_test persistent/persistent.cpp ) 
 add_test( NAME persistent COMMAND persistent_test )
 
+add_executable( shared_test shared/shared.cpp ) 
+add_test( NAME shared COMMAND shared_test )
+
 enable_testing()
