@@ -1,0 +1,224 @@
+#pragma once
+#ifndef DS_SHARED
+#define DS_SHARED
+
+#include "common"
+#include "traits/allocator"
+#include "allocator"
+
+namespace ds {
+
+template <typename T, class A = DefaultAllocator> class Shared;
+
+namespace traits {
+
+	template <typename T, class A>
+	struct allocator<Shared<T,A>> : public allocator_traits<A> {};
+
+	template <typename T, class A>
+	struct allocator<Shared<T,A> const> : public allocator_traits<A> {};
+
+} // namespace trait
+
+
+/// @brief  Manages the dynamic lifetime of an object of type `T`.  
+/// @brief   The object is destroyed when the owning `Shared` instance is destroyed.  
+/// @brief     But the handle is kept and used to inform other references that it 
+/// @brief     has been destroyed. The handle is destroyed with the last referencing 
+/// @brief     instance.
+/// @brief   Both copies and moves are allowed.
+/// @tparam T object type.
+/// @tparam A allocator type. default is `DefaultAllocator`
+template <typename T, class A>
+class Shared
+{
+	using count_t = size_t;
+	
+	struct Storage
+	{
+		T      * object {};
+		count_t  references = 1;
+		Shared * owner = nullptr;
+
+		Storage(Storage &&) = delete;
+		Storage(Storage const &) = delete;
+
+		template <typename... Args>
+		Storage(Shared * owner_, Args &&... args)
+			: object { construct_at_safe<T>(_allocate(sizeof(T), alignof(T)), ds::forward<Args>(args)...) }
+			, owner  { owner_ }
+		{}
+
+	};
+
+	Storage * _ptr = nullptr;
+
+	static inline void
+	_deallocate(void * block_) noexcept
+	{
+		A::deallocate(block_);
+	}
+
+	DS_nodiscard static inline void * 
+	_allocate(size_t size_, align_t align_)
+	{
+		return A::allocate(size_, align_);
+	}
+
+ public:
+	struct null_pointer : public exception
+	{
+		char const * what() const noexcept { return "null pointer"; }
+	};
+
+	static constexpr size_t usage() noexcept { return sizeof(Storage) + sizeof(T); }
+	// amount of dynamic memory required to continuously create 'count_' `Shared` objects  
+	static constexpr size_t 
+	usage(size_t count_) noexcept 
+	{
+		constexpr size_t single_ = usage();
+		constexpr size_t offset_ = -single_ & (alignof(Storage) - 1);
+		return (single_ + offset_) * count_;
+	}
+
+	~Shared() noexcept
+	{
+		this->destroy();
+	}
+
+	Shared(noinit_t)
+	{}
+
+	Shared()
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this) }
+	{}
+
+	template <typename Arg, typename... Args
+			, enable_if_t<!is_same<remove_cvref_t<Arg>,Shared>::value,int> = 0
+			, enable_if_t<is_constructible<T,Arg,Args...>::value,int> = 0
+		>
+	Shared(Arg && arg, Args &&... args)
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this, ds::forward<Arg>(arg), ds::forward<Args>(args)...) }
+	{}
+
+	Shared(Shared && rhs) noexcept
+		: _ptr { rhs._ptr }
+	{
+		rhs._ptr = nullptr;
+		if(_ptr && _ptr->owner == &rhs)
+			_ptr->owner = this;
+	}
+
+	Shared(Shared const & rhs) noexcept
+		: _ptr { rhs._ptr }
+	{
+		if(_ptr)
+			++_ptr->references;
+	}
+
+	Shared & 
+	operator=(Shared && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			if(_ptr && _ptr->owner == &rhs)
+				_ptr->owner = this;
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	Shared & 
+	operator=(Shared const & rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->destroy();
+			if(rhs._ptr)
+			{
+				_ptr = rhs._ptr;
+				++_ptr->references;
+			}
+		}
+		return *this;
+	}
+	
+	inline bool operator!() const noexcept { return _ptr == nullptr || _ptr->object == nullptr; }
+
+	explicit inline operator bool()        noexcept { return _ptr != nullptr && _ptr->object != nullptr; }
+	explicit inline operator bool()  const noexcept { return _ptr != nullptr && _ptr->object != nullptr; }
+
+	inline T       & operator*()        noexcept { return *_ptr->object; }
+	inline T const & operator*()  const noexcept { return *_ptr->object; }
+
+	inline T       * operator->()       noexcept { return _ptr ? _ptr->object : nullptr; }
+	inline T const * operator->() const noexcept { return _ptr ? _ptr->object : nullptr; }
+
+	inline T       * ptr()       noexcept { return _ptr ? _ptr->object : nullptr; }
+	inline T const * ptr() const noexcept { return _ptr ? _ptr->object : nullptr; }
+
+	inline count_t ref_count()        noexcept { return _ptr ? _ptr->references : 0; }
+	inline count_t ref_count()  const noexcept { return _ptr ? _ptr->references : 0; }
+
+	inline bool is_owner()        noexcept { return _ptr && _ptr->owner == this; }
+	inline bool is_owner()  const noexcept { return _ptr && _ptr->owner == this; }
+
+	T & 
+	ref() noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr || _ptr->object == nullptr, null_pointer());
+		return *_ptr->object;
+	}
+
+	T const & 
+	ref() const noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr || _ptr->object == nullptr, null_pointer());
+		return *_ptr->object;
+	}
+
+	void 
+	destroy() noexcept
+	{
+		if(_ptr)
+		{
+			if(_ptr->object && _ptr->owner == this)
+			{
+				destruct(*_ptr->object);
+				_deallocate(_ptr->object);
+				_ptr->object = nullptr;
+				_ptr->owner  = nullptr;
+			}
+			if(--_ptr->references == 0)
+			{
+				destruct(*_ptr);
+				_deallocate(_ptr);
+				_ptr = nullptr;
+			}
+		}
+	}
+
+	inline void 
+	swap(Shared & rhs) noexcept
+	{
+		ds::swap(_ptr, rhs._ptr);
+	}
+
+};
+
+
+template <typename T, class A = DefaultAllocator> 
+using shared = Shared<T,A>;
+
+
+template <typename T, class A>
+struct usage<Shared<T,A>> { static constexpr size_t value = Shared<T,A>::usage(); };
+
+template <typename T, class A, size_t count_>
+struct usage_n<Shared<T,A>,count_> { static constexpr size_t value = Shared<T,A>::usage(count_); };
+
+
+} // namespace ds
+
+#endif // DS_SHARED

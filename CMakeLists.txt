@@ -10,6 +10,7 @@ set( DS_HEADER_FILES
 	include/ds/fixed
 	include/ds/unique
 	include/ds/persistent
+	include/ds/shared
 )
  
 add_library( dspp INTERFACE )
