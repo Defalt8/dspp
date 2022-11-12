@@ -1,0 +1,485 @@
+#pragma once
+#ifndef DS_VARIANT
+#define DS_VARIANT
+
+#include "common"
+
+namespace ds {
+
+template <typename... Ts>
+class Variant
+{};
+
+namespace _ {
+
+	using union_index_t = uint8_t;
+
+	template <typename... Ts>
+	union Union
+	{};
+
+
+	template <union_index_t index_, typename... Ts>
+	struct union_at_index
+	{};
+
+	template <union_index_t index_, typename T, typename... Ts>
+	struct union_at_index<index_,T,Ts...>
+	{
+		using type = typename union_at_index<index_-1,Ts...>::type;
+	};
+
+	template <typename T, typename... Ts>
+	struct union_at_index<0,T,Ts...>
+	{
+		using type = _::Union<T,Ts...>;
+	};
+
+	template <typename T>
+	struct union_at_index<0,T>
+	{
+		using type = _::Union<T>;
+	};
+
+	template <>
+	struct union_at_index<0>
+	{
+		using type = _::Union<>;
+	};
+
+	template <union_index_t index_, typename... Ts>
+	using union_at_union_index_t = typename union_at_index<index_,Ts...>::type;
+
+
+	template <typename T, typename... Ts>
+	union Union<T,Ts...>
+	{
+		T object;
+		Union<Ts...> others;
+		
+		~Union() noexcept {}
+
+		Union() {}
+
+		template <typename T_, typename... Args
+				, enable_if_t<is_same<T_,T>::value,int> = 0
+				, enable_if_t<is_constructible<T,Args...>::value,int> = 0
+			>
+		Union(ds::in_place_t<T_>, Args &&... args)
+			: object { ds::forward<Args>(args)... }
+		{}
+
+		template <typename T_, typename... Args
+				, enable_if_t<!is_same<T_,T>::value,int> = 0
+				, enable_if_t<is_type_in_pack<remove_cvref_t<T_>,Ts...>::value,int> = 0
+			>
+		Union(ds::in_place_t<T_> in_place_, Args &&... args)
+			: others { in_place_, ds::forward<Args>(args)... }
+		{}
+
+		template <typename T_
+				, enable_if_t<is_same<remove_cvref_t<T_>,T>::value,int> = 0
+			>
+		Union(T_ && object_)
+			: object { ds::forward<T_>(object_) }
+		{}
+
+		template <typename T_
+				, enable_if_t<!is_same<remove_cvref_t<T_>,T>::value,int> = 0
+				, enable_if_t<is_type_in_pack<remove_cvref_t<T_>,Ts...>::value,int> = 0
+			>
+		Union(T_ && object_)
+			: others { ds::forward<T_>(object_) }
+		{}
+
+	};
+
+	template <union_index_t size_, union_index_t index_, bool = (index_ < size_)>
+	struct variant_destructor
+	{
+		template <typename T, typename... Ts>
+		static constexpr void _destruct(ds::Variant<T,Ts...> &) noexcept;
+	};
+
+	template <union_index_t size_, union_index_t index_>
+	struct variant_destructor<size_,index_,true>
+	{
+		template <typename T, typename... Ts>
+		static constexpr void 
+		_destruct(ds::Variant<T,Ts...> & variant) noexcept
+		{
+			destruct(variant.template at<index_>());
+		}
+	};
+
+	template <typename Func, typename... Args, typename = decltype(ds::decl<Func>()(ds::decl<Args>()...))>
+	static constexpr ds::true_type _is_callable(int);
+	template <typename Func, typename... Args>
+	static constexpr ds::false_type _is_callable(...);
+
+
+} // namespace _
+
+template <typename Func, typename... Args>
+struct is_callable : decltype(_::_is_callable<Func,Args...>(0)) {};
+
+template <typename T, typename... Ts>
+class Variant<T,Ts...>
+{
+	using union_t = _::Union<T,Ts...>;
+
+ public:
+	using index_t = _::union_index_t;
+	static constexpr index_t invalid_index = index_t(-1);
+
+ private:
+	union_t m_union;
+	index_t m_index = invalid_index;
+
+	static constexpr index_t size_ = sizeof...(Ts) + 1;
+	static_assert(size_ < index_t(-1), "only a maximum of 254 variant types allowed!");
+
+	template <index_t i_ = 0, typename Func
+		, enable_if_t<(i_ < size_),int> = 0
+		, typename... Args>
+	constexpr void
+	_get_to_index(Func && func, Args &&... args)
+	{
+		if(i_ == m_index)
+			func.template call<i_>(*this, ds::forward<Args>(args)...);
+		else
+		{
+			size_t const delta_ = m_index - i_;
+			if(delta_ >= 11)
+				this->_get_to_index<i_+11>(func, ds::forward<Args>(args)...);
+			else if(delta_ >= 5)
+				this->_get_to_index<i_+5>(func, ds::forward<Args>(args)...);
+			else
+				this->_get_to_index<i_+1>(func, ds::forward<Args>(args)...);
+		}
+	}
+
+	template <index_t i_ = 0, typename Func
+		, enable_if_t<(i_ < size_),int> = 0
+		, typename... Args>
+	constexpr void
+	_get_to_index(Func && func, Args &&... args) const
+	{
+		if(i_ == m_index)
+			func.template call<i_>(*this, ds::forward<Args>(args)...);
+		else
+		{
+			size_t const delta_ = m_index - i_;
+			if(delta_ >= 11)
+				this->_get_to_index<i_+11>(func, ds::forward<Args>(args)...);
+			else if(delta_ >= 5)
+				this->_get_to_index<i_+5>(func, ds::forward<Args>(args)...);
+			else
+				this->_get_to_index<i_+1>(func, ds::forward<Args>(args)...);
+		}
+	}
+
+	template <index_t i_ = 0, typename Func
+		, enable_if_t<(i_ >= size_),int> = 0
+		, typename... Args>
+	constexpr void
+	_get_to_index(Func && func, Args &&... args) const
+	{}
+
+	struct _destructor
+	{
+		template <index_t i_>
+		constexpr void
+		call(Variant & this_) const noexcept
+		{
+			_::variant_destructor<size_,i_>::_destruct(this_); 
+		}
+	};
+
+	constexpr void
+	_destroy() noexcept
+	{
+		if DS_constexpr17 (!are_all_true<is_trivially_destructible<T>,is_trivially_destructible<Ts>...>::value)
+			this->_get_to_index<>(_destructor());
+	}
+	
+	struct _visitor
+	{
+		template <index_t i_, typename Func
+				, enable_if_t<(
+					   is_callable<Func,type_at_index_t<i_,T,Ts...> &>::value
+					|| is_callable<Func,type_at_index_t<i_,T,Ts...> const &>::value
+				),int> = 0
+			>
+		constexpr void
+		call(Variant & this_, Func && func) const
+		{
+			func(this_.at<i_>()); 
+		}
+		
+		template <index_t i_, typename Func
+				, enable_if_t<!(
+					   is_callable<Func,type_at_index_t<i_,T,Ts...> &>::value
+					|| is_callable<Func,type_at_index_t<i_,T,Ts...> const &>::value
+				),int> = 0
+			>
+		constexpr void
+		call(Variant & this_, Func && func) const noexcept(false)
+		{
+			throw missing_caller();
+		}
+		
+		template <index_t i_, typename Func
+			, enable_if_t<is_callable<Func,type_at_index_t<i_,T,Ts...> const &>::value,int> = 0>
+		constexpr void
+		call(Variant const & this_, Func && func) const
+		{
+			func(this_.at<i_>()); 
+		}
+
+		template <index_t i_, typename Func
+			, enable_if_t<!is_callable<Func,type_at_index_t<i_,T,Ts...> const &>::value,int> = 0>
+		constexpr void
+		call(Variant const & this_, Func && func) const noexcept(false)
+		{
+			throw missing_caller();
+		}
+		
+	};
+
+	struct _visitor_nt
+	{
+		template <index_t i_, typename Func
+				, enable_if_t<(
+					   is_callable<Func,type_at_index_t<i_,T,Ts...> &>::value
+					|| is_callable<Func,type_at_index_t<i_,T,Ts...> const &>::value
+				),int> = 0
+			>
+		constexpr void
+		call(Variant & this_, Func && func) const noexcept
+		{
+			func(this_.at<i_>()); 
+		}
+		
+		template <index_t i_, typename Func
+				, enable_if_t<!(
+					   is_callable<Func,type_at_index_t<i_,T,Ts...> &>::value
+					|| is_callable<Func,type_at_index_t<i_,T,Ts...> const &>::value
+				),int> = 0
+			>
+		constexpr void
+		call(Variant & this_, Func && func) const noexcept
+		{}
+		
+		template <index_t i_, typename Func
+			, enable_if_t<is_callable<Func,type_at_index_t<i_,T,Ts...> const &>::value,int> = 0>
+		constexpr void
+		call(Variant const & this_, Func && func) const noexcept
+		{
+			func(this_.at<i_>()); 
+		}
+
+		template <index_t i_, typename Func
+			, enable_if_t<!is_callable<Func,type_at_index_t<i_,T,Ts...> const &>::value,int> = 0>
+		constexpr void
+		call(Variant const & this_, Func && func) const noexcept
+		{}
+		
+	};
+
+	template <typename Func>
+	constexpr void _visit(Func && func) noexcept(false) { this->_get_to_index<>(_visitor(), func); }
+
+	template <typename Func>
+	constexpr void _visit(Func && func) const noexcept(false) { this->_get_to_index<>(_visitor(), func); }
+
+	template <typename Func>
+	constexpr void _visit_nt(Func && func) noexcept
+	{
+		this->_get_to_index<>(_visitor_nt(), func);
+	}
+
+	template <typename Func>
+	constexpr void _visit_nt(Func && func) const noexcept
+	{
+		this->_get_to_index<>(_visitor_nt(), func);
+	}
+
+ public:
+	struct wrong_index : public exception { char const * what() const noexcept { return "wrong variant index"; } };
+	struct wrong_type  : public exception { char const * what() const noexcept { return "wrong variant type"; } };
+	struct missing_caller : public exception { char const * what() const noexcept { return "missing caller for active variant type"; } };
+
+	~Variant() noexcept
+	{
+		if(m_index != invalid_index)
+			this->_destroy();
+	}
+
+	Variant(Variant && rhs) 
+	{}
+
+	Variant(Variant const & rhs)
+	{}
+	
+	Variant()
+	{}
+
+	template <typename T_, typename... Args
+			, index_t   index_ = type_index<T_,0,T,Ts...>::value
+			, enable_if_t<(index_ < size_),int> = 0
+			, enable_if_t<is_constructible<union_t,in_place_t<T_>,Args...>::value,int> = 0
+		>
+	Variant(in_place_t<T_> in_place_, Args &&... args)
+		: m_union { in_place_, ds::forward<Args>(args)... }
+		, m_index { index_ }
+	{}
+
+	template <typename T_
+			, index_t   index_ = type_index<remove_cvref_t<T_>,0,T,Ts...>::value
+			, typename U      = type_at_index_t<index_,T,Ts...>
+			, enable_if_t<(index_ < size_),int> = 0
+		>
+	Variant(T_ && object_)
+		: m_union { ds::forward<T_>(object_) }
+		, m_index { index_ }
+	{}
+
+	template <typename Func>
+	constexpr void
+	visit(Func && func) noexcept(false)
+	{
+		if(m_index != invalid_index)
+			this->_visit(func);
+	}
+
+	template <typename Func>
+	constexpr void
+	visit(Func && func) const noexcept(false)
+	{
+		if(m_index != invalid_index)
+			this->_visit(func);
+	}
+
+	template <typename Func>
+	constexpr void
+	visit_nt(Func && func) noexcept
+	{
+		if(m_index != invalid_index) 
+			this->_visit_nt(ds::forward<Func>(func));
+	}
+
+	template <typename Func>
+	constexpr void
+	visit_nt(Func && func) const noexcept
+	{
+		if(m_index != invalid_index) 
+			this->_visit_nt(ds::forward<Func>(func));
+	}
+
+	template <index_t index_
+			, enable_if_t<index_ != invalid_index,int> = 0
+			, enable_if_t<index_ < size_,int> = 0
+			, typename R = type_at_index_t<index_,T,Ts...>
+		>
+	constexpr R &
+	at() noexcept(false)
+	{
+		ds_throw_if(m_index != index_, wrong_index());
+		return reinterpret_cast<R &>(m_union);
+	}
+
+	template <index_t index_
+			, enable_if_t<index_ != invalid_index,int> = 0
+			, enable_if_t<index_ < size_,int> = 0
+			, typename R = type_at_index_t<index_,T,Ts...>
+		>
+	constexpr R const &
+	at() const noexcept(false)
+	{
+		ds_throw_if(m_index != index_, wrong_index());
+		return reinterpret_cast<R const &>(m_union);
+	}
+
+	template <typename T_
+			, index_t index_ = type_index<T_,0,T,Ts...>::value
+			, enable_if_t<index_ != invalid_index,int> = 0
+			, enable_if_t<(index_ < size_),int> = 0
+			, typename R = type_at_index_t<index_,T,Ts...>
+		>
+	constexpr R &
+	get() noexcept(false)
+	{
+		ds_throw_if(m_index != index_, wrong_type());
+		return reinterpret_cast<R &>(m_union);
+	}
+
+	template <typename T_
+			, index_t index_ = type_index<T_,0,T,Ts...>::value
+			, enable_if_t<index_ != invalid_index,int> = 0
+			, enable_if_t<(index_ < size_),int> = 0
+			, typename R = type_at_index_t<index_,T,Ts...>
+		>
+	constexpr R const &
+	get() const noexcept(false)
+	{
+		ds_throw_if(m_index != index_, wrong_type());
+		return reinterpret_cast<R &>(m_union);
+	}
+
+	template <index_t index_
+			, enable_if_t<index_ != invalid_index,int> = 0
+			, enable_if_t<index_ < size_,int> = 0
+			, typename R = type_at_index_t<index_,T,Ts...>
+		>
+	constexpr R &
+	at_nt() noexcept
+	{
+		return reinterpret_cast<R &>(m_union);
+	}
+
+	template <index_t index_
+			, enable_if_t<index_ != invalid_index,int> = 0
+			, enable_if_t<index_ < size_,int> = 0
+			, typename R = type_at_index_t<index_,T,Ts...>
+		>
+	constexpr R const &
+	at_nt() const noexcept
+	{
+		return reinterpret_cast<R const &>(m_union);
+	}
+
+	template <typename T_
+			, index_t index_ = type_index<T_,0,T,Ts...>::value
+			, enable_if_t<index_ != invalid_index,int> = 0
+			, enable_if_t<(index_ < size_),int> = 0
+			, typename R = type_at_index_t<index_,T,Ts...>
+		>
+	constexpr R &
+	get_nt() noexcept
+	{
+		return reinterpret_cast<R &>(m_union);
+	}
+
+	template <typename T_
+			, index_t index_ = type_index<T_,0,T,Ts...>::value
+			, enable_if_t<index_ != invalid_index,int> = 0
+			, enable_if_t<(index_ < size_),int> = 0
+			, typename R = type_at_index_t<index_,T,Ts...>
+		>
+	constexpr R const &
+	get_nt() const noexcept
+	{
+		return reinterpret_cast<R &>(m_union);
+	}
+
+	index_t index() const noexcept { return m_index; }
+
+};
+
+template <typename... Ts>
+using variant = Variant<Ts...>;
+
+} // namespace ds
+
+#endif // DS_VARIANT

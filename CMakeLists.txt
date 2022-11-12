@@ -12,6 +12,7 @@ set( DS_HEADER_FILES
 	include/ds/persistent
 	include/ds/shared
 	include/ds/tuple
+	include/ds/variant
 )
  
 add_library( dspp INTERFACE )
