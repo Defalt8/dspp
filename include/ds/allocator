@@ -2,27 +2,21 @@
 #ifndef DS_ALLOCATOR
 #define DS_ALLOCATOR
 
-#include <cstddef>
-#include <exception>
-#include "macros"
+#include "common"
 
 namespace ds {
 
-// throwing allocator
-class Allocator 
+// throwing allocator using ::operator new
+class DefaultAllocator 
 {
  public:
 	struct allocation_failure : public std::bad_alloc
 	{
-		char const * 
-		what() const noexcept override
-		{
-			return "failed to allocate the requested amount of memory";
-		}
+		char const * what() const noexcept override { return "failed to allocate the requested amount of memory"; }
 	};
 
 	DS_nodiscard static inline void * 
-	allocate(size_t size_, DS_maybe_unused size_t align_ = alignof(std::max_align_t)) noexcept(false)
+	allocate(size_t size_, DS_maybe_unused size_t align_ = alignof(max_align_t)) noexcept(false)
 	{
 		void * block_ = ::operator new(size_, std::nothrow);
 		ds_throw_if(!block_, allocation_failure());
@@ -38,12 +32,12 @@ class Allocator
 
 };
 
-// no throw allocator
-class AllocatorNT 
+// no throw allocator using ::operator new
+class DefaultAllocatorNT 
 {
  public:
 	DS_nodiscard static inline void * 
-	allocate(size_t size_, DS_maybe_unused size_t align_ = alignof(std::max_align_t)) noexcept
+	allocate(size_t size_, DS_maybe_unused size_t align_ = alignof(max_align_t)) noexcept
 	{
 		return ::operator new(size_, std::nothrow);
 	}
@@ -56,8 +50,154 @@ class AllocatorNT
 
 };
 
-using allocator = Allocator;
-using allocator_nt = AllocatorNT;
+template <class UID, class A>
+class AllocatorInterface
+{
+	static thread_local A * _allocator;
+
+ public:
+	struct interface_busy : exception 
+	{
+		char const * what() const noexcept override { return "allocator interface busy"; }
+	};
+
+	AllocatorInterface(A & allocator_)
+	{
+		if(_allocator)
+			throw interface_busy();
+		_allocator = &allocator_;
+	}
+	
+	~AllocatorInterface()
+	{
+		_allocator = nullptr;
+	}
+
+	DS_nodiscard static inline void * 
+	allocate(size_t size_, size_t align_ = alignof(max_align_t))
+	{
+		return _allocator->allocate(size_, align_);
+	}
+
+	static inline void 
+	deallocate(void * block_) noexcept
+	{
+		_allocator->deallocate(block_);
+	}
+
+};
+
+template <class UID, class A>
+thread_local A * AllocatorInterface<UID,A>::_allocator = nullptr;
+
+/// AlignedBytes ///
+template <size_t size_, size_t align_ = alignof(max_align_t)>
+struct AlignedBytes
+{
+	alignas(align_) byte_t bytes[size_];
+	
+	AlignedBytes(noinit_t)
+	{}
+	
+	AlignedBytes()
+		: bytes {}
+	{}
+	
+	size_t      size()  const noexcept { return size_; }
+	byte_ptr_t  begin()       noexcept { return &bytes[0]; }
+	byte_ptr_t  end()         noexcept { return &bytes[size_]; }
+	byte_cptr_t begin() const noexcept { return &bytes[0]; }
+	byte_cptr_t end()   const noexcept { return &bytes[size_]; }
+};
+
+/// LocalForwardAllocator ///
+template <size_t sz_, size_t al_ = alignof(max_align_t)>
+class LocalForwardAllocator
+{
+	AlignedBytes<sz_,al_>     mem;
+	byte_ptr_t                head = &mem.bytes[0];
+
+ public:
+	struct allocation_failure : public std::bad_alloc
+	{
+		char const * what() const noexcept override { return "failed to allocate the requested amount of memory"; }
+	};
+
+	LocalForwardAllocator(noinit_t)
+		: mem {noinit}
+	{}
+
+	LocalForwardAllocator()
+		: mem {}
+	{}
+
+	DS_nodiscard void * 
+	allocate(size_t size_, align_t align_ = alignof(max_align_t)) noexcept(false)
+	{
+		size_t      const offset_  = (~size_t(head)+1) & (--align_);
+		byte_ptr_t  const block_   = head + offset_;
+		byte_cptr_t const mem_end = mem.end();
+		if(block_ >= mem_end || size_t(mem_end - block_) < size_)
+		{
+			ds_throw(allocation_failure());
+			ds_throw_alt(return nullptr);
+		}
+		head = block_ + size_;
+		return block_;
+	}
+
+	inline void 
+	deallocate(void * block_) noexcept
+	{}
+
+};
+
+/// LocalForwardAllocatorNT ///
+template <size_t sz_, size_t al_ = alignof(max_align_t)>
+class LocalForwardAllocatorNT
+{
+	AlignedBytes<sz_,al_>     mem {};
+	byte_ptr_t                head = &mem.bytes[0];
+
+ public:
+	struct allocation_failure : public std::bad_alloc
+	{
+		char const * what() const noexcept override { return "failed to allocate the requested amount of memory"; }
+	};
+
+	DS_nodiscard void * 
+	allocate(size_t size_, align_t align_ = alignof(max_align_t)) noexcept
+	{
+		size_t      const offset_  = (~size_t(head)+1) & (--align_);
+		byte_ptr_t  const block_   = head + offset_;
+		byte_cptr_t const mem_end = mem.end();
+		if(block_ >= mem_end || size_t(mem_end - block_) < size_)
+			return nullptr;
+		head = block_ + size_;
+		return block_;
+	}
+
+	inline void 
+	deallocate(void * block_) noexcept
+	{}
+
+};
+
+using default_allocator    = DefaultAllocator;
+using default_allocator_nt = DefaultAllocatorNT;
+
+template <class UID, class A>
+using allocator_interface = AllocatorInterface<UID,A>;
+
+template <size_t size_, align_t align_ = alignof(max_align_t)>
+using aligned_bytes = AlignedBytes<size_,align_>;
+
+template <size_t size_, align_t align_ = alignof(max_align_t)>
+using local_forward_allocator = LocalForwardAllocator<size_,align_>;
+
+template <size_t size_, align_t align_ = alignof(max_align_t)>
+using local_forward_allocator_nt = LocalForwardAllocatorNT<size_,align_>;
+
 
 } // namespace ds
 
