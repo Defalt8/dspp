@@ -57,14 +57,28 @@ struct Entry
 		, value { ds::forward<V_>(value_) }
 	{}
 
-	inline bool 
+	constexpr bool 
 	operator==(Entry const & rhs) const noexcept
 	{ return key == rhs.key; }
 
-	inline bool 
+	constexpr bool 
 	operator==(K const & key_) const noexcept
 	{ return key == key_; }
 
+	template <typename T, typename = decltype(decl<K>() == decl<T>())>
+	constexpr bool 
+	operator==(T && key_) const noexcept
+	{ return key == key_; }
+
+};
+
+template <typename K, typename V>
+struct Hasher<Entry<K,V>>
+{
+	static inline size_t hash(Entry<K,V> const & s) { return Hasher<K>::hash(s.key); }
+	static inline size_t hash(K const & key) { return Hasher<K>::hash(key); }
+	template <typename T, typename = decltype(Hasher<K>::hash(decl<T>()))>
+	static inline size_t hash(T && key) { return Hasher<K>::hash(key); }
 };
 
 using hash_map_param = hash_list_param;
@@ -100,14 +114,14 @@ class HashMap : protected HashList<table_size_,Entry<K,V>,A>
 		: HashList<table_size_,entry_t,A>(ds::forward<Begin>(begin_), ds::forward<End>(end_), param)
 	{}
 
-	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<remove_cvref_t<K_>>()))>
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
 	value_t & 
 	operator[](K_ && key)
 	{
 		return this->insert_replace(ds::forward<K_>(key))->value;
 	}
 
-	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<remove_cvref_t<K_>>()))>
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
 	value_t & 
 	operator[](K_ && key) const noexcept
 	{
@@ -115,8 +129,9 @@ class HashMap : protected HashList<table_size_,Entry<K,V>,A>
 	}
 
 	template <typename K_, typename V_
-		, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
-		, typename = decltype(Hasher<entry_t>::hash(decl<remove_cvref_t<K_>>()))>
+			, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
+			, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))
+		>
 	inline iterator_t
 	set(K_ && key, V_ && value)
 	{
@@ -125,21 +140,21 @@ class HashMap : protected HashList<table_size_,Entry<K,V>,A>
 
 	template <typename K_, typename V_
 		, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
-		, typename = decltype(Hasher<entry_t>::hash(decl<remove_cvref_t<K_>>()))>
+		, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
 	inline iterator_t
 	set_noreplace(K_ && key, V_ && value)
 	{
 		return this->emplace_unique(ds::forward<K_>(key), ds::forward<V_>(value));
 	}
 
-	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<remove_cvref_t<K_>>()))>
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
 	iterator_t
 	get(K_ && key) noexcept
 	{
 		return this->position_of(ds::forward<K_>(key));
 	}
 
-	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<remove_cvref_t<K_>>()))>
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
 	const_iterator_t
 	get(K_ && key) const noexcept
 	{
@@ -161,15 +176,11 @@ class HashMap : protected HashList<table_size_,Entry<K,V>,A>
 };
 
 
-template <size_t table_size_, typename K, typename V, class A>
-using hash_map = HashMap<table_size_,K,V,A>;
-
 template <typename K, typename V>
-struct Hasher<Entry<K,V>>
-{
-	static inline size_t hash(Entry<K,V> const & s) { return Hasher<K>::hash(s.key); }
-	static inline size_t hash(K const & key) { return Hasher<K>::hash(key); }
-};
+using entry = Entry<K,V>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::DefaultAllocator>
+using hash_map = HashMap<table_size_,K,V,A>;
 
 
 } // namespace ds

@@ -389,7 +389,7 @@ class HashList
 		return A::allocate(size_, align_);
 	}
 	
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<remove_cvref_t<T>>()))>
+	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
 	inline size_t 
 	_hash_index(T && object) const noexcept
 	{
@@ -397,14 +397,14 @@ class HashList
 		return hash_ % m_data->table.size();
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<remove_cvref_t<T>>()))>
+	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
 	inline node_t * &
 	_hash_entry(T && object) noexcept
 	{
 		return m_data->table[_hash_index(object)];
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<remove_cvref_t<T>>()))>
+	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
 	inline node_t * &
 	_hash_entry_and_index(T && object, size_t & index) noexcept
 	{
@@ -710,7 +710,7 @@ class HashList
 
 	template <typename T = E
 		, enable_if_t<is_constructible<E,T>::value,int> = 0
-		, typename = decltype(Hasher<E>::hash(decl<remove_cvref_t<T>>()))>
+		, typename = decltype(Hasher<E>::hash(decl<T>()))>
 	iterator_t
 	insert(T && object)
 	{
@@ -721,7 +721,7 @@ class HashList
 
 	template <typename T = E
 		, enable_if_t<is_constructible<E,T>::value,int> = 0
-		, typename = decltype(Hasher<E>::hash(decl<remove_cvref_t<T>>()))>
+		, typename = decltype(Hasher<E>::hash(decl<T>()))>
 	iterator_t
 	insert_unique(T && object)
 	{
@@ -732,7 +732,7 @@ class HashList
 
 	template <typename T = E
 		, enable_if_t<is_constructible<E,T>::value,int> = 0
-		, typename = decltype(Hasher<E>::hash(decl<remove_cvref_t<T>>()))>
+		, typename = decltype(Hasher<E>::hash(decl<T>()))>
 	iterator_t
 	insert_replace(T && object)
 	{
@@ -776,16 +776,16 @@ class HashList
 		return true;
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<remove_cvref_t<T>>()))>
+	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
 	inline bool
 	remove(T && object) noexcept
 	{
 		return remove_at(position_of(object));
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<remove_cvref_t<T>>()))>
+	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
 	iterator_t 
-	position_of(T && object) noexcept
+	position_of(T && object, size_t skip_ = 0) noexcept
 	{
 		if(m_data)
 		{
@@ -793,7 +793,7 @@ class HashList
 			auto & entry = _hash_entry_and_index(object, hash_index);
 			for(auto node = entry; node != nullptr; node = node->prev)
 			{
-				if(node->object == object)
+				if(node->object == object && skip_-- == 0)
 					return { this, node };
 				else if(_hash_index(node->object) != hash_index)
 					break;
@@ -802,9 +802,9 @@ class HashList
 		return { this, nullptr, 1 };
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<remove_cvref_t<T>>()))>
+	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
 	const_iterator_t 
-	position_of(T && object) const noexcept
+	position_of(T && object, size_t skip_ = 0) const noexcept
 	{
 		if(m_data->first)
 		{
@@ -812,7 +812,7 @@ class HashList
 			auto & entry = _hash_entry_and_index(object, hash_index);
 			for(auto node = entry; node != nullptr; node = node->prev)
 			{
-				if(node->object == object)
+				if(node->object == object && skip_-- == 0)
 					return { this, node };
 				else if(_hash_index(node->object) != hash_index)
 					break;
