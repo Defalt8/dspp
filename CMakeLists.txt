@@ -1,5 +1,5 @@
 cmake_minimum_required( VERSION 3.4 )
-project( dspp VERSION 0.8.32 LANGUAGES CXX )
+project( dspp VERSION 0.16.55 LANGUAGES CXX )
 
 set( DS_HEADER_FILES
 	include/ds/macros
@@ -17,6 +17,7 @@ set( DS_HEADER_FILES
 	include/ds/string
 	include/ds/list
 	include/ds/hash_list
+	include/ds/hash_map
 )
  
 add_library( dspp INTERFACE )
