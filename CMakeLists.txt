@@ -11,6 +11,7 @@ set( DS_HEADER_FILES
 	include/ds/unique
 	include/ds/persistent
 	include/ds/shared
+	include/ds/tuple
 )
  
 add_library( dspp INTERFACE )

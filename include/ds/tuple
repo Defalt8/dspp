@@ -1,0 +1,184 @@
+#pragma once
+#ifndef DS_TUPLE
+#define DS_TUPLE
+
+#include "common"
+
+namespace ds {
+
+template <typename... Ts>
+class Tuple 
+{
+ public:
+	void swap(Tuple & rhs) noexcept {}
+};
+
+
+template <size_t index_, typename... Ts>
+struct tuple_at_index
+{};
+
+template <size_t index_, typename T, typename... Ts>
+struct tuple_at_index<index_,T,Ts...>
+{
+	using type = typename tuple_at_index<index_-1,Ts...>::type;
+};
+
+template <typename T, typename... Ts>
+struct tuple_at_index<0,T,Ts...>
+{
+	using type = Tuple<T,Ts...>;
+};
+
+template <>
+struct tuple_at_index<0>
+{
+	using type = Tuple<>;
+};
+
+template <size_t index_, typename T, typename... Ts>
+using tuple_at_index_t = typename tuple_at_index<index_,T,Ts...>::type;
+
+
+template <typename T, typename... Ts>
+class Tuple<T,Ts...> : protected Tuple<Ts...>
+{
+	T m_object {};
+
+	template <typename... Ts_>
+	friend class Tuple;
+
+	template <size_t i_, typename Func>
+	constexpr int
+	_func_wrapper(Func && do_) 
+	{
+		do_(i_, this->at<i_>());
+		return 0;
+	}
+
+	template <size_t i_, typename Func>
+	constexpr int
+	_func_wrapper(Func && do_) const
+	{
+		do_(i_, this->at<i_>());
+		return 0;
+	}
+
+	template <typename Func, size_t... indices_>
+	constexpr void
+	_for_each_impl(Func && do_, index_sequence<indices_...>)
+	{
+		int _r[] { _func_wrapper<indices_>(do_)... };
+	}
+
+	template <typename Func, size_t... indices_>
+	constexpr void
+	_for_each_impl(Func && do_, index_sequence<indices_...>) const
+	{
+		int _r[] { _func_wrapper<indices_>(do_)... };
+	}
+
+ public:
+	constexpr Tuple() = default;
+	constexpr Tuple(Tuple &&) = default;
+	constexpr Tuple(Tuple const &) = default;
+	Tuple & operator=(Tuple &&) = default;
+	Tuple & operator=(Tuple const &) = default;
+
+	template <typename T_, typename... Ts_
+			, enable_if_t<is_constructible<T,T_>::value,int> = 0
+			, enable_if_t<is_constructible<Tuple<Ts...>,Ts_...>::value,int> = 0>
+	constexpr Tuple(T_ && object_, Ts_ &&... objects_)
+		: Tuple<Ts...> (ds::forward<Ts_>(objects_)...)
+		, m_object     (ds::forward<T_>(object_))
+	{}
+
+	template <size_t index_>
+	inline type_at_index_t<index_,T,Ts...> & 
+	at() noexcept
+	{
+		return static_cast<tuple_at_index_t<index_,T,Ts...> *>(this)->m_object;
+	}
+
+	template <size_t index_>
+	constexpr type_at_index_t<index_,T,Ts...> const & 
+	at() const noexcept
+	{
+		return static_cast<tuple_at_index_t<index_,T,Ts...> const *>(this)->m_object;
+	}
+
+	template <size_t index_>
+	inline tuple_at_index_t<index_,T,Ts...> & 
+	tuple_at() noexcept
+	{
+		return *this;
+	}
+
+	template <size_t index_>
+	constexpr tuple_at_index_t<index_,T,Ts...> const & 
+	tuple_at() const noexcept
+	{
+		return *this;
+	}
+
+	static constexpr size_t size() noexcept { return sizeof...(Ts) + 1; }
+
+	template <size_t start_ = 0, size_t end_ = size(), typename Func
+			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
+			, typename = decltype(decl<Func &>()(size_t(0),decl<T>()))>
+	constexpr void
+	for_each(Func && do_)
+	{
+		_for_each_impl(do_, make_index_sequence_t<start_,end_>());
+	}
+
+	template <size_t start_ = 0, size_t end_ = size(), typename Func
+			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
+			, typename = decltype(decl<Func &>()(size_t(0),decl<T>()))>
+	constexpr void
+	for_each(Func && do_) const
+	{
+		_for_each_impl(do_, make_index_sequence_t<start_,end_>());
+	}
+
+	template <size_t start_ = 0, size_t end_ = size(), typename Func
+			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
+			, typename = decltype(decl<Func &>()(size_t(0),decl<T>()))>
+	constexpr void
+	reverse_for_each(Func && do_)
+	{
+		_for_each_impl(do_, make_reverse_index_sequence_t<start_,end_>());
+	}
+
+	template <size_t start_ = 0, size_t end_ = size(), typename Func
+			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
+			, typename = decltype(decl<Func &>()(size_t(0),decl<T>()))>
+	constexpr void
+	reverse_for_each(Func && do_) const
+	{
+		_for_each_impl(do_, make_reverse_index_sequence_t<start_,end_>());
+	}
+
+	void 
+	swap(Tuple & rhs) noexcept
+	{
+		ds::swap(m_object, rhs.m_object);
+		static_cast<Tuple<Ts...> *>(this)->swap(static_cast<Tuple<Ts...> &>(rhs));
+	}
+
+};
+
+
+template <typename... Ts>
+using tuple = Tuple<Ts...>;
+
+template <typename T, typename... Ts>
+static constexpr Tuple<T,Ts...>
+make_tuple(T && object, Ts &&... objects)
+{
+	return { ds::forward<T>(object), ds::forward<Ts>(objects)... };
+}
+
+} // namespace ds
+
+#endif // DS_TUPLE
