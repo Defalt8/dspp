@@ -28,6 +28,19 @@ struct supports_allocator
 template <typename T>
 using allocator_t = typename ds::traits::allocator<ds::remove_cvref_t<T>>::allocator_t;
 
+namespace enabled {
+
+template <typename T, typename U = ds::allocator_t<T>>
+struct allocator { using type = U; };
+
+template <typename T>
+struct allocator<T,void> {};
+
+} // namespace enabled
+
+template <typename T>
+using enabled_allocator_t = typename ds::enabled::allocator<ds::remove_cvref_t<T>>::type;
+
 } // namespace ds
 
 #endif // DS_TRAITS_ALLOCATOR
