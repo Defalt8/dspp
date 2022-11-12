@@ -16,6 +16,7 @@ set( DS_HEADER_FILES
 	include/ds/array
 	include/ds/string
 	include/ds/list
+	include/ds/hash_list
 )
  
 add_library( dspp INTERFACE )
