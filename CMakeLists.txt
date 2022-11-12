@@ -2,13 +2,14 @@ cmake_minimum_required( VERSION 3.4 )
 project( dspp VERSION 0.2.1 LANGUAGES CXX )
 
 set( DS_HEADER_FILES
-	include/ds/common
 	include/ds/macros
+	include/ds/common
+	include/ds/traits/allocator
+	include/ds/traits/iterator
 	include/ds/allocator
 	include/ds/fixed
-	include/ds/traits/iterator
 )
-
+ 
 add_library( dspp INTERFACE )
 target_include_directories( dspp INTERFACE include )
 set_target_properties( dspp PROPERTIES PUBLIC_HEADER "${DS_HEADER_FILES}" )

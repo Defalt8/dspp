@@ -1,0 +1,280 @@
+#pragma once
+#ifndef DS_TRAITS_ITERATOR
+#define DS_TRAITS_ITERATOR
+
+#include "../common"
+
+namespace ds {
+
+template <
+	typename _element_t = void,
+	typename _size_t = void,
+	typename _indexable_iterator_t        = void,
+	typename _const_indexable_iterator_t  = void const,
+	typename _forward_iterator_t          = void,
+	typename _const_forward_iterator_t    = void const,
+	typename _reverse_iterator_t          = void,
+	typename _const_reverse_iterator_t    = void const
+>
+struct iterable_traits
+{
+	using element_t                  = _element_t;
+	using size_t                     = _size_t;
+	using indexable_iterator_t       = _indexable_iterator_t;
+	using const_indexable_iterator_t = _const_indexable_iterator_t;
+	using forward_iterator_t         = _forward_iterator_t;
+	using const_forward_iterator_t   = _const_forward_iterator_t;
+	using reverse_iterator_t         = _reverse_iterator_t;
+	using const_reverse_iterator_t   = _const_reverse_iterator_t;
+};
+
+namespace traits {
+
+namespace _ {
+
+	template <typename T, typename R = decltype(*ds::decl<T &>().begin())> 
+	R _test_iterable_element(int);
+	template <typename T>
+	void _test_iterable_element(...);
+	
+	template <typename T, typename R = decltype(ds::decl<T &>().size())> 
+	R _test_iterable_size(int);
+	template <typename T>
+	void _test_iterable_size(...);
+
+	template <typename T, typename R = decltype(&ds::decl<T &>()[0])> 
+	R _test_iterable_index(int);
+	template <typename T>
+	void _test_iterable_index(...);
+
+	template <typename T, typename R = decltype(&ds::decl<T const &>()[0])> 
+	R _test_iterable_cindex(int);
+	template <typename T>
+	void _test_iterable_cindex(...);
+
+	template <typename T, typename R = decltype(ds::decl<T &>().begin())> 
+	R _test_iterable_begin(int);
+	template <typename T>
+	void _test_iterable_begin(...);
+
+	template <typename T, typename R = decltype(ds::decl<T const &>().begin())> 
+	R _test_iterable_cbegin(int);
+	template <typename T>
+	void _test_iterable_cbegin(...);
+
+	template <typename T, typename R = decltype(ds::decl<T &>().rbegin())> 
+	R _test_iterable_rbegin(int);
+	template <typename T>
+	void _test_iterable_rbegin(...);
+
+	template <typename T, typename R = decltype(ds::decl<T const &>().rbegin())> 
+	R _test_iterable_crbegin(int);
+	template <typename T>
+	void _test_iterable_crbegin(...);
+
+} // namespace _
+
+template <typename T>
+struct iterable : public ds::iterable_traits<
+		  decltype(_::_test_iterable_element<T>(0))
+		, decltype(_::_test_iterable_size<T>(0))
+		, decltype(_::_test_iterable_index<T>(0))
+		, decltype(_::_test_iterable_cindex<T>(0))
+		, decltype(_::_test_iterable_begin<T>(0))
+		, decltype(_::_test_iterable_cbegin<T>(0))
+		, decltype(_::_test_iterable_rbegin<T>(0))
+		, decltype(_::_test_iterable_crbegin<T>(0))
+	> 	
+{};
+
+template <typename E, size_t size_>
+struct iterable<E[size_]> : public ds::iterable_traits<
+		  E
+		, size_t
+		, E *
+		, E const *
+		, E *
+		, E const *
+	>
+{};
+
+template <typename E, size_t size_>
+struct iterable<E const[size_]> : public ds::iterable_traits<
+		  E
+		, size_t
+		, void
+		, E const *
+		, void
+		, E const *
+	> 
+{};
+
+template <typename E, size_t size_>
+struct iterable<E(&)[size_]> : public ds::iterable_traits<
+		  E
+		, size_t
+		, E *
+		, E const *
+		, E *
+		, E const *
+	>
+{};
+
+template <typename E, size_t size_>
+struct iterable<E const(&)[size_]> : public ds::iterable_traits<
+		  E
+		, size_t
+		, void
+		, E const *
+		, void
+		, E const *
+	> 
+{};
+
+
+} // namespace traits
+
+template <typename T>
+struct iterable_has_element
+{
+	static constexpr bool value = !ds::is_same<typename ds::traits::iterable<T>::element_t,void>::value;
+};
+
+template <typename T>
+struct iterable_has_size
+{
+	static constexpr bool value = !ds::is_same<typename ds::traits::iterable<T>::size_t,void>::value;
+};
+
+template <typename T>
+struct iterable_has_indexable_iterator
+{
+	static constexpr bool value = !ds::is_same<typename ds::traits::iterable<T>::indexable_iterator_t,void>::value;
+};
+
+template <typename T>
+struct iterable_has_const_indexable_iterator
+{
+	static constexpr bool value = !ds::is_same<typename ds::traits::iterable<T>::const_indexable_iterator_t,void const>::value;
+};
+
+template <typename T>
+struct iterable_has_forward_iterator
+{
+	static constexpr bool value = !ds::is_same<typename ds::traits::iterable<T>::forward_iterator_t,void>::value;
+};
+
+template <typename T>
+struct iterable_has_const_forward_iterator
+{
+	static constexpr bool value = !ds::is_same<typename ds::traits::iterable<T>::const_forward_iterator_t,void const>::value;
+};
+
+template <typename T>
+struct iterable_has_reverse_iterator
+{
+	static constexpr bool value = !ds::is_same<typename ds::traits::iterable<T>::reverse_iterator_t,void>::value;
+};
+
+template <typename T>
+struct iterable_has_const_reverse_iterator
+{
+	static constexpr bool value = !ds::is_same<typename ds::traits::iterable<T>::const_reverse_iterator_t,void const>::value;
+};
+
+template <typename T>
+using iterable_element_t = typename ds::traits::iterable<ds::remove_reference_t<T>>::element_t;
+
+template <typename T>
+using iterable_size_t = typename ds::traits::iterable<ds::remove_reference_t<T>>::size_t;
+
+template <typename T>
+using iterable_indexable_iterator_t = typename ds::traits::iterable<ds::remove_reference_t<T>>::indexable_iterator_t;
+
+template <typename T>
+using iterable_const_indexable_iterator_t = typename ds::traits::iterable<ds::remove_reference_t<T>>::const_indexable_iterator_t;
+
+template <typename T>
+using iterable_forward_iterator_t = typename ds::traits::iterable<ds::remove_reference_t<T>>::forward_iterator_t;
+
+template <typename T>
+using iterable_const_forward_iterator_t = typename ds::traits::iterable<ds::remove_reference_t<T>>::const_forward_iterator_t;
+
+template <typename T>
+using iterable_reverse_iterator_t = typename ds::traits::iterable<ds::remove_reference_t<T>>::reverse_iterator_t;
+
+template <typename T>
+using iterable_const_reverse_iterator_t = typename ds::traits::iterable<ds::remove_reference_t<T>>::const_reverse_iterator_t;
+
+namespace enabled {
+
+template <typename T, typename U = ds::iterable_element_t<T>>
+struct iterable_element { using type = U; };
+template <typename T>
+struct iterable_element<T,void> {};
+
+template <typename T, typename U = ds::iterable_size_t<T>>
+struct iterable_size { using type = U; };
+template <typename T>
+struct iterable_size<T,void> {};
+
+template <typename T, typename U = ds::iterable_indexable_iterator_t<T>>
+struct iterable_indexable_iterator { using type = U; };
+template <typename T>
+struct iterable_indexable_iterator<T,void> {};
+
+template <typename T, typename U = ds::iterable_const_indexable_iterator_t<T>>
+struct iterable_const_indexable_iterator { using type = U; };
+template <typename T>
+struct iterable_const_indexable_iterator<T,void> {};
+
+template <typename T, typename U = ds::iterable_forward_iterator_t<T>>
+struct iterable_forward_iterator { using type = U; };
+template <typename T>
+struct iterable_forward_iterator<T,void> {};
+
+template <typename T, typename U = ds::iterable_const_forward_iterator_t<T>>
+struct iterable_const_forward_iterator { using type = U; };
+template <typename T>
+struct iterable_const_forward_iterator<T,void> {};
+
+template <typename T, typename U = ds::iterable_reverse_iterator_t<T>>
+struct iterable_reverse_iterator { using type = U; };
+template <typename T>
+struct iterable_reverse_iterator<T,void> {};
+
+template <typename T, typename U = ds::iterable_const_reverse_iterator_t<T>>
+struct iterable_const_reverse_iterator { using type = U; };
+template <typename T>
+struct iterable_const_reverse_iterator<T,void> {};
+
+} // namespace enabled
+
+template <typename T>
+using enabled_iterable_element_t = typename ds::enabled::iterable_element<ds::remove_reference_t<T>>::type;
+
+template <typename T>
+using enabled_iterable_size_t = typename ds::enabled::iterable_size<ds::remove_reference_t<T>>::type;
+
+template <typename T>
+using enabled_iterable_indexable_iterator_t = typename ds::enabled::iterable_indexable_iterator<ds::remove_reference_t<T>>::type;
+
+template <typename T>
+using enabled_iterable_const_indexable_iterator_t = typename ds::enabled::iterable_const_indexable_iterator<ds::remove_reference_t<T>>::type;
+
+template <typename T>
+using enabled_iterable_forward_iterator_t = typename ds::enabled::iterable_forward_iterator<ds::remove_reference_t<T>>::type;
+
+template <typename T>
+using enabled_iterable_const_forward_iterator_t = typename ds::enabled::iterable_const_forward_iterator<ds::remove_reference_t<T>>::type;
+
+template <typename T>
+using enabled_iterable_reverse_iterator_t = typename ds::enabled::iterable_reverse_iterator<ds::remove_reference_t<T>>::type;
+
+template <typename T>
+using enabled_iterable_const_reverse_iterator_t = typename ds::enabled::iterable_const_reverse_iterator<ds::remove_reference_t<T>>::type;
+
+
+} // namespace ds
+
+#endif // DS_TRAITS_ITERATOR
