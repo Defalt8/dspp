@@ -14,6 +14,7 @@ set( DS_HEADER_FILES
 	include/ds/tuple
 	include/ds/variant
 	include/ds/array
+	include/ds/string
 )
  
 add_library( dspp INTERFACE )
