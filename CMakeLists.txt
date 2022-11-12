@@ -13,6 +13,7 @@ set( DS_HEADER_FILES
 	include/ds/shared
 	include/ds/tuple
 	include/ds/variant
+	include/ds/array
 )
  
 add_library( dspp INTERFACE )

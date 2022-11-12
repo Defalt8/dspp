@@ -1,0 +1,924 @@
+#pragma once
+#ifndef DS_ARRAY
+#define DS_ARRAY
+
+#include "common"
+#include "allocator"
+#include "fixed"
+#include "traits/allocator"
+#include "traits/iterable"
+
+namespace ds {
+
+template <typename E, class A = DefaultAllocator> class Array;
+
+namespace traits {
+
+	template <typename E, class A>
+	struct iterable<Array<E,A>> : public iterable_traits<
+			  E
+			, size_t
+			, E *
+			, E const *
+			, E *
+			, E const *
+			, E *
+			, E const *
+		> 
+	{};
+
+	template <typename E, class A>
+	struct iterable<Array<E,A> const> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, E const *
+			, void
+			, E const *
+			, void
+			, E const *	
+		> 
+	{};
+
+	template <typename E, class A>
+	struct allocator<Array<E,A>> : public allocator_traits<A> {};
+
+	template <typename E, class A>
+	struct allocator<Array<E,A> const> : public allocator_traits<A> {};
+
+
+	template <typename E, class A>
+	struct iterable<Array<E &,A>> : public iterable_traits<
+			  E & 
+			, size_t
+			, typename Array<E &,A>::Iterator
+			, typename Array<E &,A>::ConstIterator
+			, typename Array<E &,A>::Iterator
+			, typename Array<E &,A>::ConstIterator
+			, typename Array<E &,A>::Iterator
+			, typename Array<E &,A>::ConstIterator
+		> 	
+	{};
+
+	template <typename E, class A>
+	struct iterable<Array<E &,A> const> : public iterable_traits<
+			  E &
+			, size_t
+			, void
+			, typename Array<E &,A>::ConstIterator
+			, void
+			, typename Array<E &,A>::ConstIterator
+			, void
+			, typename Array<E &,A>::ConstIterator
+		> 
+	{};
+
+	template <typename E, class A>
+	struct allocator<Array<E &,A>> : public allocator_traits<A> {};
+
+	template <typename E, class A>
+	struct allocator<Array<E &,A> const> : public allocator_traits<A> {};
+
+} // namespace trait
+
+namespace _ {
+
+	template <typename E, bool = (is_destructible<E>::value && !is_trivially_destructible<E>::value)>
+	struct array_destructor
+	{
+		static inline void
+		destruct(E (& array_)[], size_t size_) noexcept
+		{
+			while(size_ > 0)
+				array_[--size_].~E();
+		}
+	};
+
+	template <typename E>
+	struct array_destructor<E,false>
+	{
+		static inline void destruct(E (& array_)[], size_t size_) noexcept {}
+	};
+
+	template <typename E, class A, bool = is_copy_constructible<E>::value>
+	struct array_copier
+	{
+		using array_t      = typename Array<E,A>::array_t;
+		using impossible_t = typename Array<E,A>::impossible_t;
+
+		static inline E *
+		_construct_at(void * block_, E const & rhs) noexcept
+		{
+			return construct_at<E>(block_, rhs);
+		}
+
+		static inline Array<E,A> *
+		_construct_at(void * block_, Array<E,A> const & rhs) noexcept
+		{
+			return construct_at<Array<E,A>>(block_, rhs);
+		}
+		
+		static inline Array<E,A> *
+		_reconstruct_at(Array<E,A> * this_, Array<E,A> const & rhs) noexcept
+		{
+			this_->~Array();
+			return construct_at<Array<E,A>>((void*)this_, rhs);
+		}
+		
+		static constexpr array_t * 
+		_construct(void * block_, size_t size_, Array<E,A> const & rhs)
+		{
+			auto array_ = static_cast<array_t *>(block_);
+			auto cit  = rhs.begin();
+			auto end_ = &(*array_)[size_];
+			for(E * it = &(*array_)[0]; it != end_; ++it, ++cit)
+				array_copier<E,A>::_construct_at((void*)it, *cit);
+			return ds::move(array_);
+		}
+
+		static inline Array<E,A> *
+		_assign(Array<E,A> * this_, Array<E,A> const & rhs)
+		{
+			if(&rhs != this_)
+				array_copier<E,A>::reconstruct_at(this_, rhs);
+			return this_;
+		}
+	};
+
+	template <typename E, class A>
+	struct array_copier<E,A,false>
+	{
+		using array_t      = typename Array<E,A>::array_t;
+		using impossible_t = typename Array<E,A>::impossible_t;
+
+		static inline    E            * _construct_at(void * block_, E const & rhs) noexcept { return nullptr; }
+		static inline    Array<E,A>   * _construct_at(void * block_, Array<E,A> const & rhs) noexcept { return nullptr; }
+		static constexpr array_t      * _construct(void * block_, size_t size_, impossible_t const & rhs) { return nullptr; }
+		static inline    Array<E,A>   * _assign(Array<E,A> * this_, impossible_t const & rhs) { return this_; }
+	};
+
+} // namespace _
+
+template <typename E, class A>
+class Array
+{
+ public:
+	using array_t = E[];
+
+ protected:
+	array_t * m_array = nullptr;
+	size_t    m_size  = 0;
+
+	struct impossible_t { size_t m_size = 0; };
+
+	inline void 
+	_deallocate(void * block_) noexcept
+	{
+		A::deallocate(block_);
+	}
+
+	DS_nodiscard inline void *
+	_allocate(size_t size_)
+	{
+		return A::allocate(size_ * sizeof(E), alignof(E));
+	}
+
+	template <typename E_, class A_,bool>
+	friend struct _::array_copier;
+
+ public:
+	struct index_out_of_bounds : public exception
+	{
+		char const * what() const noexcept override { return "array index out of bounds"; }
+	};
+
+	~Array() noexcept
+	{
+		if(m_array)
+		{
+			_::array_destructor<E>::destruct(*m_array, m_size);
+			_deallocate((void*)m_array);
+		}
+	}
+
+	Array() noexcept = default;
+
+	// NOTE: Use with caution. Don't forget to construct each element yourself.
+	Array(size_t size_, noinit_t)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{}
+
+	Array(conditional_t<is_constructible<E>::value,size_t,impossible_t> size_)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			for(E * it = this->begin(); it != end_; ++it)
+				construct_at<E>((void*)it);
+		}
+	}
+
+	template <typename Arg>
+	Array(conditional_t<is_constructible<E>::value,size_t,impossible_t> size_)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			for(E * it = this->begin(); it != end_; ++it)
+				construct_at<E>((void*)it);
+		}
+	}
+
+	template <typename Func, enable_if_t<is_constructible<E,decltype(decl<Func>()())>::value,int> = 0>
+	Array(size_t size_, Func && func)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			for(E * it = this->begin(); it != end_; ++it)
+				construct_at<E>((void*)it, func());
+		}
+	}
+
+	template <typename Arg, enable_if_t<is_constructible<E,Arg>::value,int> = 0>
+	Array(size_t size_, Arg && arg)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			for(E * it = this->begin(); it != end_; ++it)
+				construct_at<E>((void*)it, arg);
+		}
+	}
+
+	Array(Array && rhs) noexcept
+		: m_array { rhs.m_array }
+		, m_size  { rhs.m_size }
+	{
+		rhs.m_array = nullptr;
+		rhs.m_size  = 0;
+	}
+
+	Array(conditional_t<is_copy_constructible<E>::value,Array,impossible_t> const & rhs)
+		: m_array { _::array_copier<E,A>::_construct(_allocate(rhs.m_size), rhs.m_size, rhs) }
+		, m_size  { m_array ? rhs.m_size : 0 }
+	{}
+
+	Array(conditional_t<!is_copy_constructible<E>::value,Array,impossible_t> const & rhs) = delete;
+
+	template <typename T, class A_, enable_if_t<(is_constructible<E,T const &>::value),int> = 0>
+	Array(Array<T,A_> const & rhs)
+		: m_array { static_cast<array_t *>(_allocate(rhs.size())) }
+		, m_size  { m_array ? rhs.size() : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			auto cit  = rhs.begin();
+			for(E * it = this->begin(); it != end_; ++it, ++cit)
+				construct_at<E>((void*)it, *cit);
+		}
+	}
+
+	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T &&>::value,int> = 0>
+	Array(T (&& array_)[size_])
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			auto cit  = &array_[0];
+			for(auto it = this->begin(); it != end_; ++it, ++cit)
+				construct_at<E>((void*)it, ds::move(*cit));
+		}
+	}
+
+	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T const &>::value,int> = true>
+	Array(T const (& array_)[size_])
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			auto cit  = &array_[0];
+			for(E * it = this->begin(); it != end_; ++it, ++cit)
+				construct_at<E>((void*)it, *cit);
+		}
+	}
+
+	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T &&>::value,int> = 0>
+	Array(Fixed<size_,T> && array_)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			auto cit  = array_.begin();
+			for(E * it = this->begin(); it != end_; ++it, ++cit)
+				construct_at<E>((void*)it, ds::move(*cit));
+		}
+	}
+
+	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T &&>::value,int> = 0>
+	Array(Fixed<size_,T> const & array_)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			auto cit  = array_.begin();
+			for(E * it = this->begin(); it != end_; ++it, ++cit)
+				construct_at<E>((void*)it, *cit);
+		}
+	}
+
+	template <typename T0, typename T1, typename T2, typename... Ts
+		, enable_if_t<is_constructible<Fixed<sizeof...(Ts)+3,T0>,T0,T1,T2,Ts...>::value,int> = 0>
+	Array(T0 && v0, T1 && v1, T2 && v2, Ts &&... values)
+		: Array { Fixed<sizeof...(Ts)+3,T0> { ds::forward<T0>(v0)
+				, ds::forward<T1>(v1), ds::forward<T2>(v2), ds::forward<Ts>(values)... }}
+	{}
+
+	// generic ds::move/copy constructor
+	template <class C, enable_if_t<
+			  !is_same<remove_cvref_t<C>,Array>::value
+			&& iterable_has_forward_iterator<C>::value,int> = 0>
+	Array(C && rhs)
+		: m_array { static_cast<array_t *>(_allocate(rhs.size())) }
+		, m_size  { m_array ? rhs.size() : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			auto cit  = rhs.begin();
+			using i_t = remove_cvref_t<decltype(*cit)>;
+			using T = conditional_t<is_same<C,remove_reference_t<C>>::value,i_t,i_t &>;
+			for(E * it = this->begin(); it != end_; ++it, ++cit)
+				construct_at<E>((void*)it, ds::forward<T>(*cit));
+		}
+	}
+
+	// concatenating constructor
+	template <class C1, class C2
+		, enable_if_t<iterable_has_forward_iterator<C1>::value,int> = 0
+		, enable_if_t<iterable_has_forward_iterator<C2>::value,int> = 0>
+	Array(C1 && lhs, C2 && rhs, size_t _size_ = 0)
+		: m_array { static_cast<array_t *>(_allocate((_size_ = lhs.size() + rhs.size()))) }
+		, m_size  { m_array ? _size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto it = this->begin();
+			{
+				auto lhs_size = lhs.size();
+				auto lend_    = lhs.end();
+				auto lit      = lhs.begin();
+				using i_t = remove_reference_t<decltype(*lit)>;
+				using T   = conditional_t<is_same<remove_cvref_t<C1>,C1>::value,i_t,i_t &>;
+				for(; lit < lend_; ++lit, ++it)
+					construct_at<E>((void*)it, ds::forward<T>(*lit));
+			}
+			{
+				auto rhs_size = rhs.size();
+				auto rend_    = rhs.end();
+				auto rit      = rhs.begin();
+				using i_t = remove_reference_t<decltype(*rit)>;
+				using T   = conditional_t<is_same<remove_cvref_t<C2>,C2>::value,i_t,i_t &>;
+				for(; rit < rend_; ++rit, ++it)
+					construct_at<E>((void*)it, ds::forward<T>(*rit));
+			}
+		}
+	}
+
+	Array &
+	operator=(Array && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	template <typename C = conditional_t<is_copy_constructible<E>::value,Array,impossible_t>>
+	Array &
+	operator=(C const & rhs)
+	{
+		return _::array_copier<E,A>::_assign(this, rhs);
+	}
+
+	inline bool operator!() const noexcept { return m_array == nullptr; }
+
+	explicit inline operator bool()       noexcept { return m_array != nullptr; }
+	explicit inline operator bool() const noexcept { return m_array != nullptr; }
+
+	inline E       & operator[](size_t index)       noexcept { return (*m_array)[index]; }
+	inline E const & operator[](size_t index) const noexcept { return (*m_array)[index]; }
+	
+	template <class C2, enable_if_t<iterable_has_forward_iterator<C2>::value,int> = 0>
+	inline Array
+	operator+(C2 && rhs) const
+	{
+		return { *this, ds::forward<C2>(rhs) };
+	}
+
+	template <class C2, enable_if_t<iterable_has_forward_iterator<C2>::value,int> = 0>
+	inline Array &
+	operator+=(C2 && rhs)
+	{
+		return *this = { ds::move(*this), ds::forward<C2>(rhs) };
+	}
+
+	template <class C, enable_if_t<is_constructible<C,E *, E *>::value,int> = 0>
+	inline operator C() 
+	{
+		return { this->begin(), this->end() };
+	}
+	
+	template <class C, enable_if_t<is_constructible<C,E const *, E const *>::value,int> = 0>
+	inline operator C() const 
+	{
+		return { this->begin(), this->end() };
+	}
+
+	E & 
+	at(size_t index) noexcept(false)
+	{
+		ds_throw_if(index >= m_size, index_out_of_bounds());
+		return (*m_array)[index];
+	}
+
+	E const & 
+	at(size_t index) const noexcept(false)
+	{
+		ds_throw_if(index >= m_size, index_out_of_bounds());
+		return (*m_array)[index];
+	}
+
+	inline array_t       & array()       noexcept { return *m_array; }
+	inline array_t const & array() const noexcept { return *m_array; }
+
+	inline size_t size()       noexcept { return m_size; }
+	inline size_t size() const noexcept { return m_size; }
+	
+	inline E       * begin()       noexcept { return &(*m_array)[0]; }
+	inline E const * begin() const noexcept { return &(*m_array)[0]; }
+	inline E       * end  ()       noexcept { return &(*m_array)[m_size]; }
+	inline E const * end  () const noexcept { return &(*m_array)[m_size]; }
+	
+	inline E       * rbegin()       noexcept { return m_array == nullptr ? nullptr : &(*m_array)[m_size-1]; }
+	inline E const * rbegin() const noexcept { return m_array == nullptr ? nullptr : &(*m_array)[m_size-1]; }
+	inline E       * rend  ()       noexcept { return m_array == nullptr ? nullptr : &(*m_array)[-1]; }
+	inline E const * rend  () const noexcept { return m_array == nullptr ? nullptr : &(*m_array)[-1]; }
+
+	void
+	destroy() noexcept
+	{
+		if(m_array)
+		{
+			_::array_destructor<E>::destruct(*m_array, m_size);
+			_deallocate((void*)m_array);
+			m_array = nullptr;
+			m_size  = 0;
+		}
+	}
+
+	void 
+	swap(Array & rhs) noexcept
+	{
+		ds::swap(m_array, rhs.m_array);
+		ds::swap(m_size, rhs.m_size);
+	}
+
+};
+
+template <typename E, class A>
+class Array<E &,A>
+{
+ public:
+	using array_t = E * [];
+
+ protected:
+	array_t * m_array = nullptr;
+	size_t    m_size  = 0;
+
+	struct impossible_t { size_t m_size = 0; };
+
+	inline void 
+	_deallocate(void * block_) noexcept
+	{
+		A::deallocate(block_);
+	}
+
+	DS_nodiscard inline void *
+	_allocate(size_t size_)
+	{
+		return A::allocate(size_ * sizeof(E *), alignof(E *));
+	}
+
+	template <typename E_, class A_,bool>
+	friend struct _::array_copier;
+
+ public:
+	struct index_out_of_bounds : public exception
+	{
+		char const * what() const noexcept override { return "array index out of bounds"; }
+	};
+
+	struct Iterator
+	{
+		E ** current = nullptr;
+		
+		inline Iterator & operator++()    { ++current; return *this; }
+		inline Iterator   operator++(int) { return { current++ }; }
+		
+		inline Iterator & operator--()    { --current; return *this; }
+		inline Iterator   operator--(int) { return { current-- }; }
+
+		inline E       & operator*()       { return **current; }
+		inline E const & operator*() const { return **current; }
+
+		inline E       & operator[](size_t index_)       { return *current[index_]; }
+		inline E const & operator[](size_t index_) const { return *current[index_]; }
+
+		inline ptrdiff_t operator-(Iterator const & rhs)       { return ptrdiff_t(current - rhs.current); }
+		inline ptrdiff_t operator-(Iterator const & rhs) const { return ptrdiff_t(current - rhs.current); }
+
+		inline Iterator operator-(size_t rhs)       { return { current - rhs }; }
+		inline Iterator operator-(size_t rhs) const { return { current - rhs }; }
+
+		inline Iterator operator+(size_t rhs)       { return { current + rhs }; }
+		inline Iterator operator+(size_t rhs) const { return { current + rhs }; }
+
+		inline bool operator<(Iterator const & rhs)       { return current < rhs.current; }
+		inline bool operator<(Iterator const & rhs) const { return current < rhs.current; }
+
+		inline bool operator>(Iterator const & rhs)       { return current > rhs.current; }
+		inline bool operator>(Iterator const & rhs) const { return current > rhs.current; }
+
+		inline bool operator<=(Iterator const & rhs)       { return current <= rhs.current; }
+		inline bool operator<=(Iterator const & rhs) const { return current <= rhs.current; }
+
+		inline bool operator>=(Iterator const & rhs)       { return current >= rhs.current; }
+		inline bool operator>=(Iterator const & rhs) const { return current >= rhs.current; }
+
+		inline bool operator==(Iterator const & rhs)       { return current == rhs.current; }
+		inline bool operator==(Iterator const & rhs) const { return current == rhs.current; }
+
+		inline bool operator!=(Iterator const & rhs)       { return current != rhs.current; }
+		inline bool operator!=(Iterator const & rhs) const { return current != rhs.current; }
+
+		inline bool operator!()       { return current == nullptr; }
+		inline bool operator!() const { return current == nullptr; }
+
+		inline explicit operator bool()       { return current != nullptr; }
+		inline explicit operator bool() const { return current != nullptr; }
+
+	};
+
+	struct ConstIterator
+	{
+		E * const * current = nullptr;
+		
+		inline ConstIterator & operator++()    { ++current; return *this; }
+		inline ConstIterator   operator++(int) { return { current++ }; }
+		
+		inline ConstIterator & operator--()    { --current; return *this; }
+		inline ConstIterator   operator--(int) { return { current-- }; }
+
+		inline E const & operator*() const { return **current; }
+
+		inline E const & operator[](size_t index_) const { return *current[index_]; }
+
+		inline ptrdiff_t operator-(ConstIterator const & rhs)       { return ptrdiff_t(current - rhs.current); }
+		inline ptrdiff_t operator-(ConstIterator const & rhs) const { return ptrdiff_t(current - rhs.current); }
+
+		inline ConstIterator operator-(size_t rhs)       { return { current - rhs }; }
+		inline ConstIterator operator-(size_t rhs) const { return { current - rhs }; }
+
+		inline ConstIterator operator+(size_t rhs)       { return { current + rhs }; }
+		inline ConstIterator operator+(size_t rhs) const { return { current + rhs }; }
+
+		inline bool operator<(ConstIterator const & rhs)       { return current < rhs.current; }
+		inline bool operator<(ConstIterator const & rhs) const { return current < rhs.current; }
+
+		inline bool operator>(ConstIterator const & rhs)       { return current > rhs.current; }
+		inline bool operator>(ConstIterator const & rhs) const { return current > rhs.current; }
+
+		inline bool operator<=(ConstIterator const & rhs)       { return current <= rhs.current; }
+		inline bool operator<=(ConstIterator const & rhs) const { return current <= rhs.current; }
+
+		inline bool operator>=(ConstIterator const & rhs)       { return current >= rhs.current; }
+		inline bool operator>=(ConstIterator const & rhs) const { return current >= rhs.current; }
+
+		inline bool operator==(ConstIterator const & rhs)       { return current == rhs.current; }
+		inline bool operator==(ConstIterator const & rhs) const { return current == rhs.current; }
+
+		inline bool operator!=(ConstIterator const & rhs)       { return current != rhs.current; }
+		inline bool operator!=(ConstIterator const & rhs) const { return current != rhs.current; }
+
+		inline bool operator!()       { return current == nullptr; }
+		inline bool operator!() const { return current == nullptr; }
+
+		inline explicit operator bool()       { return current != nullptr; }
+		inline explicit operator bool() const { return current != nullptr; }
+
+	};
+
+	~Array() noexcept
+	{
+		if(m_array)
+			_deallocate((void*)m_array);
+	}
+
+	Array() noexcept = default;
+
+	// NOTE: Use with caution. Don't forget to construct each element yourself.
+	Array(size_t size_, noinit_t)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{}
+
+	Array(conditional_t<is_constructible<E>::value,size_t,impossible_t> size_)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			for(auto it = this->begin(); it != end_; ++it)
+				construct_at<E *>((void*)it.current);
+		}
+	}
+
+	template <typename Arg>
+	Array(conditional_t<is_constructible<E>::value,size_t,impossible_t> size_)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			for(E * it = this->begin(); it != end_; ++it)
+				construct_at<E *>((void*)it.current);
+		}
+	}
+
+	template <typename Func, enable_if_t<is_constructible<E *,decltype(&decl<Func>()())>::value,int> = 0>
+	Array(size_t size_, Func && func)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			for(auto it = this->begin(); it != end_; ++it)
+				construct_at<E *>((void*)it.current, &func());
+		}
+	}
+
+	template <typename Arg, enable_if_t<is_constructible<E,Arg>::value,int> = 0>
+	Array(size_t size_, Arg && arg)
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end();
+			for(E * it = this->begin(); it != end_; ++it)
+				construct_at<E *>((void*)it.current, arg);
+		}
+	}
+
+	Array(Array && rhs) noexcept
+		: m_array { rhs.m_array }
+		, m_size  { rhs.m_size }
+	{
+		rhs.m_array = nullptr;
+		rhs.m_size  = 0;
+	}
+
+	Array(Array const & rhs)
+		: m_array { static_cast<array_t *>(_allocate(rhs.m_size)) }
+		, m_size  { m_array ? rhs.m_size : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end().current;
+			auto cit  = rhs.begin().current;
+			for(auto it  = this->begin().current; it != end_; ++it, ++cit)
+				construct_at<E *>((void*)it, *cit);
+		}
+	}
+
+	Array(conditional_t<!is_copy_constructible<E>::value,Array,impossible_t> const & rhs) = delete;
+
+	template <typename T, class A_, enable_if_t<(is_constructible<E *,T *>::value),int> = 0>
+	Array(Array<T,A_> const & rhs)
+		: m_array { static_cast<array_t *>(_allocate(rhs.size())) }
+		, m_size  { m_array ? rhs.size() : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end().current;
+			auto cit  = rhs.begin();
+			for(auto it  = this->begin().current; it != end_; ++it, ++cit)
+				construct_at<E *>((void*)it, &*cit);
+		}
+	}
+
+	template <typename T = E, size_t size_, enable_if_t<is_constructible<E *,T *>::value,int> = true>
+	Array(T (& array_)[size_])
+		: m_array { static_cast<array_t *>(_allocate(size_)) }
+		, m_size  { m_array ? size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end().current;
+			auto cit  = rhs.begin().current;
+			for(auto it  = this->begin().current; it != end_; ++it, ++cit)
+				construct_at<E *>((void*)it, &*cit);
+		}
+	}
+
+	// generic ds::move/copy constructor
+	template <class C, enable_if_t<
+				  !is_same<remove_cvref_t<C>,Array>::value
+				&& iterable_has_forward_iterator<C>::value,int> = 0
+			, typename = decltype(static_cast<E &>(*decl<C>().begin()))>
+	Array(C && rhs)
+		: m_array { static_cast<array_t *>(_allocate(rhs.size())) }
+		, m_size  { m_array ? rhs.size() : 0 }
+	{
+		if(m_array)
+		{
+			auto end_ = this->end().current;
+			auto cit  = rhs.begin();
+			for(auto it  = this->begin().current; it != end_; ++it, ++cit)
+				construct_at<E *>((void*)it, &*cit);
+			int i = 0;
+		}
+	}
+
+	// concatenating constructor
+	template <class C1, class C2
+		, enable_if_t<iterable_has_forward_iterator<C1>::value,int> = 0
+		, enable_if_t<iterable_has_forward_iterator<C2>::value,int> = 0>
+	Array(C1 && lhs, C2 && rhs, size_t _size_ = 0)
+		: m_array { static_cast<array_t *>(_allocate((_size_ = lhs.size() + rhs.size()))) }
+		, m_size  { m_array ? _size_ : 0 }
+	{
+		if(m_array)
+		{
+			auto it   = &(*m_array)[0];
+			{
+				auto lhs_size = lhs.size();
+				auto lend_    = lhs.end();
+				auto lit      = lhs.begin();
+				for(; lit < lend_; ++lit, ++it)
+					construct_at<E *>((void*)it, &*lit);
+			}
+			{
+				auto rhs_size = rhs.size();
+				auto rend_    = rhs.end();
+				auto rit      = rhs.begin();
+				for(; rit < rend_; ++rit, ++it)
+					construct_at<E *>((void*)it, &*rit);
+			}
+		}
+	}
+
+	Array &
+	operator=(Array && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	template <typename C = conditional_t<is_copy_constructible<E *>::value,Array,impossible_t>>
+	Array &
+	operator=(C const & rhs)
+	{
+		return _::array_copier<E,A>::_assign(this, rhs);
+	}
+
+	inline bool operator!() const noexcept { return m_array == nullptr; }
+
+	explicit inline operator bool()       noexcept { return m_array != nullptr; }
+	explicit inline operator bool() const noexcept { return m_array != nullptr; }
+
+	inline E       & operator[](size_t index)       noexcept { return *(*m_array)[index]; }
+	inline E const & operator[](size_t index) const noexcept { return *(*m_array)[index]; }
+	
+	template <class C2, enable_if_t<iterable_has_forward_iterator<C2>::value,int> = 0>
+	inline Array
+	operator+(C2 && rhs) const
+	{
+		return { *this, ds::forward<C2>(rhs) };
+	}
+
+	template <class C2, enable_if_t<iterable_has_forward_iterator<C2>::value,int> = 0>
+	inline Array &
+	operator+=(C2 && rhs)
+	{
+		return *this = { ds::move(*this), ds::forward<C2>(rhs) };
+	}
+
+	template <class C, enable_if_t<is_constructible<C,Iterator,Iterator>::value,int> = 0>
+	inline operator C() 
+	{
+		return { this->begin(), this->end() };
+	}
+	
+	template <class C, enable_if_t<is_constructible<C,Iterator const,Iterator const>::value,int> = 0>
+	inline operator C() const 
+	{
+		return { this->begin(), this->end() };
+	}
+
+	E & 
+	at(size_t index) noexcept(false)
+	{
+		ds_throw_if(index >= m_size, index_out_of_bounds());
+		return *(*m_array)[index];
+	}
+
+	E const & 
+	at(size_t index) const noexcept(false)
+	{
+		ds_throw_if(index >= m_size, index_out_of_bounds());
+		return *(*m_array)[index];
+	}
+
+	inline array_t       & array()       noexcept { return *m_array; }
+	inline array_t const & array() const noexcept { return *m_array; }
+
+	inline size_t size()       noexcept { return m_size; }
+	inline size_t size() const noexcept { return m_size; }
+	
+	inline Iterator       begin()       noexcept { return { &(*m_array)[0] }; }
+	inline ConstIterator  begin() const noexcept { return { &(*m_array)[0] }; }
+	inline Iterator       end  ()       noexcept { return { &(*m_array)[m_size] }; }
+	inline ConstIterator  end  () const noexcept { return { &(*m_array)[m_size] }; }
+	
+	inline Iterator       rbegin()       noexcept { return { m_array == nullptr ? nullptr : &(*m_array)[m_size-1] }; }
+	inline ConstIterator  rbegin() const noexcept { return { m_array == nullptr ? nullptr : &(*m_array)[m_size-1] }; }
+	inline Iterator       rend  ()       noexcept { return { m_array == nullptr ? nullptr : &(*m_array)[-1] }; }
+	inline ConstIterator  rend  () const noexcept { return { m_array == nullptr ? nullptr : &(*m_array)[-1] }; }
+
+	void
+	destroy() noexcept
+	{
+		if(m_array)
+		{
+			_deallocate((void*)m_array);
+			m_array = nullptr;
+			m_size  = 0;
+		}
+	}
+
+	void 
+	swap(Array & rhs) noexcept
+	{
+		ds::swap(m_array, rhs.m_array);
+		ds::swap(m_size, rhs.m_size);
+	}
+
+};
+
+template <typename E, class A = DefaultAllocator>
+using array = Array<E,A>;
+
+
+template <typename E, class A, size_t size_>
+struct usage_s<Array<E,A>,size_> { static constexpr size_t value = sizeof(E) * size_ + usage_n<E,size_>::value; };
+
+template <typename E, class A, size_t size_, size_t count_>
+struct usage_sn<Array<E,A>,size_,count_>
+{
+	static constexpr size_t _single = usage_s<Array<E,A>,size_>::value;
+	static constexpr size_t value = (_single + (-_single & (alignof(E) - 1))) * count_;
+};
+
+
+} // namespace ds
+
+#endif // DS_ARRAY
