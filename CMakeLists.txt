@@ -1,5 +1,5 @@
 cmake_minimum_required( VERSION 3.4 )
-project( dspp VERSION 0.2.1 LANGUAGES CXX )
+project( dspp VERSION 0.8.32 LANGUAGES CXX )
 
 set( DS_HEADER_FILES
 	include/ds/macros
@@ -8,6 +8,7 @@ set( DS_HEADER_FILES
 	include/ds/traits/iterator
 	include/ds/allocator
 	include/ds/fixed
+	include/ds/unique
 )
  
 add_library( dspp INTERFACE )

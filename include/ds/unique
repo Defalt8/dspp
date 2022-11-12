@@ -1,0 +1,441 @@
+#pragma once
+#ifndef DS_UNIQUE
+#define DS_UNIQUE
+
+#include "common"
+#include "traits/allocator"
+#include "traits/iterable"
+#include "allocator"
+
+namespace ds {
+
+template <typename T, class A = DefaultAllocator> class Unique;
+
+namespace traits {
+
+	template <size_t size_, typename E>
+	struct iterable<Unique<E[size_]>> : public iterable_traits<
+			  E
+			, size_t
+			, E *
+			, E const *
+			, E *
+			, E const *
+			, E *
+			, E const *
+		> 
+	{};
+
+	template <size_t size_, typename E>
+	struct iterable<Unique<E[size_]> const> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, E const *
+			, void
+			, E const *
+			, void
+			, E const *
+		> 
+	{};
+
+	template <typename T, class A>
+	struct allocator<Unique<T,A>> : public allocator_traits<A> {};
+
+	template <typename T, class A>
+	struct allocator<Unique<T,A> const> : public allocator_traits<A> {};
+
+} // namespace trait
+
+/// @brief  Manages the dynamic lifetime of an object of type `T`.  
+/// @brief   The object is destroyed when this `Unique` instance is destroyed.  
+/// @brief   No copies; Only moves are allowed.
+/// @tparam T object type.
+/// @tparam A allocator type. default is `DefaultAllocator`
+template <typename T, class A>
+class Unique
+{
+	T * _ptr = nullptr;
+
+	static inline void
+	_deallocate(void * block_) noexcept
+	{
+		A::deallocate(block_);
+	}
+
+	DS_nodiscard static inline void * 
+	_allocate(size_t size_, align_t align_)
+	{
+		return A::allocate(size_, align_);
+	}
+
+	Unique(Unique const &) = delete;
+
+ public:
+	struct null_pointer : public exception
+	{
+		char const * what() const noexcept { return "null pointer"; }
+	};
+
+	static constexpr size_t usage() noexcept { return sizeof(T); }
+	// amount of dynamic memory required to continuously create 'count_' `Unique` objects  
+	static constexpr size_t 
+	usage(size_t count_) noexcept
+	{
+		constexpr size_t single_ = usage();
+		constexpr size_t offset_ = -single_ & (alignof(T) - 1);
+		return (single_ + offset_) * count_;
+	}
+
+	~Unique() noexcept
+	{
+		this->destroy();
+	}
+
+	Unique(Unique && rhs) noexcept
+		: _ptr { rhs._ptr }
+	{
+		rhs._ptr = nullptr;
+	}
+
+	Unique(noinit_t)
+	{}
+
+	Unique()
+		: _ptr { construct_at_safe<T>(_allocate(sizeof(T), alignof(T))) }
+	{}
+
+	template <typename Arg, typename... Args
+			, enable_if_t<!is_same<remove_cvref_t<Arg>,Unique>::value,int> = 0
+			, enable_if_t<is_constructible<T,Arg,Args...>::value,int> = 0
+		>
+	Unique(Arg && arg, Args &&... args)
+		: _ptr { construct_at_safe<T>(_allocate(sizeof(T), alignof(T)), ds::forward<Arg>(arg), ds::forward<Args>(args)...) }
+	{}
+
+	Unique & 
+	operator=(Unique && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+	
+	inline bool operator!() const noexcept { return _ptr == nullptr; }
+
+	explicit inline operator bool()        noexcept { return _ptr != nullptr; }
+	explicit inline operator bool()  const noexcept { return _ptr != nullptr; }
+
+	inline T       & operator*()        noexcept { return *_ptr; }
+	inline T const & operator*()  const noexcept { return *_ptr; }
+	
+	inline T       * operator->()       noexcept { return _ptr; }
+	inline T const * operator->() const noexcept { return _ptr; }
+	
+	inline T       * ptr()       noexcept { return _ptr; }
+	inline T const * ptr() const noexcept { return _ptr; }
+
+	T & 
+	ref() noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr, null_pointer());
+		return *_ptr;
+	}
+
+	T const & 
+	ref() const noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr, null_pointer());
+		return *_ptr;
+	}
+
+	void 
+	destroy() noexcept
+	{
+		if(_ptr)
+		{
+			destruct(*_ptr);
+			_deallocate(_ptr);
+			_ptr = nullptr;
+		}
+	}
+
+	inline void 
+	swap(Unique & rhs) noexcept
+	{
+		ds::swap(_ptr, rhs._ptr);
+	}
+
+};
+
+template <typename E, size_t size_, class A>
+class Unique<E[size_],A>
+{
+	using array_t = E[size_];
+	using impossible_t = struct {};
+
+	array_t * _ptr = nullptr;
+
+	static inline void
+	_deallocate(void * block_) noexcept
+	{
+		A::deallocate(block_);
+	}
+
+	DS_nodiscard static inline void * 
+	_allocate(size_t msize_, align_t align_)
+	{
+		return A::allocate(msize_, align_);
+	}
+
+	Unique(Unique const &) = delete;
+
+	constexpr void
+	_destruct() noexcept
+	{
+		if DS_constexpr17 (!is_trivially_destructible<E>::value)
+		{
+			for(auto & e : *_ptr)
+				destruct(e);
+		}
+	}
+
+	inline void
+	_default_construct(conditional_t<is_constructible<E>::value 
+			&& !is_trivially_constructible<E>::value,array_t,impossible_t> & array_, size_t start_ = 0)
+	{
+		for(size_t i = start_; i < size_; ++i)
+			construct_at<E>(&array_[i]);
+	}
+
+	inline void 
+	_default_construct(conditional_t<!is_constructible<E>::value 
+			|| is_trivially_constructible<E>::value,array_t,impossible_t> & array_, size_t start_ = 0) 
+	{}
+
+ public:
+	struct null_pointer : public exception
+	{
+		char const * what() const noexcept { return "null pointer"; }
+	};
+
+	struct index_out_of_bounds : public exception
+	{
+		char const * 
+		what() const noexcept override
+		{
+			return "unique array index out of bounds";
+		}
+	};
+
+	static constexpr size_t usage() noexcept { return sizeof(E) * size_; }
+	// amount of dynamic memory required to continuously create 'count_' `Unique` objects  
+	static constexpr size_t 
+	usage(size_t count_) noexcept
+	{
+		constexpr size_t single_ = usage();
+		constexpr size_t offset_ = -single_ & (alignof(E) - 1);
+		return (single_ + offset_) * count_;
+	}
+
+	~Unique() noexcept
+	{
+		if(_ptr)
+		{
+			_destruct();
+			_deallocate(_ptr);
+		}
+	}
+
+	Unique(Unique && rhs) noexcept
+		: _ptr { rhs._ptr }
+	{
+		rhs._ptr = nullptr;
+	}
+
+	Unique(noinit_t)
+	{}
+
+	Unique()
+		: _ptr { static_cast<array_t *>(_allocate(sizeof(E) * size_, alignof(E))) }
+	{
+		if(_ptr)
+			_default_construct(*_ptr);
+	}
+
+	template <typename T = E, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	Unique(T && fill_object)
+		: _ptr { static_cast<array_t *>(_allocate(sizeof(E) * size_, alignof(E))) }
+	{
+		if(_ptr)
+		{
+			for(size_t i = 0; i < size_; ++i)
+				construct_at<E>(&(*_ptr)[i], fill_object);
+		}
+	}
+
+	template <typename T = E, size_t tsize_
+			, enable_if_t<tsize_ <= size_,int> = 0
+			, enable_if_t<is_constructible<E,T &&>::value,int> = 0
+		>
+	Unique(T (&& array_)[tsize_])
+		: _ptr { static_cast<array_t *>(_allocate(sizeof(E) * size_, alignof(E))) }
+	{
+		if(_ptr)
+		{
+			for(size_t i = 0; i < tsize_; ++i)
+				construct_at<E>(&(*_ptr)[i], ds::move(array_[i]));
+			if(tsize_ < size_)
+				_default_construct(*_ptr, tsize_);
+		}
+	}
+
+	template <typename It, enable_if_t<is_constructible<E,decltype(*decl<It>())>::value,int> = 0>
+	Unique(It && begin_, It && end_)
+		: _ptr { static_cast<array_t *>(_allocate(sizeof(E) * size_, alignof(E))) }
+	{
+		if(_ptr)
+		{
+			size_t i = 0;
+			for(auto it = begin_; it != end_; ++it, ++i)
+				construct_at<E>(&(*_ptr)[i], *it);
+			if(i < size_)
+				_default_construct(*_ptr, i);
+		}
+	}
+
+	template <typename It, typename T = E
+			, enable_if_t<is_constructible<E,decltype(*decl<It>())>::value,int> = 0
+			, enable_if_t<is_constructible<E,T>::value,int> = 0
+		>
+	Unique(It && begin_, It && end_, T && fill_object)
+		: _ptr { static_cast<array_t *>(_allocate(sizeof(E) * size_, alignof(E))) }
+	{
+		if(_ptr)
+		{
+			size_t i = 0;
+			for(auto it = begin_; it != end_; ++it, ++i)
+				construct_at<E>(&(*_ptr)[i], *it);
+			for(; i < size_; ++i)
+				construct_at<E>(&(*_ptr)[i], fill_object);
+		}
+	}
+
+	Unique & 
+	operator=(Unique && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+	
+	inline bool operator!() const noexcept { return _ptr == nullptr; }
+
+	explicit inline operator bool()        noexcept { return _ptr != nullptr; }
+	explicit inline operator bool()  const noexcept { return _ptr != nullptr; }
+
+	inline E       & operator[](size_t index_)        noexcept { return (*_ptr)[index_]; }
+	inline E const & operator[](size_t index_)  const noexcept { return (*_ptr)[index_]; }
+
+	inline array_t       & operator*()        noexcept { return *_ptr; }
+	inline array_t const & operator*()  const noexcept { return *_ptr; }
+	
+	inline array_t       * ptr()       noexcept { return _ptr; }
+	inline array_t const * ptr() const noexcept { return _ptr; }
+
+	inline size_t size()       noexcept { return size_; }
+	inline size_t size() const noexcept { return size_; }
+	
+	inline E       * begin()       noexcept { return _ptr == nullptr ? nullptr : &(*_ptr)[0]; }
+	inline E const * begin() const noexcept { return _ptr == nullptr ? nullptr : &(*_ptr)[0]; }
+	inline E       * end  ()       noexcept { return _ptr == nullptr ? nullptr : &(*_ptr)[size_]; }
+	inline E const * end  () const noexcept { return _ptr == nullptr ? nullptr : &(*_ptr)[size_]; }
+
+	inline E       * rbegin()       noexcept { return _ptr == nullptr ? nullptr : &(*_ptr)[size_-1]; }
+	inline E const * rbegin() const noexcept { return _ptr == nullptr ? nullptr : &(*_ptr)[size_-1]; }
+	inline E       * rend  ()       noexcept { return _ptr == nullptr ? nullptr : &(*_ptr)[-1]; }
+	inline E const * rend  () const noexcept { return _ptr == nullptr ? nullptr : &(*_ptr)[-1]; }
+
+	inline E & 
+	at(size_t index_) noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr, null_pointer());
+		ds_throw_if(index_ >= size_, index_out_of_bounds());
+		return (*_ptr)[index_];
+	}
+	
+	inline E const & 
+	at(size_t index_)  const noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr, null_pointer());
+		ds_throw_if(index_ >= size_, index_out_of_bounds());
+		return (*_ptr)[index_];
+	}
+
+	array_t & 
+	ref() noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr, null_pointer());
+		return *_ptr;
+	}
+
+	array_t const & 
+	ref() const noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr, null_pointer());
+		return *_ptr;
+	}
+
+	void 
+	destroy() noexcept
+	{
+		if(_ptr)
+		{
+			_destruct();
+			_deallocate(_ptr);
+			_ptr = nullptr;
+		}
+	}
+
+	inline void 
+	swap(Unique & rhs) noexcept
+	{
+		ds::swap(_ptr, rhs._ptr);
+	}
+
+};
+
+// no references
+template <typename T, class A> 
+class Unique<T &,A>
+{
+	Unique() = delete;
+};
+
+// no array types
+template <typename T, class A> 
+class Unique<T[],A>
+{
+	Unique() = delete;
+};
+
+template <typename T, class A = DefaultAllocator> 
+using unique = Unique<T,A>;
+
+
+template <typename T, class A>
+struct usage<Unique<T,A>> { static constexpr size_t value = Unique<T,A>::usage(); };
+
+template <typename T, class A, size_t count_>
+struct usage_n<Unique<T,A>,count_> { static constexpr size_t value = Unique<T,A>::usage(count_); };
+
+
+} // namespace ds
+
+#endif // DS_UNIQUE
