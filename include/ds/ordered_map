@@ -114,6 +114,20 @@ class OrderedMap : protected OrderedList<table_size_,Entry<K,V>,A>
 		return this->position_of(ds::forward<K_>(key));
 	}
 
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	iterator_t
+	get_nearest(K_ && key) noexcept
+	{
+		return this->nearest_position_of(ds::forward<K_>(key));
+	}
+
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	const_iterator_t
+	get_nearest(K_ && key) const noexcept
+	{
+		return this->nearest_position_of(ds::forward<K_>(key));
+	}
+
 	using OrderedList<table_size_,entry_t,A>::operator!;
 	using OrderedList<table_size_,entry_t,A>::operator bool;
 	using OrderedList<table_size_,entry_t,A>::table;
