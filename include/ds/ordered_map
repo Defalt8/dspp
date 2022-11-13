@@ -1,0 +1,138 @@
+#pragma once
+#ifndef DS_ORDERED_MAP
+#define DS_ORDERED_MAP
+
+#include "common"
+#include "ordered_list"
+
+namespace ds {
+
+template <size_t table_size_, typename K, typename V, class A = DefaultAllocator> 
+using OrderedMapIterator = OrderedList<table_size_,Entry<K,V>,A>;
+template <size_t table_size_, typename K, typename V, class A = DefaultAllocator> 
+using ConstOrderedMapIterator = OrderedList<table_size_,Entry<K,V>,A>;
+template <size_t table_size_, typename K, typename V, class A = DefaultAllocator> 
+class OrderedMap;
+
+namespace traits {
+
+	template <size_t table_size_, typename K, typename V, class A>
+	struct iterable<OrderedMap<table_size_,K,V,A>> : public iterable<OrderedList<table_size_,Entry<K,V>,A>> {};
+
+	template <size_t table_size_, typename K, typename V, class A>
+	struct iterable<OrderedMap<table_size_,K,V,A> const> : public iterable<OrderedList<table_size_,Entry<K,V>,A> const> {};
+
+	template <size_t table_size_, typename K, typename V, class A>
+	struct allocator<OrderedMap<table_size_,K,V,A>> : public allocator_traits<A> {};
+
+	template <size_t table_size_, typename K, typename V, class A>
+	struct allocator<OrderedMap<table_size_,K,V,A> const> : public allocator_traits<A> {};
+
+} // namespace trait
+
+template <size_t table_size_, typename K, typename V, class A>
+class OrderedMap : protected OrderedList<table_size_,Entry<K,V>,A>
+{
+ public:
+	using key_t            = K;
+	using value_t          = V;
+	using entry_t          = Entry<K,V>;
+	using iterator_t       = typename OrderedList<table_size_,Entry<K,V>,A>::iterator_t;
+	using const_iterator_t = typename OrderedList<table_size_,Entry<K,V>,A>::const_iterator_t;
+
+ public:
+	OrderedMap() = default;
+	OrderedMap(OrderedMap &&) = default;
+	OrderedMap(OrderedMap const &) = default;
+	OrderedMap & operator=(OrderedMap &&) = default;
+	OrderedMap & operator=(OrderedMap const &) = default;
+
+	template <typename K_ = K, size_t size_
+		, enable_if_t<is_constructible<OrderedList<table_size_,entry_t,A>,K_(&&)[size_],duplicate_rule>::value,int> = 0>
+	OrderedMap(K_ (&& array_)[size_], duplicate_rule param = {})
+		: OrderedList<table_size_,entry_t,A>(ds::move(array_), param)
+	{}
+
+	template <size_t size_
+		, enable_if_t<is_constructible<OrderedList<table_size_,entry_t,A>,entry_t(&&)[size_],duplicate_rule>::value,int> = 0>
+	OrderedMap(entry_t (&& array_)[size_], duplicate_rule param = {})
+		: OrderedList<table_size_,entry_t,A>(ds::move(array_), param)
+	{}
+
+	template <typename Begin, typename End
+		, typename T = decltype(*decl<Begin &>())
+		, typename   = decltype(++decl<Begin &>())
+		, enable_if_t<is_constructible<entry_t,T>::value,int> = 0>
+	OrderedMap(Begin && begin_, End && end_, duplicate_rule param = {})
+		: OrderedList<table_size_,entry_t,A>(ds::forward<Begin>(begin_), ds::forward<End>(end_), param)
+	{}
+
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	value_t & 
+	operator[](K_ && key)
+	{
+		return this->insert_replace(ds::forward<K_>(key))->value;
+	}
+
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	value_t & 
+	operator[](K_ && key) const noexcept
+	{
+		return this->position_of(ds::forward<K_>(key))->value;
+	}
+
+	template <typename K_, typename V_
+			, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
+			, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))
+		>
+	inline iterator_t
+	set(K_ && key, V_ && value)
+	{
+		return this->emplace_replace(ds::forward<K_>(key), ds::forward<V_>(value));
+	}
+
+	template <typename K_, typename V_
+		, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
+		, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	inline iterator_t
+	set_noreplace(K_ && key, V_ && value)
+	{
+		return this->emplace_unique(ds::forward<K_>(key), ds::forward<V_>(value));
+	}
+
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	iterator_t
+	get(K_ && key) noexcept
+	{
+		return this->position_of(ds::forward<K_>(key));
+	}
+
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	const_iterator_t
+	get(K_ && key) const noexcept
+	{
+		return this->position_of(ds::forward<K_>(key));
+	}
+
+	using OrderedList<table_size_,entry_t,A>::operator!;
+	using OrderedList<table_size_,entry_t,A>::operator bool;
+	using OrderedList<table_size_,entry_t,A>::table;
+	using OrderedList<table_size_,entry_t,A>::size;
+	using OrderedList<table_size_,entry_t,A>::begin;
+	using OrderedList<table_size_,entry_t,A>::end;
+	using OrderedList<table_size_,entry_t,A>::rbegin;
+	using OrderedList<table_size_,entry_t,A>::rend;
+	using OrderedList<table_size_,entry_t,A>::remove_at;
+	using OrderedList<table_size_,entry_t,A>::remove;
+	using OrderedList<table_size_,entry_t,A>::swap;
+
+};
+
+
+template <size_t table_size_, typename K, typename V, class A = ds::DefaultAllocator>
+using ordered_map = OrderedMap<table_size_,K,V,A>;
+
+
+} // namespace ds
+
+#endif // DS_ORDERED_MAP
