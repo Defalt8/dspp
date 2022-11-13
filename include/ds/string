@@ -520,11 +520,25 @@ struct Hasher<StringView>
 	static inline size_t hash(char const * pstring)           { return Hasher<char[]>::hash(pstring); }
 };
 
+template <>
+struct OrderedHasher<StringView> : integral_constant<size_t,OrderedHasher<char[]>::value>
+{
+	static inline size_t hash(StringView const & string_view) { return OrderedHasher<char[]>::hash(string_view.begin()); }
+	static inline size_t hash(char const * pstring)           { return OrderedHasher<char[]>::hash(pstring); }
+};
+
 template <class A>
 struct Hasher<String<A>>
 {
-	static inline size_t hash(String<A> const & string) { return Hasher<char[]>::hash(string.begin()); }
-	static inline size_t hash(char const * pstring)     { return Hasher<char[]>::hash(pstring); }
+	static inline size_t hash(String<A> const & string) { return OrderedHasher<char[]>::hash(string.begin()); }
+	static inline size_t hash(char const * pstring)     { return OrderedHasher<char[]>::hash(pstring); }
+};
+
+template <class A>
+struct OrderedHasher<String<A>> : integral_constant<size_t,OrderedHasher<char[]>::value>
+{
+	static inline size_t hash(String<A> const & string) { return OrderedHasher<char[]>::hash(string.begin()); }
+	static inline size_t hash(char const * pstring)     { return OrderedHasher<char[]>::hash(pstring); }
 };
 
 
