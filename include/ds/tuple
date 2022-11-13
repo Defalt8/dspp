@@ -125,7 +125,8 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 
 	template <size_t start_ = 0, size_t end_ = size(), typename Func
 			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
-			, typename = decltype(decl<Func &>()(size_t(0),decl<T>()))>
+			, typename = decltype(decl<Func>()(size_t(0),decl<T>()))
+		>
 	constexpr void
 	for_each(Func && do_)
 	{
@@ -134,7 +135,8 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 
 	template <size_t start_ = 0, size_t end_ = size(), typename Func
 			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
-			, typename = decltype(decl<Func &>()(size_t(0),decl<T>()))>
+			, typename = decltype(decl<Func>()(size_t(0),decl<T>()))
+		>
 	constexpr void
 	for_each(Func && do_) const
 	{
@@ -143,7 +145,7 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 
 	template <size_t start_ = 0, size_t end_ = size(), typename Func
 			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
-			, typename = decltype(decl<Func &>()(size_t(0),decl<T>()))>
+			, typename = decltype(decl<Func>()(size_t(0),decl<T>()))>
 	constexpr void
 	reverse_for_each(Func && do_)
 	{
@@ -152,7 +154,7 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 
 	template <size_t start_ = 0, size_t end_ = size(), typename Func
 			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
-			, typename = decltype(decl<Func &>()(size_t(0),decl<T>()))>
+			, typename = decltype(decl<Func>()(size_t(0),decl<T>()))>
 	constexpr void
 	reverse_for_each(Func && do_) const
 	{
