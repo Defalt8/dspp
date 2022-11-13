@@ -515,17 +515,6 @@ struct Hasher<char[size_]>
 {
 
 	static size_t 
-	hash(char const (&cstring)[size_]) noexcept
-	{
-		static constexpr size_t prime_sq_size = 512;
-		auto const & prime_squares = init_prime_squares<size_t,prime_sq_size>();
-		size_t hash_ = 0;
-		for(size_t i = 0; i < size_; ++i)
-			hash_ += size_t(cstring[i]) * prime_squares[i % prime_sq_size];
-		return hash_;
-	}
-
-	static size_t 
 	hash(char const * pstring) noexcept
 	{
 		static constexpr size_t prime_sq_size = 512;
@@ -584,23 +573,15 @@ struct OrderedHasher<char[size_]> : integral_constant<size_t,max_integral<size_t
 {
 
 	static size_t 
-	hash(char const (&cstring)[size_]) noexcept
-	{
-		size_t partition_ = 0;
-		for(size_t i = 0; i < sizeof(size_t); ++i)
-			partition_ |= size_t(cstring[i]) << ((sizeof(size_t) - i - 1) * 8);
-		return partition_;
-	}
-
-	static size_t 
 	hash(char const * pstring) noexcept
 	{
 		if(!pstring)
 			return 0;
-		size_t partition_ = 0;
-		for(size_t i = 0; i < sizeof(size_t) && pstring[i] != '\0'; ++i)
-			partition_ |= size_t(pstring[i]) << ((sizeof(size_t) - i - 1) * 8);
-		return partition_;
+		size_t ordered_hash_ = 0;
+		size_t min_size = min(sizeof(size_t), size_);
+		for(size_t i = 0; i < min_size && pstring[i] != '\0'; ++i)
+			ordered_hash_ |= size_t(pstring[i]) << ((sizeof(size_t) - i - 1) * 8);
+		return ordered_hash_;
 	}
 
 };
@@ -613,16 +594,16 @@ struct OrderedHasher<char[]> : integral_constant<size_t,max_integral<size_t>::va
 	{
 		if(!pstring)
 			return 0;
-		size_t partition_ = 0;
+		size_t ordered_hash_ = 0;
 		for(size_t i = 0; i < sizeof(size_t) && pstring[i] != '\0'; ++i)
-			partition_ |= size_t(pstring[i]) << ((sizeof(size_t) - i - 1) * 8);
-		return partition_;
+			ordered_hash_ |= size_t(pstring[i]) << ((sizeof(size_t) - i - 1) * 8);
+		return ordered_hash_;
 	}
 
 };
 
 template<typename T>
-using orderedhasher = OrderedHasher<T>;
+using ordered_hasher = OrderedHasher<T>;
 
 
 template <typename T, T... sequence_>
