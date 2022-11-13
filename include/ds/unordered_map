@@ -1,0 +1,138 @@
+#pragma once
+#ifndef DS_UNORDERED_MAP
+#define DS_UNORDERED_MAP
+
+#include "common"
+#include "unordered_list"
+
+namespace ds {
+
+template <size_t table_size_, typename K, typename V, class A = DefaultAllocator> 
+using UnorderedMapIterator = UnorderedList<table_size_,Entry<K,V>,A>;
+template <size_t table_size_, typename K, typename V, class A = DefaultAllocator> 
+using ConstUnorderedMapIterator = UnorderedList<table_size_,Entry<K,V>,A>;
+template <size_t table_size_, typename K, typename V, class A = DefaultAllocator> 
+class UnorderedMap;
+
+namespace traits {
+
+	template <size_t table_size_, typename K, typename V, class A>
+	struct iterable<UnorderedMap<table_size_,K,V,A>> : public iterable<UnorderedList<table_size_,Entry<K,V>,A>> {};
+
+	template <size_t table_size_, typename K, typename V, class A>
+	struct iterable<UnorderedMap<table_size_,K,V,A> const> : public iterable<UnorderedList<table_size_,Entry<K,V>,A> const> {};
+
+	template <size_t table_size_, typename K, typename V, class A>
+	struct allocator<UnorderedMap<table_size_,K,V,A>> : public allocator_traits<A> {};
+
+	template <size_t table_size_, typename K, typename V, class A>
+	struct allocator<UnorderedMap<table_size_,K,V,A> const> : public allocator_traits<A> {};
+
+} // namespace trait
+
+
+template <size_t table_size_, typename K, typename V, class A>
+class UnorderedMap : protected UnorderedList<table_size_,Entry<K,V>,A>
+{
+ public:
+	using key_t            = K;
+	using value_t          = V;
+	using entry_t          = Entry<K,V>;
+	using iterator_t       = typename UnorderedList<table_size_,Entry<K,V>,A>::iterator_t;
+	using const_iterator_t = typename UnorderedList<table_size_,Entry<K,V>,A>::const_iterator_t;
+
+ public:
+	UnorderedMap() = default;
+	UnorderedMap(UnorderedMap &&) = default;
+	UnorderedMap(UnorderedMap const &) = default;
+	UnorderedMap & operator=(UnorderedMap &&) = default;
+	UnorderedMap & operator=(UnorderedMap const &) = default;
+
+	template <size_t size_
+		, enable_if_t<is_constructible<UnorderedList<table_size_,entry_t,A>,entry_t(&&)[size_],duplicate_rule>::value,int> = 0>
+	UnorderedMap(entry_t (&& array_)[size_], duplicate_rule param = {})
+		: UnorderedList<table_size_,entry_t,A>(ds::move(array_), param)
+	{}
+
+	template <typename K_ = K, size_t size_
+		, enable_if_t<is_constructible<UnorderedList<table_size_,entry_t,A>,K_(&&)[size_],duplicate_rule>::value,int> = 0>
+	UnorderedMap(K_ (&& array_)[size_], duplicate_rule param = {})
+		: UnorderedList<table_size_,entry_t,A>(ds::move(array_), param)
+	{}
+	template <typename Begin, typename End
+		, typename T = decltype(*decl<Begin &>())
+		, typename   = decltype(++decl<Begin &>())
+		, enable_if_t<is_constructible<entry_t,T>::value,int> = 0>
+	UnorderedMap(Begin && begin_, End && end_, duplicate_rule param = {})
+		: UnorderedList<table_size_,entry_t,A>(ds::forward<Begin>(begin_), ds::forward<End>(end_), param)
+	{}
+
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	value_t & 
+	operator[](K_ && key)
+	{
+		return this->insert_replace(ds::forward<K_>(key))->value;
+	}
+
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	value_t & 
+	operator[](K_ && key) const noexcept
+	{
+		return this->position_of(ds::forward<K_>(key))->value;
+	}
+
+	template <typename K_, typename V_
+			, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
+			, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))
+		>
+	inline iterator_t
+	set(K_ && key, V_ && value)
+	{
+		return this->emplace_replace(ds::forward<K_>(key), ds::forward<V_>(value));
+	}
+
+	template <typename K_, typename V_
+		, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
+		, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	inline iterator_t
+	set_noreplace(K_ && key, V_ && value)
+	{
+		return this->emplace_unique(ds::forward<K_>(key), ds::forward<V_>(value));
+	}
+
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	iterator_t
+	get(K_ && key) noexcept
+	{
+		return this->position_of(ds::forward<K_>(key));
+	}
+
+	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	const_iterator_t
+	get(K_ && key) const noexcept
+	{
+		return this->position_of(ds::forward<K_>(key));
+	}
+
+	using UnorderedList<table_size_,entry_t,A>::operator!;
+	using UnorderedList<table_size_,entry_t,A>::operator bool;
+	using UnorderedList<table_size_,entry_t,A>::table;
+	using UnorderedList<table_size_,entry_t,A>::size;
+	using UnorderedList<table_size_,entry_t,A>::begin;
+	using UnorderedList<table_size_,entry_t,A>::end;
+	using UnorderedList<table_size_,entry_t,A>::rbegin;
+	using UnorderedList<table_size_,entry_t,A>::rend;
+	using UnorderedList<table_size_,entry_t,A>::remove_at;
+	using UnorderedList<table_size_,entry_t,A>::remove;
+	using UnorderedList<table_size_,entry_t,A>::swap;
+
+};
+
+
+template <size_t table_size_, typename K, typename V, class A = ds::DefaultAllocator>
+using unordered_map = UnorderedMap<table_size_,K,V,A>;
+
+
+} // namespace ds
+
+#endif // DS_UNORDERED_MAP
