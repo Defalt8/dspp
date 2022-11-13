@@ -956,25 +956,20 @@ struct sequence
 };
 
 template <typename T>
-static constexpr T &&
-min(T && lhs, T && rhs) noexcept
-{
-	return lhs < rhs ? ds::forward<T>(lhs) : ds::forward<T>(rhs);
-}
+static constexpr T min(T lhs, T rhs) noexcept { return lhs < rhs ? lhs : rhs; }
+
+template <typename T>
+static constexpr T & min(T & lhs, T & rhs) noexcept { return lhs < rhs ? lhs : rhs; }
+
+template <typename T>
+static constexpr T max(T lhs, T rhs) noexcept { return lhs > rhs ? lhs : rhs; }
+
+template <typename T>
+static constexpr T & max(T & lhs, T & rhs) noexcept { return lhs > rhs ? lhs : rhs; }
 
 template <typename T>
 static constexpr T &&
-max(T && lhs, T && rhs) noexcept
-{
-	return lhs > rhs ? ds::forward<T>(lhs) : ds::forward<T>(rhs);
-}
-
-template <typename T>
-static constexpr T &&
-abs(T && rhs)
-{
-	return rhs < 0 ? -ds::forward<T>(rhs) : ds::forward<T>(rhs);
-}
+abs(T && rhs) { return rhs < 0 ? -ds::forward<T>(rhs) : ds::forward<T>(rhs); }
 
 template <typename E, size_t size_>
 static constexpr size_t size(E (& array_)[size_]) { return size_; }
