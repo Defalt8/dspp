@@ -18,6 +18,7 @@ set( DS_HEADER_FILES
 	include/ds/list
 	include/ds/unordered_list
 	include/ds/unordered_map
+	include/ds/ordered_list
 )
  
 add_library( dspp INTERFACE )

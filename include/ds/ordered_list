@@ -1,0 +1,928 @@
+#pragma once
+#ifndef DS_ORDERED_LIST
+#define DS_ORDERED_LIST
+
+#include "common"
+#include "traits/allocator"
+#include "traits/iterable"
+#include "unique"
+#include "fixed"
+
+namespace ds {
+
+template <size_t table_size_, typename E> struct OrderedListNode;
+template <size_t table_size_, typename E, class A = DefaultAllocator> class OrderedListIterator;
+template <size_t table_size_, typename E, class A = DefaultAllocator> class ConstOrderedListIterator;
+template <size_t table_size_, typename E, class A = DefaultAllocator> class OrderedList;
+
+namespace traits {
+
+	template <size_t table_size_, typename E, class A>
+	struct iterable<OrderedList<table_size_,E,A>> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, void const
+			, OrderedListIterator<table_size_,E,A>
+			, ConstOrderedListIterator<table_size_,E,A>
+			, OrderedListIterator<table_size_,E,A>
+			, ConstOrderedListIterator<table_size_,E,A>
+		> 
+	{};
+
+	template <size_t table_size_, typename E, class A>
+	struct iterable<OrderedList<table_size_,E,A> const> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, void const
+			, void
+			, ConstOrderedListIterator<table_size_,E,A>
+			, void
+			, ConstOrderedListIterator<table_size_,E,A>
+		> 
+	{};
+
+	template <size_t table_size_, typename E, class A>
+	struct allocator<OrderedList<table_size_,E,A>> : public allocator_traits<A> {};
+
+	template <size_t table_size_, typename E, class A>
+	struct allocator<OrderedList<table_size_,E,A> const> : public allocator_traits<A> {};
+
+} // namespace trait
+
+template <size_t table_size_, typename E>
+struct OrderedListNode
+{
+	E              object  {};
+	OrderedListNode * prev = nullptr;
+	OrderedListNode * next = nullptr;
+
+	template <typename... Args>
+	OrderedListNode(Args &&... args)
+		: object (ds::forward<Args>(args)...)
+	{}
+
+};
+
+template <size_t table_size_, typename E, class A>
+class OrderedListIterator
+{
+	friend class OrderedList<table_size_,E,A>;
+	friend class ConstOrderedListIterator<table_size_,E,A>;
+	using node_t           = OrderedListNode<table_size_,E>;
+	using list_t           = OrderedList<table_size_,E,A>;
+	using const_iterator_t = ConstOrderedListIterator<table_size_,E,A>;
+
+	list_t * m_list = nullptr;
+	node_t * m_node = nullptr;
+	int      m_end  = 0; // at end if > 0 and null node, else at reverse end if < 0 and null node  
+	
+	OrderedListIterator(list_t * list_, node_t * node_, int end_ = 0)
+		: m_list { list_ }
+		, m_node { node_ }
+		, m_end  { end_  }
+	{}
+
+ public:
+	struct null_iterator : public exception
+	{
+		char const * what() const noexcept override { return "null iterator"; }
+	};
+
+	OrderedListIterator() = default;
+	OrderedListIterator(OrderedListIterator const &) = default;
+	OrderedListIterator(OrderedListIterator &&) = default;
+	OrderedListIterator & operator=(OrderedListIterator const &) = default;
+	OrderedListIterator & operator=(OrderedListIterator &&) = default;
+
+	inline E       & operator*()        noexcept { return m_node->object ; }
+	inline E const & operator*()  const noexcept { return m_node->object ; }
+
+	inline E       * operator->()       noexcept { return &m_node->object ; }
+	inline E const * operator->() const noexcept { return &m_node->object ; }
+
+	inline bool operator!() const noexcept { return m_node == nullptr; }
+
+	explicit inline operator bool()          noexcept { return m_node != nullptr; }
+	explicit inline operator bool()    const noexcept { return m_node != nullptr; }
+
+	inline bool 
+	operator==(OrderedListIterator const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node && (m_end * rhs.m_end >= 0);
+	}
+
+	inline bool 
+	operator!=(OrderedListIterator const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node || (m_end * rhs.m_end < 0);
+	}
+	
+	inline bool 
+	operator==(const_iterator_t const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node && (m_end * rhs.m_end >= 0);
+	}
+
+	inline bool 
+	operator!=(const_iterator_t const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node || (m_end * rhs.m_end < 0);
+	}
+
+	OrderedListIterator &
+	operator++() noexcept
+	{
+		if(m_node)
+		{
+			m_node = m_node->next;
+			if(!m_node)
+				m_end = 1; // at the end
+		}
+		else if(m_list != nullptr && m_end < 0)
+		{
+			m_node = m_list->m_data->first;
+			m_end  = 0;
+		}
+		return *this;
+	}
+	
+	OrderedListIterator
+	operator++(int) noexcept
+	{
+		auto it_ = *this;
+		this->operator++();
+		return ds::move(it_);
+	}
+	
+	OrderedListIterator &
+	operator--() noexcept
+	{
+		if(m_node)
+		{
+			m_node = m_node->prev;
+			if(!m_node)
+				m_end = -1; // at the reverse-end
+		}
+		else if(m_list != nullptr && m_end > 0)
+		{
+			m_node = m_list->m_data->last;
+			m_end  = 0;
+		}
+		return *this;
+	}
+
+	OrderedListIterator
+	operator--(int) noexcept
+	{
+		auto it_ = *this;
+		this->operator--();
+		return ds::move(it_);
+	}
+	
+	inline E       * ptr()       noexcept { return m_node == nullptr ? nullptr : &m_node->object ; }
+	inline E const * ptr() const noexcept { return m_node == nullptr ? nullptr : &m_node->object ; }
+
+	inline E & 
+	ref() noexcept(false) 
+	{ 
+		ds_throw_if(!m_node, null_iterator());
+		return m_node->object ; 
+	}
+
+	inline E const & 
+	ref() const noexcept(false) 
+	{ 
+		ds_throw_if(!m_node, null_iterator());
+		return m_node->object ; 
+	}
+
+	inline void
+	swap(OrderedListIterator & rhs) noexcept
+	{
+		ds::swap(m_list, rhs.m_list);
+		ds::swap(m_node, rhs.m_node);
+		ds::swap(m_end,  rhs.m_end);
+	}
+
+};
+
+
+template <size_t table_size_, typename E, class A>
+class ConstOrderedListIterator
+{
+	friend class OrderedList<table_size_,E,A>;
+	friend class OrderedListIterator<table_size_,E,A>;
+	using node_t     = OrderedListNode<table_size_,E>;
+	using list_t     = OrderedList<table_size_,E,A>;
+	using iterator_t = OrderedListIterator<table_size_,E,A>;
+
+	list_t const * m_list = nullptr;
+	node_t       * m_node = nullptr;
+	int            m_end  = 0; // at end if > 0 and null node, else at reverse end if < 0 and null node  
+	
+	ConstOrderedListIterator(list_t const * list_, node_t * node_, int end_ = 0)
+		: m_list { list_ }
+		, m_node { node_ }
+		, m_end  { end_  }
+	{}
+
+ public:
+	struct null_iterator : public exception
+	{
+		char const * what() const noexcept override { return "null iterator"; }
+	};
+
+	ConstOrderedListIterator() = default;
+	ConstOrderedListIterator(ConstOrderedListIterator const &) = default;
+	ConstOrderedListIterator(ConstOrderedListIterator &&) = default;
+	ConstOrderedListIterator & operator=(ConstOrderedListIterator const &) = default;
+	ConstOrderedListIterator & operator=(ConstOrderedListIterator &&) = default;
+
+	inline E const & operator*()  const noexcept { return m_node->object ; }
+
+	inline E const * operator->() const noexcept { return &m_node->object ; }
+
+	inline bool operator!() const noexcept { return m_node == nullptr; }
+
+	explicit inline operator bool()          noexcept { return m_node != nullptr; }
+	explicit inline operator bool()    const noexcept { return m_node != nullptr; }
+
+	inline bool 
+	operator==(ConstOrderedListIterator const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node && (m_end * rhs.m_end >= 0);
+	}
+
+	inline bool 
+	operator!=(ConstOrderedListIterator const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node || (m_end * rhs.m_end < 0);
+	}
+	
+	inline bool 
+	operator==(iterator_t const & rhs) const noexcept
+	{
+		return m_node == rhs.m_node && (m_end * rhs.m_end >= 0);
+	}
+
+	inline bool 
+	operator!=(iterator_t const & rhs) const noexcept
+	{
+		return m_node != rhs.m_node || (m_end * rhs.m_end < 0);
+	}
+
+	ConstOrderedListIterator &
+	operator++() noexcept
+	{
+		if(m_node)
+		{
+			m_node = m_node->next;
+			if(!m_node)
+				m_end = 1; // at the end
+		}
+		else if(m_list != nullptr && m_end < 0)
+		{
+			m_node = m_list->m_data->first;
+			m_end  = 0;
+		}
+		return *this;
+	}
+	
+	ConstOrderedListIterator
+	operator++(int) noexcept
+	{
+		auto it_ = *this;
+		this->operator++();
+		return ds::move(it_);
+	}
+	
+	ConstOrderedListIterator &
+	operator--() noexcept
+	{
+		if(m_node)
+		{
+			m_node = m_node->prev;
+			if(!m_node)
+				m_end = -1; // at the reverse-end
+		}
+		else if(m_list != nullptr && m_end > 0)
+		{
+			m_node = m_list->m_data->last;
+			m_end  = 0;
+		}
+		return *this;
+	}
+
+	ConstOrderedListIterator
+	operator--(int) noexcept
+	{
+		auto it_ = *this;
+		this->operator--();
+		return ds::move(it_);
+	}
+	
+	inline E const * ptr() const noexcept { return m_node == nullptr ? nullptr : &m_node->object ; }
+
+	inline E const & 
+	ref() const noexcept(false) 
+	{ 
+		ds_throw_if(!m_node, null_iterator());
+		return m_node->object ; 
+	}
+
+	inline void
+	swap(ConstOrderedListIterator & rhs) noexcept
+	{
+		ds::swap(m_list, rhs.m_list);
+		ds::swap(m_node, rhs.m_node);
+		ds::swap(m_end,  rhs.m_end);
+	}
+
+};
+
+
+template <size_t table_size_, typename E, class A> 
+class OrderedList
+{
+	friend class OrderedListIterator<table_size_,E,A>;
+	friend class ConstOrderedListIterator<table_size_,E,A>;
+
+ public:
+	using node_t           = OrderedListNode<table_size_,E>;
+	using table_t          = Fixed<table_size_,node_t *>;
+	using iterator_t       = OrderedListIterator<table_size_,E,A>;
+	using const_iterator_t = ConstOrderedListIterator<table_size_,E,A>;
+
+ private:
+	struct Storage
+	{
+		table_t   table = {};
+		node_t  * first = nullptr;
+		node_t  * last  = nullptr;
+	};
+	
+	using storage_t = Unique<Storage,A>; 
+
+	storage_t m_data = {};
+	size_t    m_size   = 0;
+
+	static inline void
+	_deallocate(void * block_) noexcept
+	{
+		return A::deallocate(block_);
+	}
+
+	DS_nodiscard static inline void *
+	_allocate(size_t size_, align_t align_)
+	{
+		return A::allocate(size_, align_);
+	}
+	
+	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	inline size_t 
+	_ordered_index(T && object) const noexcept
+	{
+		auto   ordered_hash_  = OrderedHasher<E>::hash(object);
+		auto n = double(ordered_hash_) / double(OrderedHasher<E>::value);
+		return size_t(n * table_size_);
+	}
+
+	inline node_t * &
+	_ordered_index_entry(size_t index_) noexcept
+	{
+		return m_data->table[index_ % table_size_];
+	}
+
+	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	inline node_t * &
+	_ordered_entry(T && object) noexcept
+	{
+		return m_data->table[_ordered_index(object)];
+	}
+
+	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	inline node_t * &
+	_ordered_entry_and_index(T && object, size_t & index) noexcept
+	{
+		index = _ordered_index(object);
+		return m_data->table[index];
+	}
+
+	inline node_t *
+	_prev_entry(size_t ordered_index_) noexcept
+	{
+		node_t * inode = nullptr;
+		if(ordered_index_ != 0)
+			for(size_t i = ordered_index_ - 1; (inode = m_data->table[i]) == nullptr && i > 0; --i);
+		return inode;
+	}
+
+	inline node_t *
+	_next_entry(size_t ordered_index_) noexcept
+	{
+		node_t * inode = nullptr;
+		if(ordered_index_ != 0)
+			for(size_t i = ordered_index_ + 1; i < table_size_ && (inode = m_data->table[i]) == nullptr; ++i);
+		return inode;
+	}
+
+	// insert node at the end of the list
+	iterator_t
+	_insert_node_last(node_t * node) noexcept
+	{
+		if(!m_data->first)
+			m_data->first = m_data->last = node;
+		else
+		{
+			node->prev   = m_data->last;
+			node->next   = nullptr;
+			m_data->last->next = node;
+			m_data->last       = node;
+		}
+		++m_size;
+		return { this, node };
+	}
+
+	// insert node at the begining of the list
+	iterator_t
+	_insert_node_first(node_t * node) noexcept
+	{
+		if(!m_data->first)
+			m_data->first = m_data->last = node;
+		else
+		{
+			node->prev    = nullptr;
+			node->next    = m_data->first;
+			m_data->first->prev = node;
+			m_data->first       = node;
+		}
+		++m_size;
+		return { this, node };
+	}
+
+	iterator_t
+	_insert_node_before(node_t * const before_node, node_t * node) noexcept
+	{
+		if(!m_data->first)
+			m_data->first = m_data->last = node;
+		else if(!before_node || before_node == m_data->first)
+		{
+			node->prev    = nullptr;
+			node->next    = m_data->first;
+			m_data->first->prev = node;
+			m_data->first       = node;
+		}
+		else
+		{
+			node->prev = before_node->prev;
+			node->next = before_node;
+			before_node->prev = node;
+			if(node->prev)
+				node->prev->next = node;
+		}
+		++m_size;
+		return { this, node };
+	}
+
+	iterator_t
+	_insert_node_after(node_t * const after_node, node_t * node) noexcept
+	{
+		if(!m_data->first)
+			m_data->first = m_data->last = node;
+		else if(!after_node || after_node == m_data->last)
+		{
+			node->prev    = m_data->last;
+			node->next    = nullptr;
+			m_data->last->next  = node;
+			m_data->last        = node;
+		}
+		else
+		{
+			node->prev = after_node;
+			node->next = after_node->next;
+			after_node->next = node;
+			if(node->next)
+				node->next->prev = node;
+		}
+		++m_size;
+		return { this, node };
+	}
+
+	template <typename T = E>
+	iterator_t
+	_insert_object(T && object) noexcept
+	{
+		size_t ordered_index;
+		auto & entry = _ordered_entry_and_index(object, ordered_index);
+		node_t * node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<T>(object));
+		if(node == nullptr)
+			return {};
+		if(entry != nullptr)
+		{
+			// check head
+			auto * inode = entry;
+			if(entry->object == object)
+			{
+				entry = node;
+				return _insert_node_after(inode, node);
+			}
+			// find the nearest duplicate
+			for(inode = entry->next; inode != nullptr; inode = inode->prev)
+			{
+				if(inode->object == object)
+					return _insert_node_after(inode, node);
+				else if(_ordered_index(inode->object) < ordered_index || inode->object < object)
+					return _insert_node_after(inode, node);
+			}
+			// rend of list reached
+			return _insert_node_first(node);
+		}
+		else if(m_size == 0)
+		{
+			entry = node;
+			return _insert_node_first(node);
+		}
+		else
+		{
+			node_t * inode = _prev_entry(ordered_index);
+			entry = node;
+			if(inode == nullptr)
+				return _insert_node_first(node);
+			else
+				return _insert_node_after(inode, node);
+		}
+	}
+
+	template <typename T = E>
+	iterator_t
+	_insert_object_unique(T && object, bool replace) noexcept
+	{
+		size_t ordered_index;
+		auto & entry = _ordered_entry_and_index(object, ordered_index);
+		if(entry != nullptr)
+		{
+			// check head
+			auto * inode = entry;
+			if(entry->object == object)
+			{
+				if(replace)
+				{
+					destruct(inode->object);
+					construct_at<E>(&inode->object, ds::forward<T>(object));
+				}
+				return { this, inode };
+			}
+			// find duplicate
+			for(inode = entry->next; inode != nullptr; inode = inode->prev)
+			{
+				if(inode->object == object)
+				{
+					if(replace)
+					{
+						destruct(inode->object);
+						construct_at<E>(&inode->object, ds::forward<T>(object));
+					}
+					return { this, inode };
+				}
+				else if(_ordered_index(inode->object) < ordered_index || inode->object < object)
+					break;
+			}
+			// no duplicates found
+			node_t * node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<T>(object));
+			if(node == nullptr)
+				return {};
+			if(inode == nullptr)
+				return _insert_node_first(node);
+			else
+				return _insert_node_after(inode, node);
+		}
+		else
+		{
+			node_t * node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<T>(object));
+			if(node == nullptr)
+				return {};
+			if(m_data->first == nullptr)
+			{
+				entry = node;
+				return _insert_node_first(node);
+			}
+			else
+			{
+				node_t * inode = _prev_entry(ordered_index);
+				entry = node;
+				if(inode == nullptr)
+					return _insert_node_first(node);
+				else
+					return _insert_node_after(inode, node);
+			}
+		}
+	}
+
+ public:
+	OrderedList() = default;
+
+	~OrderedList() noexcept
+	{
+		this->destroy();
+	}
+
+	OrderedList(noinit_t)
+		: m_data { noinit }
+	{}
+
+	OrderedList(OrderedList && rhs) noexcept
+		: m_data { ds::move(rhs.m_data) }
+	{}
+
+	OrderedList(OrderedList const & rhs)
+	{
+		if(m_data && rhs.m_data)
+			for(auto node = rhs.m_data->first; node != nullptr && this->insert(node->object); node = node->next);
+	}
+
+	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T &&>::value,int> = 0>
+	OrderedList(T (&& array_)[size_], duplicate_rule param = {})
+	{
+		if(m_data)
+		{
+			switch(param)
+			{
+				default:
+				case duplicate_rule::Allow:
+					for(size_t i = 0; i < size_ && this->_insert_object(ds::move(array_[i])); ++i);
+					break;
+				case duplicate_rule::Unique:
+					for(size_t i = 0; i < size_ && this->_insert_object_unique(ds::move(array_[i]), false); ++i);
+					break;
+				case duplicate_rule::Replace:
+					for(size_t i = 0; i < size_ && this->_insert_object_unique(ds::move(array_[i]), true); ++i);
+					break;
+			}
+		}
+	}
+
+	template <typename Begin, typename End
+		, typename T = decltype(*decl<Begin &>())
+		, typename   = decltype(++decl<Begin &>())
+		, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	OrderedList(Begin && begin_, End && end_, duplicate_rule param = {})
+	{
+		if(m_data)
+		{
+			switch(param)
+			{
+				default:
+				case duplicate_rule::Allow:
+					for(auto it = begin_; it != end_ && this->_insert_object(*it); ++it);
+					break;
+				case duplicate_rule::Unique:
+					for(auto it = begin_; it != end_ && this->_insert_object_unique(*it, false); ++it);
+					break;
+				case duplicate_rule::Replace:
+					for(auto it = begin_; it != end_ && this->_insert_object_unique(*it, true); ++it);
+					break;
+			}
+		}
+	}
+
+	OrderedList & 
+	operator=(OrderedList && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	OrderedList & 
+	operator=(OrderedList const & rhs)
+	{
+		if(&rhs != this)
+		{
+			this->destroy();
+			m_data = {};
+			if(m_data && rhs.m_data)
+				for(auto node = rhs.m_data->first; node != nullptr && this->insert(node->object); node = node->next);
+		}
+		return *this;
+	}
+
+	inline bool operator!() const noexcept { return !m_data; }
+
+	explicit inline operator bool()       noexcept { return bool(m_data); }
+	explicit inline operator bool() const noexcept { return bool(m_data); }
+
+	table_t const & table() const noexcept { return m_data->table; }
+
+	size_t size() const noexcept { return m_size; }
+
+	iterator_t       begin()        noexcept { return { this, m_data ? m_data->first : nullptr };  }
+	const_iterator_t begin()  const noexcept { return { this, m_data ? m_data->first : nullptr };  }
+	iterator_t       end()          noexcept { return { this, nullptr, 1 };    }
+	const_iterator_t end()    const noexcept { return { this, nullptr, 1 };    }
+
+	iterator_t       rbegin()       noexcept { return { this, m_data ? m_data->last : nullptr }; }
+	const_iterator_t rbegin() const noexcept { return { this, m_data ? m_data->last : nullptr }; }
+	iterator_t       rend()         noexcept { return { this, nullptr, -1 };   }
+	const_iterator_t rend()   const noexcept { return { this, nullptr, -1 };   }
+	
+	void
+	destroy() noexcept
+	{
+		if(m_data)
+		{
+			for(auto node = m_data->last; node;)
+			{
+				auto current = node;
+				node = node->prev;
+				destruct(*current);
+				_deallocate(current);
+			}
+			m_data.destroy();
+			m_size = 0;
+		}
+	}
+
+	template <typename... Args
+		, enable_if_t<is_constructible<E,Args...>::value,int> = 0
+		, typename = decltype(OrderedHasher<E>::hash(decl<E>()))>
+	iterator_t
+	emplace(Args &&... args)
+	{
+		if(!m_data)
+			return {};
+		return _insert_object({ ds::forward<Args>(args)... });
+	}
+
+	template <typename... Args
+		, enable_if_t<is_constructible<E,Args...>::value,int> = 0
+		, typename = decltype(OrderedHasher<E>::hash(decl<E>()))>
+	iterator_t
+	emplace_unique(Args &&... args)
+	{
+		if(!m_data)
+			return {};
+		return _insert_object_unique({ ds::forward<Args>(args)... }, false);
+	}
+
+	template <typename... Args
+		, enable_if_t<is_constructible<E,Args...>::value,int> = 0
+		, typename = decltype(OrderedHasher<E>::hash(decl<E>()))>
+	iterator_t
+	emplace_replace(Args &&... args)
+	{
+		if(!m_data)
+			return {};
+		return _insert_object_unique({ ds::forward<Args>(args)... }, true);
+	}
+
+	template <typename T = E
+		, enable_if_t<is_constructible<E,T>::value,int> = 0
+		, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	iterator_t
+	insert(T && object)
+	{
+		if(!m_data)
+			return {};
+		return _insert_object(ds::forward<T>(object));
+	}
+
+	template <typename T = E
+		, enable_if_t<is_constructible<E,T>::value,int> = 0
+		, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	iterator_t
+	insert_unique(T && object)
+	{
+		if(!m_data)
+			return {};
+		return _insert_object_unique(ds::forward<T>(object), false);
+	}
+
+	template <typename T = E
+		, enable_if_t<is_constructible<E,T>::value,int> = 0
+		, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	iterator_t
+	insert_replace(T && object)
+	{
+		if(!m_data)
+			return {};
+		return _insert_object_unique(ds::forward<T>(object), true);
+	}
+
+	bool
+	remove_at(iterator_t const & position) noexcept
+	{
+		if(position.m_list != this || position.m_node == nullptr)
+			return false;
+		// remove from the table
+		node_t * node = position.m_node;
+		{
+			size_t ordered_index;
+			auto & entry = _ordered_entry_and_index(node->object, ordered_index);
+			if(entry == node)
+			{
+				if(node->next && _ordered_index(node->next->object) == ordered_index)
+					entry = node->next;
+				else if(node->prev && _ordered_index(node->prev->object) == ordered_index)
+					entry = node->prev;
+				else
+					entry = nullptr;
+			}
+		}
+		// remove from the list
+		if(node->prev)
+			node->prev->next = node->next;
+		if(node->next)
+			node->next->prev = node->prev;
+		if(m_data->first == node)
+			m_data->first = node->next;
+		if(m_data->last == node)
+			m_data->last = node->prev;
+		destruct(*node);
+		_deallocate(node);
+		--m_size;
+		return true;
+	}
+
+	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	inline bool
+	remove(T && object) noexcept
+	{
+		return remove_at(position_of(object));
+	}
+
+	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	iterator_t 
+	position_of(T && object, size_t skip_ = 0) noexcept
+	{
+		if(m_data)
+		{
+			size_t ordered_index;
+			auto & entry = _ordered_entry_and_index(object, ordered_index);
+			for(auto node = entry; node != nullptr; node = node->prev)
+			{
+				if(node->object == object && skip_-- == 0)
+					return { this, node };
+				else if(_ordered_index(node->object) != ordered_index)
+					break;
+			}
+		}
+		return { this, nullptr, 1 };
+	}
+
+	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	const_iterator_t 
+	position_of(T && object, size_t skip_ = 0) const noexcept
+	{
+		if(m_data->first)
+		{
+			size_t ordered_index;
+			auto & entry = _ordered_entry_and_index(object, ordered_index);
+			for(auto node = entry; node != nullptr; node = node->prev)
+			{
+				if(node->object == object && skip_-- == 0)
+					return { this, node };
+				else if(_ordered_index(node->object) != ordered_index)
+					break;
+			}
+		}
+		return { this, nullptr, 1 };
+	}
+
+	inline void 
+	swap(OrderedList & rhs) noexcept 
+	{
+		ds::swap(m_data, rhs.m_data);
+	}
+
+};
+
+
+template <size_t table_size_, typename E, class A = DefaultAllocator> 
+using ordered_list_iterator = OrderedListIterator<table_size_,E,A>;
+
+template <size_t table_size_, typename E, class A = DefaultAllocator> 
+using const_ordered_list_iterator = OrderedListIterator<table_size_,E,A>;
+
+template <size_t table_size_, typename E, class A = DefaultAllocator> 
+using ordered_list = OrderedList<table_size_,E,A>;
+
+
+template <size_t table_size_, typename E, class A, size_t size_>
+struct usage_s<OrderedList<table_size_,E,A>,size_> { static constexpr size_t value = (sizeof(OrderedListNode<table_size_,E>) + usage<E>::value) * size_; };
+
+template <size_t table_size_, typename E, class A, size_t size_, size_t count_>
+struct usage_sn<OrderedList<table_size_,E,A>,size_,count_>
+{
+	static constexpr size_t _single = usage_s<OrderedList<table_size_,E,A>,size_>::value;
+	static constexpr size_t value = (_single + (-_single & (alignof(OrderedListNode<table_size_,E>) - 1))) * count_;
+};
+
+
+} // namespace ds
+
+#endif // DS_ORDERED_LIST
