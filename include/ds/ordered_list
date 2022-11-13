@@ -893,6 +893,46 @@ class OrderedList
 		return { this, nullptr, 1 };
 	}
 
+	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	iterator_t 
+	nearest_position_of(T && object) noexcept
+	{
+		if(m_data)
+		{
+			size_t ordered_index = _ordered_index(object);
+			node_t * entry = _prev_entry(ordered_index);
+			if(entry == nullptr)
+			{
+				auto * node = m_data->first;
+				for(; node != nullptr && node->object < object; node = node->next);
+				return { this, node, node == nullptr ? 1 : 0 };
+			}
+			else
+				return { this, entry->next };
+		}
+		return { this, nullptr, -1 };
+	}
+
+	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	const_iterator_t 
+	nearest_position_of(T && object) const noexcept
+	{
+		if(m_data)
+		{
+			size_t ordered_index = _ordered_index(object);
+			node_t * entry = _prev_entry(ordered_index);
+			if(entry == nullptr)
+			{
+				auto * node = m_data->first;
+				for(; node != nullptr && node->object < object; node = node->next);
+				return { this, node, node == nullptr ? 1 : 0 };
+			}
+			else
+				return { this, entry->next };
+		}
+		return { this, nullptr, -1 };
+	}
+
 	inline void 
 	swap(OrderedList & rhs) noexcept 
 	{
