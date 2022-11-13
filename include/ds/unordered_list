@@ -397,8 +397,23 @@ class UnorderedList
 	}
 
 	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
+	inline node_t * const &
+	_hash_entry(T && object) const noexcept
+	{
+		return m_data->table[_hash_index(object)];
+	}
+
+	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
 	inline node_t * &
 	_hash_entry_and_index(T && object, size_t & index) noexcept
+	{
+		index = _hash_index(object);
+		return m_data->table[index];
+	}
+
+	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
+	inline node_t * const &
+	_hash_entry_and_index(T && object, size_t & index) const noexcept
 	{
 		index = _hash_index(object);
 		return m_data->table[index];
@@ -554,7 +569,10 @@ class UnorderedList
 
 	UnorderedList(UnorderedList && rhs) noexcept
 		: m_data { ds::move(rhs.m_data) }
-	{}
+		, m_size { rhs.m_size }
+	{
+		rhs.m_size = 0;
+	}
 
 	UnorderedList(UnorderedList const & rhs)
 	{
@@ -817,6 +835,7 @@ class UnorderedList
 	swap(UnorderedList & rhs) noexcept 
 	{
 		ds::swap(m_data, rhs.m_data);
+		ds::swap(m_size, rhs.m_size);
 	}
 
 };

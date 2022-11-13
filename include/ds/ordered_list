@@ -395,6 +395,12 @@ class OrderedList
 		return m_data->table[index_ % table_size_];
 	}
 
+	inline node_t * const &
+	_ordered_index_entry(size_t index_) const noexcept
+	{
+		return m_data->table[index_ % table_size_];
+	}
+
 	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
 	inline node_t * &
 	_ordered_entry(T && object) noexcept
@@ -403,8 +409,23 @@ class OrderedList
 	}
 
 	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	inline node_t * const &
+	_ordered_entry(T && object) const noexcept
+	{
+		return m_data->table[_ordered_index(object)];
+	}
+
+	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
 	inline node_t * &
 	_ordered_entry_and_index(T && object, size_t & index) noexcept
+	{
+		index = _ordered_index(object);
+		return m_data->table[index];
+	}
+
+	template <typename T = E, typename = decltype(OrderedHasher<E>::hash(decl<T>()))>
+	inline node_t * const &
+	_ordered_entry_and_index(T && object, size_t & index) const noexcept
 	{
 		index = _ordered_index(object);
 		return m_data->table[index];
@@ -419,8 +440,26 @@ class OrderedList
 		return inode;
 	}
 
+	inline node_t const *
+	_prev_entry(size_t ordered_index_) const noexcept
+	{
+		node_t * inode = nullptr;
+		if(ordered_index_ != 0)
+			for(size_t i = ordered_index_ - 1; (inode = m_data->table[i]) == nullptr && i > 0; --i);
+		return inode;
+	}
+
 	inline node_t *
 	_next_entry(size_t ordered_index_) noexcept
+	{
+		node_t * inode = nullptr;
+		if(ordered_index_ != 0)
+			for(size_t i = ordered_index_ + 1; i < table_size_ && (inode = m_data->table[i]) == nullptr; ++i);
+		return inode;
+	}
+
+	inline node_t const *
+	_next_entry(size_t ordered_index_) const noexcept
 	{
 		node_t * inode = nullptr;
 		if(ordered_index_ != 0)
@@ -634,7 +673,10 @@ class OrderedList
 
 	OrderedList(OrderedList && rhs) noexcept
 		: m_data { ds::move(rhs.m_data) }
-	{}
+		, m_size { rhs.m_size }
+	{
+		rhs.m_size = 0;
+	}
 
 	OrderedList(OrderedList const & rhs)
 	{
@@ -900,7 +942,7 @@ class OrderedList
 		if(m_data)
 		{
 			size_t ordered_index = _ordered_index(object);
-			node_t * entry = _prev_entry(ordered_index);
+			auto * entry = _prev_entry(ordered_index);
 			if(entry == nullptr)
 			{
 				auto * node = m_data->first;
@@ -920,7 +962,7 @@ class OrderedList
 		if(m_data)
 		{
 			size_t ordered_index = _ordered_index(object);
-			node_t * entry = _prev_entry(ordered_index);
+			auto * entry = _prev_entry(ordered_index);
 			if(entry == nullptr)
 			{
 				auto * node = m_data->first;
@@ -937,6 +979,7 @@ class OrderedList
 	swap(OrderedList & rhs) noexcept 
 	{
 		ds::swap(m_data, rhs.m_data);
+		ds::swap(m_size, rhs.m_size);
 	}
 
 };
