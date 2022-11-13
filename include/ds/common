@@ -1019,7 +1019,7 @@ struct Entry
 	Entry & operator=(Entry const &) = default;
 
 	template <typename K_ = K, enable_if_t<is_constructible<K,K_>::value,int> = 0>
-	Entry(K_ && key_)
+	explicit Entry(K_ && key_)
 		: key   { ds::forward<K_>(key_) }
 	{}
 
