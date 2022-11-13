@@ -127,6 +127,7 @@ template <typename T, typename... Ts>
 class Variant<T,Ts...>
 {
 	using union_t = _::Union<T,Ts...>;
+	using impossible_t = struct {};
 
  public:
 	using index_t = _::union_index_t;
@@ -186,6 +187,48 @@ class Variant<T,Ts...>
 	_get_to_index(Func && func, Args &&... args) const
 	{}
 
+	struct _mover
+	{
+		template <index_t i_, typename T_ = type_at_index_t<i_,T,Ts...>>
+		constexpr void
+		call(conditional_t<!is_move_constructible<T_>::value,Variant,impossible_t> & rhs, Variant & lhs) const noexcept
+		{
+			assert(is_move_constructible<T_>::value);
+		}
+
+		template <index_t i_, typename T_ = type_at_index_t<i_,T,Ts...>>
+		constexpr void
+		call(conditional_t<is_move_constructible<T_>::value,Variant,impossible_t> & rhs, Variant & lhs) const noexcept
+		{
+			auto & lhs_ = lhs.template at_nt<i_>();
+			auto & rhs_ = rhs.template at_nt<i_>();
+			ds::construct_at<T_>(&lhs_, ds::move(rhs.template at_nt<i_>()));
+			ds::destruct<T_>(rhs_);
+			lhs.m_index = rhs.m_index;
+			rhs.m_index = invalid_index;
+		}
+	};
+
+	struct _copier
+	{
+		template <index_t i_, typename T_ = type_at_index_t<i_,T,Ts...>>
+		constexpr void
+		call(conditional_t<!is_copy_constructible<T_>::value,Variant,impossible_t> const & rhs, Variant & lhs) const noexcept
+		{
+			assert(is_copy_constructible<T_>::value);
+		}
+
+		template <index_t i_, typename T_ = type_at_index_t<i_,T,Ts...>>
+		constexpr void
+		call(conditional_t<is_copy_constructible<T_>::value,Variant,impossible_t> const & rhs, Variant & lhs) const noexcept
+		{
+			auto & lhs_ = lhs.template at_nt<i_>();
+			auto & rhs_ = rhs.template at_nt<i_>();
+			ds::construct_at<T_>(&lhs_, rhs_);
+			lhs.m_index = rhs.m_index;
+		}
+	};
+
 	struct _destructor
 	{
 		template <index_t i_>
@@ -199,8 +242,10 @@ class Variant<T,Ts...>
 	constexpr void
 	_destroy() noexcept
 	{
-		if DS_constexpr17 (!are_all_true<is_trivially_destructible<T>,is_trivially_destructible<Ts>...>::value)
-			this->_get_to_index<>(_destructor());
+		constexpr bool _are_all_trivially_destructible = are_all_true<is_trivially_destructible<T>,is_trivially_destructible<Ts>...>::value;
+		if DS_constexpr17 (!_are_all_trivially_destructible)
+			this->_get_to_index(_destructor());
+		m_index = invalid_index;
 	}
 	
 	struct _visitor
@@ -288,21 +333,21 @@ class Variant<T,Ts...>
 	};
 
 	template <typename Func>
-	constexpr void _visit(Func && func) noexcept(false) { this->_get_to_index<>(_visitor(), func); }
+	constexpr void _visit(Func && func) noexcept(false) { this->_get_to_index(_visitor(), func); }
 
 	template <typename Func>
-	constexpr void _visit(Func && func) const noexcept(false) { this->_get_to_index<>(_visitor(), func); }
+	constexpr void _visit(Func && func) const noexcept(false) { this->_get_to_index(_visitor(), func); }
 
 	template <typename Func>
 	constexpr void _visit_nt(Func && func) noexcept
 	{
-		this->_get_to_index<>(_visitor_nt(), func);
+		this->_get_to_index(_visitor_nt(), func);
 	}
 
 	template <typename Func>
 	constexpr void _visit_nt(Func && func) const noexcept
 	{
-		this->_get_to_index<>(_visitor_nt(), func);
+		this->_get_to_index(_visitor_nt(), func);
 	}
 
  public:
@@ -317,16 +362,22 @@ class Variant<T,Ts...>
 	}
 
 	Variant(Variant && rhs) 
-	{}
+	{
+		if(rhs.m_index != invalid_index)
+			rhs._get_to_index(_mover(), *this);
+	}
 
 	Variant(Variant const & rhs)
-	{}
+	{
+		if(rhs.m_index != invalid_index)
+			rhs._get_to_index(_copier(), *this);
+	}
 	
 	Variant()
 	{}
 
 	template <typename T_, typename... Args
-			, index_t   index_ = type_index<T_,0,T,Ts...>::value
+			, index_t   index_ = index_t(type_index<T_,0,T,Ts...>::value)
 			, enable_if_t<(index_ < size_),int> = 0
 			, enable_if_t<is_constructible<union_t,in_place_t<T_>,Args...>::value,int> = 0
 		>
@@ -336,14 +387,37 @@ class Variant<T,Ts...>
 	{}
 
 	template <typename T_
-			, index_t   index_ = type_index<remove_cvref_t<T_>,0,T,Ts...>::value
-			, typename U      = type_at_index_t<index_,T,Ts...>
+			, index_t   index_ = index_t(type_index<remove_cvref_t<T_>,0,T,Ts...>::value)
+			, typename U       = type_at_index_t<index_,T,Ts...>
 			, enable_if_t<(index_ < size_),int> = 0
+			, enable_if_t<!is_same<remove_cvref_t<T_>,Variant>::value,int> = 0
 		>
 	Variant(T_ && object_)
 		: m_union { ds::forward<T_>(object_) }
 		, m_index { index_ }
 	{}
+
+	Variant & 
+	operator=(Variant && rhs)
+	{
+		if(&rhs != this)
+		{
+			this->_destroy();
+			rhs._get_to_index(_mover(), *this);
+		}
+		return *this;
+	}
+
+	Variant & 
+	operator=(Variant const & rhs)
+	{
+		if(&rhs != this)
+		{
+			this->_destroy();
+			rhs._get_to_index(_copier(), *this);
+		}
+		return *this;
+	}
 
 	template <typename Func>
 	constexpr void
@@ -375,6 +449,30 @@ class Variant<T,Ts...>
 	{
 		if(m_index != invalid_index) 
 			this->_visit_nt(ds::forward<Func>(func));
+	}
+
+	void 
+	destroy() noexcept
+	{
+		if(m_index != invalid_index)
+			this->_destroy();
+	}
+
+	template <typename T_, typename... Args
+			, index_t index_ = type_index<T_,0,T,Ts...>::value
+			, enable_if_t<index_ != invalid_index,int> = 0
+			, enable_if_t<(index_ < size_),int> = 0
+			, typename R = type_at_index_t<index_,T,Ts...>
+			, enable_if_t<is_constructible<R,Args...>::value,int> = 0
+		>
+	R &
+	set(Args &&... args)
+	{
+		this->_destroy();
+		auto & new_ = reinterpret_cast<R &>(m_union);
+		construct_at<R>(&new_, ds::forward<Args>(args)...);
+		m_index = index_;
+		return new_;
 	}
 
 	template <index_t index_
@@ -474,6 +572,11 @@ class Variant<T,Ts...>
 	}
 
 	index_t index() const noexcept { return m_index; }
+
+	inline bool operator!() const noexcept { return m_index == invalid_index; }
+
+	explicit inline operator bool()       noexcept { return m_index != invalid_index; }
+	explicit inline operator bool() const noexcept { return m_index != invalid_index; }
 
 };
 
