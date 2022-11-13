@@ -1268,6 +1268,118 @@ sort(It begin_, It end_, C && compare = {}) noexcept
 	}
 }
 
+
+template <typename T, typename U
+		, typename    = decltype(size(decl<T const &>()))
+		, typename    = decltype(size(decl<U const &>()))
+		, typename TB = decltype(begin(decl<T const &>()))
+		, typename UB = decltype(begin(decl<U const &>()))
+		, typename    = decltype(end(decl<T const &>()))
+		, typename    = decltype(end(decl<U const &>()))
+		, typename    = decltype(*decl<TB &>())
+		, typename    = decltype(*decl<UB &>())
+		, typename    = decltype(++decl<TB &>())
+		, typename    = decltype(++decl<UB &>())
+	>
+static constexpr bool
+begins_with(T const & lhs, U const & rhs) noexcept
+{
+	size_t lsize = size(lhs);
+	size_t rsize = size(rhs);
+	if(lsize < rsize)
+		return false;
+	auto lit = begin(lhs);
+	auto ren = end(rhs);
+	for(auto rit = begin(rhs); rit != ren; ++rit, ++lit)
+		if(*rit != *lit)
+			return false;
+	return true;
+}
+
+template <typename T, typename U
+		, typename    = decltype(size(decl<T const &>()))
+		, typename    = decltype(size(decl<U const &>()))
+		, typename TB = decltype(rbegin(decl<T const &>()))
+		, typename UB = decltype(rbegin(decl<U const &>()))
+		, typename    = decltype(rend(decl<T const &>()))
+		, typename    = decltype(rend(decl<U const &>()))
+		, typename    = decltype(*decl<TB &>())
+		, typename    = decltype(*decl<UB &>())
+		, typename    = decltype(--decl<TB &>())
+		, typename    = decltype(--decl<UB &>())
+	>
+static constexpr bool
+ends_with(T const & lhs, U const & rhs) noexcept
+{
+	size_t lsize = size(lhs);
+	size_t rsize = size(rhs);
+	if(lsize < rsize)
+		return false;
+	auto lit = rbegin(lhs);
+	auto ren = rend(rhs);
+	for(auto rit = rbegin(rhs); rit != ren; --rit, --lit)
+		if(*rit != *lit)
+			return false;
+	return true;
+}
+
+template <typename T, typename U
+		, typename    = decltype(size(decl<T const &>()))
+		, typename    = decltype(size(decl<U const &>()))
+		, typename TB = decltype(begin(decl<T const &>()))
+		, typename UB = decltype(begin(decl<U const &>()))
+		, typename    = decltype(end(decl<T const &>()))
+		, typename    = decltype(end(decl<U const &>()))
+		, typename    = decltype(*decl<TB &>())
+		, typename    = decltype(*decl<UB &>())
+		, typename    = decltype(++decl<TB &>())
+		, typename    = decltype(++decl<UB &>())
+	>
+static constexpr bool
+contians(T const & lhs, U const & rhs) noexcept
+{
+	size_t lsize = size(lhs);
+	size_t rsize = size(rhs);
+	if(lsize < rsize)
+		return false;
+	auto lend = end(lhs);
+	auto rend = end(rhs);
+	for(auto lit = begin(lhs); lit != lend; ++lit)
+	{
+		bool match_ = true;
+		auto lit2 = lit;
+		for(auto rit = begin(rhs); rit != rend; ++rit, ++lit2) 
+			if(*lit2 != *rit)
+				match_ = false;
+		if(match_)
+			return true;
+	}
+	return false;
+}
+
+template <size_t lsize_, size_t rsize_>
+static constexpr bool
+contians(char const (& lhs)[lsize_], char const (& rhs)[rsize_]) noexcept
+{
+	size_t lsize = lsize_ - 1;
+	size_t rsize = rsize_ - 1;
+	if(lsize < rsize)
+		return false;
+	auto lend = &lhs[lsize];
+	auto rend = &rhs[rsize];
+	for(auto lit = &lhs[0]; lit != lend; ++lit)
+	{
+		bool match_ = true;
+		auto lit2 = lit;
+		for(auto rit = &rhs[0]; rit != rend; ++rit, ++lit2) 
+			if(*lit2 != *rit)
+				match_ = false;
+		if(match_)
+			return true;
+	}
+	return false;
+}
+
 } // namespace ds
 
 #endif // DS_COMMON
