@@ -562,23 +562,21 @@ class OrderedList
 		{
 			// check head
 			auto * inode = entry;
-			if(entry->object == object)
+			if(entry->object == object || entry->object < object)
 			{
 				entry = node;
 				return _insert_node_after(inode, node);
 			}
 			// find the nearest duplicate
-			for(inode = entry->next; inode != nullptr; inode = inode->prev)
+			for(inode = entry->prev; inode != nullptr; inode = inode->prev)
 			{
-				if(inode->object == object)
-					return _insert_node_after(inode, node);
-				else if(_ordered_index(inode->object) < ordered_index || inode->object < object)
+				if(_ordered_index(inode->object) < ordered_index || inode->object == object || inode->object < object)
 					return _insert_node_after(inode, node);
 			}
 			// rend of list reached
 			return _insert_node_first(node);
 		}
-		else if(m_size == 0)
+		else if(m_data->first == nullptr)
 		{
 			entry = node;
 			return _insert_node_first(node);
@@ -602,19 +600,9 @@ class OrderedList
 		auto & entry = _ordered_entry_and_index(object, ordered_index);
 		if(entry != nullptr)
 		{
-			// check head
 			auto * inode = entry;
-			if(entry->object == object)
-			{
-				if(replace)
-				{
-					destruct(inode->object);
-					construct_at<E>(&inode->object, ds::forward<T>(object));
-				}
-				return { this, inode };
-			}
 			// find duplicate
-			for(inode = entry->next; inode != nullptr; inode = inode->prev)
+			for(inode = entry; inode != nullptr; inode = inode->prev)
 			{
 				if(inode->object == object)
 				{
@@ -635,7 +623,10 @@ class OrderedList
 			if(inode == nullptr)
 				return _insert_node_first(node);
 			else
+			{
+				entry = node;
 				return _insert_node_after(inode, node);
+			}
 		}
 		else
 		{
