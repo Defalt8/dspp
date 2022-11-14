@@ -1138,6 +1138,9 @@ struct OrderedHasher<Entry<K,V>> : integral_constant<size_t,OrderedHasher<K>::va
 template <typename K, typename V>
 using entry = Entry<K,V>;
 
+static thread_local char const * stream_separator = " ";
+static thread_local char const * stream_separator_key_value = ": ";
+
 template <class OST, typename K, typename V
 		, enable_if_t<is_out_streamable<OST,K>::value,int> = 0
 		, enable_if_t<is_out_streamable<OST,V>::value,int> = 0
@@ -1146,10 +1149,9 @@ template <class OST, typename K, typename V
 static inline OST & 
 operator<<(OST & ost, ds::Entry<K,V> const & rhs)
 {
-	return ost << rhs.key << ": " << rhs.value;
+	return ost << rhs.key << stream_separator_key_value << rhs.value;
 }
 
-static thread_local char const * stream_separator = " ";
 
 template <class OST, typename C
 		, typename IT = decltype(decl<C const &>().begin())
