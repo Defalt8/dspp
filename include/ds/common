@@ -1162,8 +1162,13 @@ template <class OST, typename C
 static inline OST & 
 operator<<(OST & ost, C const & rhs)
 {
-	for(auto const & e : rhs)
-		ost << e << stream_separator;
+	auto end_ = rhs.end();
+	for(auto it = rhs.begin(); it != end_;)
+	{
+		ost << *it;
+		if(++it != end_)
+			ost << stream_separator;
+	}
 	return ost;
 }
 
