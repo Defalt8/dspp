@@ -344,6 +344,20 @@ class String
 		return A::allocate(size_, align_);
 	}
 
+	template <typename T>
+	static constexpr size_t
+	_length(T && string_) noexcept
+	{
+		return ds::size(string_);
+	}
+
+	template <typename T, size_t size_>
+	static constexpr size_t
+	_length(T const (& cstring_)[size_]) noexcept
+	{
+		return size_ - 1;
+	}
+
 	static inline size_t
 	_length(char_t const * pstring) noexcept
 	{
@@ -476,6 +490,51 @@ class String
 			_copy(&(*m_array)[0], string_view_.begin(), min(length_, string_view_.size()));
 			(*m_array)[length_] = '\0';
 		}
+	}
+
+	template <typename T, typename U
+			, typename = ds::enabled_iterable_size_t<T>
+			, typename = ds::enabled_iterable_size_t<U>
+			, typename = ds::enabled_iterable_element_t<T>
+			, typename = ds::enabled_iterable_element_t<U>
+			, typename = ds::enabled_iterable_const_forward_iterator_t<T>
+			, typename = ds::enabled_iterable_const_forward_iterator_t<U>
+		>
+	String(T && lhs, U && rhs, size_t _llen = -1, size_t _rlen = -1, size_t _tlen = -1)
+		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (
+					(_tlen = (_llen = _length(lhs)) + (_rlen = _length(rhs))) + 1
+				), alignof(char_t))) }
+		, m_size  { m_array != nullptr ? (_tlen + 1) : 0 }
+	{
+		if(m_array != nullptr)
+		{
+			_copy(&(*m_array)[0], ds::begin(lhs), _llen);
+			_copy(&(*m_array)[_llen], ds::begin(rhs), _rlen);
+			(*m_array)[_tlen] = '\0';
+		}
+	}
+	
+	template <typename T
+			, typename = ds::enabled_iterable_size_t<T>
+			, typename = ds::enabled_iterable_element_t<T>
+			, typename = ds::enabled_iterable_const_forward_iterator_t<T>
+		>
+	String 
+	operator+(T && rhs) const
+	{
+		return { *this, ds::forward<T>(rhs) };
+	}
+	
+	template <typename T
+			, typename = ds::enabled_iterable_size_t<T>
+			, typename = ds::enabled_iterable_element_t<T>
+			, typename = ds::enabled_iterable_const_forward_iterator_t<T>
+		>
+	String &
+	operator+=(T && rhs)
+	{
+		*this = { *this, ds::forward<T>(rhs) };
+		return *this;
 	}
 
 	String & 
@@ -757,7 +816,6 @@ class String
 	}
 
 }; 
-
 
 using string_view = StringView;
 
