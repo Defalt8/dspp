@@ -326,7 +326,10 @@ class String
 	using array_cptr_t = char_t const (*) [];
 
  private:
+	union {
 	array_ptr_t m_array  = nullptr;
+	char_t const * const m_view;
+	};
 	size_t      m_size   = 0;
 
 	static inline void
@@ -347,10 +350,22 @@ class String
 		return strlen(pstring);
 	}
 
-	static inline void 
-	_copy(char_t * dest, char_t const * src, size_t size_) noexcept
+	static inline void
+	_copy(char_t * dest, char_t const * src, size_t length_) noexcept
 	{
-		memcpy(dest, src, sizeof(char_t) * size_);
+		size_t i = 0;
+		for(; i < length_; ++i)
+			dest[i] = src[i];
+		dest[i] = '\0';
+	}
+
+	static inline void
+	_copy_s(char_t * dest, char_t const * src, size_t length_) noexcept
+	{
+		size_t i = 0;
+		for(; i < length_ && src[i] != '\0'; ++i)
+			dest[i] = src[i];
+		dest[i] = '\0';
 	}
 
  public:
@@ -376,8 +391,19 @@ class String
 		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * rhs.m_size, alignof(char_t))) }
 		, m_size  { m_array != nullptr ? rhs.m_size : 0 }
 	{
-		if(m_array)
-			_copy(&(*m_array)[0], &(*rhs.m_array)[0], m_size);
+		if(m_array != nullptr)
+			_copy(&(*m_array)[0], &(*rhs.m_array)[0], max<size_t>(1, m_size) - 1);
+	}
+	
+	String(String const & rhs, size_t length_)
+		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (length_), alignof(char_t))) }
+		, m_size  { m_array != nullptr ? (length_ + 1) : 0 }
+	{
+		if(m_array != nullptr)
+		{
+			_copy(&(*m_array)[0], &(*rhs.m_array)[0], min(m_size, rhs.m_size) - 1);
+			(*m_array)[length_] = '\0';
+		}
 	}
 	
 	String(noinit_t)
@@ -389,8 +415,29 @@ class String
 		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * 1, alignof(char_t))) }
 		, m_size  { 1 }
 	{
-		if(m_array)
-			(*m_array)[0] = {};
+		if(m_array != nullptr)
+			(*m_array)[0] = '\0';
+	}
+	
+	String(size_t size_)
+		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (size_ + 1), alignof(char_t))) }
+		, m_size  { m_array != nullptr ? (size_ + 1) : 0 }
+	{
+		if(m_array != nullptr)
+			(*m_array)[0] = (*m_array)[size_] = '\0';
+	}
+	
+	template <typename T, enable_if_t<is_constructible<char_t,T>::value,int> = 0>
+	String(size_t size_, T && fill_char)
+		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (size_ + 1), alignof(char_t))) }
+		, m_size  { m_array != nullptr ? (size_ + 1) : 0 }
+	{
+		if(m_array != nullptr)
+		{
+			for(size_t i = 0; i < size_; ++i)
+				(*m_array)[i] = fill_char;
+			(*m_array)[size_] = '\0';
+		}
 	}
 	
 	template <size_t size_>
@@ -398,8 +445,8 @@ class String
 		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (size_), alignof(char_t))) }
 		, m_size  { m_array != nullptr ? size_ : 0 }
 	{
-		if(m_array)
-			_copy(&(*m_array)[0], &cstring[0], size_);
+		if(m_array != nullptr)
+			_copy(&(*m_array)[0], &cstring[0], min(1,size_) - 1);
 	}
 
 	String(char_t const * pstring, size_t length_ = size_t(-1))
@@ -408,21 +455,26 @@ class String
 			), alignof(char_t))) }
 		, m_size  { m_array != nullptr ? (length_ + 1) : 0 }
 	{
-		if(m_array)
-		{
-			_copy(&(*m_array)[0], &pstring[0], length_);
-			(*m_array)[length_] = {};
-		}
+		if(m_array != nullptr)
+			_copy_s(&(*m_array)[0], &pstring[0], length_);
 	}
 
-	String(StringView const & string_StringView)
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (string_StringView.size() + 1), alignof(char_t))) }
-		, m_size  { m_array != nullptr ? (string_StringView.size() + 1) : 0 }
+	String(StringView const & string_view_)
+		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (string_view_.size() + 1), alignof(char_t))) }
+		, m_size  { m_array != nullptr ? (string_view_.size() + 1) : 0 }
 	{
-		if(m_array)
+		if(m_array != nullptr)
+			_copy(&(*m_array)[0], string_view_.begin(), m_size - 1);
+	}
+
+	String(StringView const & string_view_, size_t length_)
+		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (length_ + 1), alignof(char_t))) }
+		, m_size  { m_array != nullptr ? (length_ + 1) : 0 }
+	{
+		if(m_array != nullptr)
 		{
-			_copy(&(*m_array)[0], string_StringView.begin(), string_StringView.size());
-			(*m_array)[string_StringView.size()] = {};
+			_copy(&(*m_array)[0], string_view_.begin(), min(length_, string_view_.size()));
+			(*m_array)[length_] = '\0';
 		}
 	}
 
@@ -689,7 +741,7 @@ class String
 	void
 	destroy() noexcept
 	{
-		if(m_array)
+		if(m_array != nullptr)
 		{
 			_deallocate(m_array);
 			m_array  = nullptr;

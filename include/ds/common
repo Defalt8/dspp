@@ -1165,11 +1165,13 @@ static inline OST &
 operator<<(OST & ost, C const & rhs)
 {
 	auto end_ = rhs.end();
-	for(auto it = rhs.begin(); it != end_;)
+	for(auto it = rhs.begin();;)
 	{
 		ost << *it;
 		if(++it != end_)
 			ost << stream_separator;
+		else 
+			break;
 	}
 	return ost;
 }
