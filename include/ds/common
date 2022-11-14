@@ -1182,6 +1182,37 @@ enum class duplicate_rule
 	Replace   = 3, // Replace duplicates.
 };
 
+// returns the upper-case hexadecimal representation of 'value' 0-F
+// truncates on overflow to max. i.e. F
+static constexpr char
+hex_char(uint8_t value) 
+{
+	return value <= 9 ? ('0' + value) : (value <= 15 ? ('A' + value - 10) : 'F');
+}
+
+// returns the lower-case hexadecimal representation of 'value' 0-f
+// truncates on overflow to max. i.e. f
+static constexpr char
+hex_char_lower(uint8_t value) 
+{
+	return value <= 9 ? ('0' + value) : (value <= 15 ? ('a' + value - 10) : 'f');
+}
+
+// returns the base-10 value of 'hex_char' which is expected to be a hexadecimal ([0-F]|[0-f])
+// returns 0 on invalid input
+static constexpr uint8_t  
+hex_value(char hex_char) 
+{
+	if(hex_char >= '0' && hex_char <= '9')
+		return uint8_t(hex_char - '0');
+	else if(hex_char >= 'a' && hex_char <= 'f')
+		return 10 + uint8_t(hex_char - 'a');
+	else if(hex_char >= 'A' && hex_char <= 'F')
+		return 10 + uint8_t(hex_char - 'A');
+	else
+		return 0;
+}
+
 
 // efficient reverse.
 template <typename T
