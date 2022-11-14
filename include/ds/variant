@@ -279,7 +279,7 @@ class Variant<T,Ts...>
 		constexpr void
 		call(Variant const & this_, Func && func) const
 		{
-			func(this_.at<i_>()); 
+			func(this_.at_nt<i_>()); 
 		}
 
 		template <index_t i_, typename Func
@@ -303,7 +303,7 @@ class Variant<T,Ts...>
 		constexpr void
 		call(Variant & this_, Func && func) const noexcept
 		{
-			func(this_.at<i_>()); 
+			func(this_.at_nt<i_>()); 
 		}
 		
 		template <index_t i_, typename Func
