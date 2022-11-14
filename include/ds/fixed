@@ -297,8 +297,8 @@ class Fixed<size_,E &>
 	constexpr Iterator       end  ()       noexcept { return { &m_array[size_] }; }
 	constexpr ConstIterator  end  () const noexcept { return { &m_array[size_] }; }
 	
-	inline Iterator       rbegin()       noexcept { return { &m_array[szie_-1] }; }
-	inline ConstIterator  rbegin() const noexcept { return { &m_array[szie_-1] }; }
+	inline Iterator       rbegin()       noexcept { return { &m_array[size_-1] }; }
+	inline ConstIterator  rbegin() const noexcept { return { &m_array[size_-1] }; }
 	inline Iterator       rend  ()       noexcept { return { &m_array[0]-1 }; }
 	inline ConstIterator  rend  () const noexcept { return { &m_array[0]-1 }; }
 	
