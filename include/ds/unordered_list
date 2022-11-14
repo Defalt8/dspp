@@ -356,6 +356,9 @@ class UnorderedList
 	using iterator_t       = UnorderedListIterator<table_size_,E,A>;
 	using const_iterator_t = ConstUnorderedListIterator<table_size_,E,A>;
 
+	// static constexpr bool _hash_requirement = is_hashable<E>::value;
+	// static_assert(_hash_requirement, "ds::Hasher<E> specialization required");
+
  private:
 	struct Storage
 	{
@@ -381,7 +384,7 @@ class UnorderedList
 		return A::allocate(size_, align_);
 	}
 	
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
+	template <typename T = E>
 	inline size_t 
 	_hash_index(T && object) const noexcept
 	{
@@ -389,21 +392,21 @@ class UnorderedList
 		return hash_ % m_data->table.size();
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
+	template <typename T = E>
 	inline node_t * &
 	_hash_entry(T && object) noexcept
 	{
 		return m_data->table[_hash_index(object)];
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
+	template <typename T = E>
 	inline node_t * const &
 	_hash_entry(T && object) const noexcept
 	{
 		return m_data->table[_hash_index(object)];
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
+	template <typename T = E>
 	inline node_t * &
 	_hash_entry_and_index(T && object, size_t & index) noexcept
 	{
@@ -411,7 +414,7 @@ class UnorderedList
 		return m_data->table[index];
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
+	template <typename T = E>
 	inline node_t * const &
 	_hash_entry_and_index(T && object, size_t & index) const noexcept
 	{
@@ -686,8 +689,8 @@ class UnorderedList
 	}
 
 	template <typename... Args
-		, enable_if_t<is_constructible<E,Args...>::value,int> = 0
-		, typename = decltype(Hasher<E>::hash(decl<E>()))>
+			, enable_if_t<is_constructible<E,Args...>::value,int> = 0
+		>
 	iterator_t
 	emplace(Args &&... args)
 	{
@@ -697,8 +700,8 @@ class UnorderedList
 	}
 
 	template <typename... Args
-		, enable_if_t<is_constructible<E,Args...>::value,int> = 0
-		, typename = decltype(Hasher<E>::hash(decl<E>()))>
+			, enable_if_t<is_constructible<E,Args...>::value,int> = 0
+		>
 	iterator_t
 	emplace_unique(Args &&... args)
 	{
@@ -708,8 +711,8 @@ class UnorderedList
 	}
 
 	template <typename... Args
-		, enable_if_t<is_constructible<E,Args...>::value,int> = 0
-		, typename = decltype(Hasher<E>::hash(decl<E>()))>
+			, enable_if_t<is_constructible<E,Args...>::value,int> = 0
+		>
 	iterator_t
 	emplace_replace(Args &&... args)
 	{
@@ -719,8 +722,8 @@ class UnorderedList
 	}
 
 	template <typename T = E
-		, enable_if_t<is_constructible<E,T>::value,int> = 0
-		, typename = decltype(Hasher<E>::hash(decl<T>()))>
+			, enable_if_t<is_constructible<E,T>::value,int> = 0
+		>
 	iterator_t
 	insert(T && object)
 	{
@@ -730,8 +733,8 @@ class UnorderedList
 	}
 
 	template <typename T = E
-		, enable_if_t<is_constructible<E,T>::value,int> = 0
-		, typename = decltype(Hasher<E>::hash(decl<T>()))>
+			, enable_if_t<is_constructible<E,T>::value,int> = 0
+		>
 	iterator_t
 	insert_unique(T && object)
 	{
@@ -741,8 +744,8 @@ class UnorderedList
 	}
 
 	template <typename T = E
-		, enable_if_t<is_constructible<E,T>::value,int> = 0
-		, typename = decltype(Hasher<E>::hash(decl<T>()))>
+			, enable_if_t<is_constructible<E,T>::value,int> = 0
+		>
 	iterator_t
 	insert_replace(T && object)
 	{
@@ -786,14 +789,14 @@ class UnorderedList
 		return true;
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
+	template <typename T = E>
 	inline bool
 	remove(T && object) noexcept
 	{
 		return remove_at(position_of(object));
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
+	template <typename T = E>
 	iterator_t 
 	position_of(T && object, size_t skip_ = 0) noexcept
 	{
@@ -812,7 +815,7 @@ class UnorderedList
 		return { this, nullptr, 1 };
 	}
 
-	template <typename T = E, typename = decltype(Hasher<E>::hash(decl<T>()))>
+	template <typename T = E>
 	const_iterator_t 
 	position_of(T && object, size_t skip_ = 0) const noexcept
 	{

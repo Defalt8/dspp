@@ -40,6 +40,9 @@ class OrderedMap : protected OrderedList<table_size_,Entry<K,V>,A>
 	using iterator_t       = typename OrderedList<table_size_,Entry<K,V>,A>::iterator_t;
 	using const_iterator_t = typename OrderedList<table_size_,Entry<K,V>,A>::const_iterator_t;
 
+	// static constexpr bool _ordered_hash_requirement = is_ordered_hashable<K>::value;
+	// static_assert(_ordered_hash_requirement, "ds::OrderedHasher<K> specialization required");
+
  public:
 	OrderedMap() = default;
 	OrderedMap(OrderedMap &&) = default;
@@ -67,14 +70,14 @@ class OrderedMap : protected OrderedList<table_size_,Entry<K,V>,A>
 		: OrderedList<table_size_,entry_t,A>(ds::forward<Begin>(begin_), ds::forward<End>(end_), param)
 	{}
 
-	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	template <typename K_>
 	value_t & 
 	operator[](K_ && key)
 	{
 		return this->insert_replace(ds::forward<K_>(key))->value;
 	}
 
-	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	template <typename K_>
 	value_t & 
 	operator[](K_ && key) const noexcept
 	{
@@ -83,7 +86,6 @@ class OrderedMap : protected OrderedList<table_size_,Entry<K,V>,A>
 
 	template <typename K_, typename V_
 			, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
-			, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))
 		>
 	inline iterator_t
 	set(K_ && key, V_ && value)
@@ -92,36 +94,36 @@ class OrderedMap : protected OrderedList<table_size_,Entry<K,V>,A>
 	}
 
 	template <typename K_, typename V_
-		, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
-		, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+			, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
+		>
 	inline iterator_t
 	set_noreplace(K_ && key, V_ && value)
 	{
 		return this->emplace_unique(ds::forward<K_>(key), ds::forward<V_>(value));
 	}
 
-	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	template <typename K_>
 	iterator_t
 	get(K_ && key) noexcept
 	{
 		return this->position_of(ds::forward<K_>(key));
 	}
 
-	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	template <typename K_>
 	const_iterator_t
 	get(K_ && key) const noexcept
 	{
 		return this->position_of(ds::forward<K_>(key));
 	}
 
-	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	template <typename K_>
 	iterator_t
 	get_nearest(K_ && key) noexcept
 	{
 		return this->nearest_position_of(ds::forward<K_>(key));
 	}
 
-	template <typename K_, typename = decltype(Hasher<entry_t>::hash(decl<K_>()))>
+	template <typename K_>
 	const_iterator_t
 	get_nearest(K_ && key) const noexcept
 	{
