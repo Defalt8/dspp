@@ -522,7 +522,7 @@ class Variant<T,Ts...>
 	get() const noexcept(false)
 	{
 		ds_throw_if(m_index != index_, wrong_type());
-		return reinterpret_cast<R &>(m_union);
+		return reinterpret_cast<R const &>(m_union);
 	}
 
 	template <index_t index_
@@ -568,7 +568,7 @@ class Variant<T,Ts...>
 	constexpr R const &
 	get_nt() const noexcept
 	{
-		return reinterpret_cast<R &>(m_union);
+		return reinterpret_cast<R const &>(m_union);
 	}
 
 	index_t index() const noexcept { return m_index; }
