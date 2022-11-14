@@ -1152,9 +1152,9 @@ class List<2,E,A>
 	inline void 
 	swap(List & rhs) noexcept 
 	{
-		swap(m_first, rhs.m_first);
-		swap(m_last, rhs.m_last);
-		swap(m_size, rhs.m_size);
+		ds::swap(m_first, rhs.m_first);
+		ds::swap(m_last, rhs.m_last);
+		ds::swap(m_size, rhs.m_size);
 	}
 
 	// construct object in-place and insert the node at the end of the list
