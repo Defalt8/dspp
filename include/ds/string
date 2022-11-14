@@ -134,6 +134,30 @@ class StringView
 	}
 
 	constexpr bool
+	operator!=(StringView const & rhs) const noexcept
+	{
+		return !(m_pstring != nullptr && rhs.m_pstring != nullptr 
+			&& m_size == rhs.m_size
+			&& strcmp(m_pstring, rhs.m_pstring) == 0);
+	}
+
+	template <class A>
+	constexpr bool
+	operator!=(String<A> const & rhs) const noexcept
+	{
+		return !(m_pstring != nullptr && rhs.m_pstring != nullptr 
+			&& m_size == rhs.m_size
+			&& strcmp(m_pstring, rhs.m_pstring) == 0);
+	}
+
+	constexpr bool
+	operator!=(char_t const * pstring) const noexcept
+	{
+		return !(m_pstring != nullptr && pstring != nullptr 
+			&& strncmp(m_pstring, pstring, m_size) == 0);
+	}
+
+	constexpr bool
 	operator<=(StringView const & rhs) const noexcept
 	{
 		return m_pstring != nullptr && rhs.m_pstring != nullptr 
@@ -268,7 +292,7 @@ class StringView
 	{
 		return m_pstring == nullptr 
 			? -1 
-			: strncmp(&m_pstring[0], rhs.begin(), ds::min(this->size(), rhs.size()));
+			: strncmp(&m_pstring[0], rhs.begin(), min(this->size(), rhs.size()));
 	}
 
 	template <class A_>
@@ -277,7 +301,7 @@ class StringView
 	{
 		return m_pstring == nullptr 
 			? -1 
-			: strncmp(&m_pstring[0], rhs.begin(), ds::min(this->size(), rhs.size()));
+			: strncmp(&m_pstring[0], rhs.begin(), min(this->size(), rhs.size()));
 	}
 
 	template <size_t size_>
@@ -286,7 +310,7 @@ class StringView
 	{
 		return m_pstring == nullptr 
 			? -1 
-			: strncmp(&m_pstring[0], &cstring[0], ds::min(this->size(), size_ - 1));
+			: strncmp(&m_pstring[0], &cstring[0], min(this->size(), size_ - 1));
 	}
 	
 };
@@ -378,8 +402,10 @@ class String
 			_copy(&(*m_array)[0], &cstring[0], size_);
 	}
 
-	String(char_t const * pstring, size_t length_)
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (length_ + 1), alignof(char_t))) }
+	String(char_t const * pstring, size_t length_ = size_t(-1))
+		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (
+				(length_ == size_t(-1) ? (length_ = strlen(pstring)) : length_) + 1
+			), alignof(char_t))) }
 		, m_size  { m_array != nullptr ? (length_ + 1) : 0 }
 	{
 		if(m_array)
@@ -422,7 +448,7 @@ class String
 		return *this;
 	}
 
-	constexpr bool
+	inline bool
 	operator==(String const & rhs) const noexcept
 	{
 		return m_array != nullptr && rhs.m_array != nullptr 
@@ -430,7 +456,7 @@ class String
 			&& strcmp(&(*m_array)[0], rhs.begin()) == 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator==(StringView const & rhs) const noexcept
 	{
 		return m_array != nullptr && rhs.begin() != nullptr 
@@ -438,14 +464,37 @@ class String
 			&& strcmp(&(*m_array)[0], rhs.begin()) == 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator==(char_t const * pstring) const noexcept
 	{
 		return m_array != nullptr && pstring != nullptr 
 			&& strncmp(&(*m_array)[0], pstring, m_size) == 0;
 	}
 
-	constexpr bool
+	inline bool
+	operator!=(String const & rhs) const noexcept
+	{
+		return !(m_array != nullptr && rhs.m_array != nullptr 
+			&& m_size == rhs.m_size
+			&& strcmp(&(*m_array)[0], rhs.begin()) == 0);
+	}
+
+	inline bool
+	operator!=(StringView const & rhs) const noexcept
+	{
+		return !(m_array != nullptr && rhs.begin() != nullptr 
+			&& m_size == rhs.size() + 1
+			&& strcmp(&(*m_array)[0], rhs.begin()) == 0);
+	}
+
+	inline bool
+	operator!=(char_t const * pstring) const noexcept
+	{
+		return !(m_array != nullptr && pstring != nullptr 
+			&& strncmp(&(*m_array)[0], pstring, m_size) == 0);
+	}
+
+	inline bool
 	operator<=(String const & rhs) const noexcept
 	{
 		return m_array != nullptr && rhs.m_array != nullptr 
@@ -453,7 +502,7 @@ class String
 			&& strcmp(&(*m_array)[0], rhs.begin()) <= 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator<=(StringView const & rhs) const noexcept
 	{
 		return m_array != nullptr && rhs.begin() != nullptr 
@@ -461,14 +510,14 @@ class String
 			&& strcmp(&(*m_array)[0], rhs.begin()) <= 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator<=(char_t const * pstring) const noexcept
 	{
 		return m_array != nullptr && pstring != nullptr 
 			&& strncmp(&(*m_array)[0], pstring, m_size) <= 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator>=(String const & rhs) const noexcept
 	{
 		return m_array != nullptr && rhs.m_array != nullptr 
@@ -476,7 +525,7 @@ class String
 			&& strcmp(&(*m_array)[0], rhs.begin()) >= 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator>=(StringView const & rhs) const noexcept
 	{
 		return m_array != nullptr && rhs.begin() != nullptr 
@@ -484,14 +533,14 @@ class String
 			&& strcmp(&(*m_array)[0], rhs.begin()) >= 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator>=(char_t const * pstring) const noexcept
 	{
 		return m_array != nullptr && pstring != nullptr 
 			&& strncmp(&(*m_array)[0], pstring, m_size) >= 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator<(String const & rhs) const noexcept
 	{
 		return m_array != nullptr && rhs.m_array != nullptr 
@@ -499,7 +548,7 @@ class String
 			&& strcmp(&(*m_array)[0], rhs.begin()) < 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator<(StringView const & rhs) const noexcept
 	{
 		return m_array != nullptr && rhs.begin() != nullptr 
@@ -507,14 +556,14 @@ class String
 			&& strcmp(&(*m_array)[0], rhs.begin()) < 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator<(char_t const * pstring) const noexcept
 	{
 		return m_array != nullptr && pstring != nullptr 
 			&& strncmp(&(*m_array)[0], pstring, m_size) < 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator>(String const & rhs) const noexcept
 	{
 		return m_array != nullptr && rhs.m_array != nullptr 
@@ -522,7 +571,7 @@ class String
 			&& strcmp(&(*m_array)[0], rhs.begin()) > 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator>(StringView const & rhs) const noexcept
 	{
 		return m_array != nullptr && rhs.begin() != nullptr 
@@ -530,7 +579,7 @@ class String
 			&& strcmp(&(*m_array)[0], rhs.begin()) > 0;
 	}
 
-	constexpr bool
+	inline bool
 	operator>(char_t const * pstring) const noexcept
 	{
 		return m_array != nullptr && pstring != nullptr 
@@ -587,7 +636,7 @@ class String
 	{
 		return m_array == nullptr 
 			? -1 
-			: strncmp(&(*m_array)[0], rhs.begin(), ds::min(this->size(), rhs.size()));
+			: strncmp(&(*m_array)[0], rhs.begin(), min(this->size(), rhs.size()));
 	}
 
 	inline int 
@@ -595,7 +644,7 @@ class String
 	{
 		return m_array == nullptr 
 			? -1 
-			: strncmp(&(*m_array)[0], rhs.begin(), ds::min(this->size(), rhs.size()));
+			: strncmp(&(*m_array)[0], rhs.begin(), min(this->size(), rhs.size()));
 	}
 
 	template <size_t size_>
@@ -604,7 +653,7 @@ class String
 	{
 		return m_array == nullptr 
 			? -1 
-			: strncmp(&(*m_array)[0], &cstring[0], ds::min(this->size(), size_ - 1));
+			: strncmp(&(*m_array)[0], &cstring[0], min(this->size(), size_ - 1));
 	}
 	
 	char_t & 
@@ -708,6 +757,20 @@ struct OrderedHasher<String<A>> : integral_constant<size_t,OrderedHasher<char[]>
 	static inline size_t hash(char const * pstring)     { return OrderedHasher<char[]>::hash(pstring); }
 };
 
+
+template <class OST, enable_if_t<is_out_streamable<OST,char const *>::value,int> = 0>
+static inline OST & 
+operator<<(OST & ost, ds::StringView const & rhs)
+{
+	return ost << rhs.begin();
+}
+
+template <class OST, class A, enable_if_t<is_out_streamable<OST,char const *>::value,int> = 0>
+static inline OST & 
+operator<<(OST & ost, ds::String<A> const & rhs)
+{
+	return ost << rhs.begin();
+}
 
 } // namespace ds
 
