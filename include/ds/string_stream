@@ -83,15 +83,6 @@ class StringStream
 		return i;
 	}
 
-	bool
-	set_position(size_t pos_)
-	{
-		if(pos_ > m_storage.size())
-			return false;
-		m_position = pos_;
-		return true;
-	}
-	
 	size_t 
 	read(char_t * pstring_, size_t size_)
 	{
@@ -102,6 +93,52 @@ class StringStream
 		memcpy(pstring_, &m_storage[m_position], min_size);
 		m_position += min_size;
 		return min_size;
+	}
+
+	bool
+	set_position(size_t pos_)
+	{
+		if(pos_ > m_storage.size())
+			return false;
+		m_position = pos_;
+		return true;
+	}
+	
+	StringStream &
+	operator<<(char_t const * pstring_)
+	{
+		this->write(pstring_);
+		return *this;
+	}
+
+	template <size_t size_>
+	StringStream &
+	operator<<(char_t const (& cstring_)[size_])
+	{
+		this->write(cstring_, size_ - 1);
+		return *this;
+	}
+
+	template <typename T>
+	StringStream &
+	operator<<(T * ptr_)
+	{
+		constexpr size_t buff_size = 30;
+		char_t buffer[buff_size+2] { '0','x' };
+		int n = snprintf(&buffer[2], buff_size, "%p", ptr_);
+		if(n > 0) 
+			this->write(buffer, n+2);
+		return *this;
+	}
+
+	StringStream &
+	operator<<(bool val_)
+	{
+		if(val_)
+			this->write("true", 4);
+		else
+			this->write("false", 5);
+		return *this;
 	}
 
 	template <typename T, typename T_ = remove_cvref_t<T>, enable_if_t<is_integral<T_>::value,int> = 0>
@@ -169,14 +206,6 @@ class StringStream
 
 template <class A = ds::DefaultAllocator>
 using string_stream = StringStream<A>;
-
-template <class A>
-static inline StringStream<A> &
-operator<<(StringStream<A> & ost, ds::StringStream<>::char_t const * pstring_)
-{
-	ost.write(pstring_);
-	return ost;
-}
 
 } // namespace ds
 
