@@ -531,6 +531,43 @@ struct min_limit<T,2> : min_floating<T>
 {};
 
 
+template <typename T>
+struct integral_index {};
+template <> struct integral_index<int8_t>   : integral_constant<size_t,0> {};
+template <> struct integral_index<uint8_t>  : integral_constant<size_t,1> {};
+template <> struct integral_index<int16_t>  : integral_constant<size_t,2> {};
+template <> struct integral_index<uint16_t> : integral_constant<size_t,3> {};
+template <> struct integral_index<int32_t>  : integral_constant<size_t,4> {};
+template <> struct integral_index<uint32_t> : integral_constant<size_t,5> {};
+template <> struct integral_index<int64_t>  : integral_constant<size_t,6> {};
+template <> struct integral_index<uint64_t> : integral_constant<size_t,7> {};
+
+template <typename T>
+struct floating_point_index {};
+template <> struct floating_point_index<float>       : integral_constant<size_t,0> {};
+template <> struct floating_point_index<double>      : integral_constant<size_t,1> {};
+template <> struct floating_point_index<long double> : integral_constant<size_t,2> {};
+
+static constexpr char const * integral_format[]
+{
+	"%hhd", "%hhu", "%hd", "%hu", "%ld", "%lu", "%lld", "%llu"
+};
+
+static constexpr char const * floating_point_format[]
+{
+	"%f", "%lf", "%Lf"
+};
+
+static constexpr char const * floating_point_scientific_format[]
+{
+	"%e", "%le", "%Le"
+};
+
+static constexpr char const * floating_point_generic_format[]
+{
+	"%g", "%lg", "%Lg"
+};
+
 template<typename T> struct Hasher {};
 template<> struct Hasher<bool>       { static constexpr size_t hash(bool value)     noexcept { return static_cast<size_t>(value); } };
 template<> struct Hasher<char>       { static constexpr size_t hash(char value)     noexcept { return static_cast<size_t>(value); } };
