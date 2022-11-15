@@ -348,23 +348,14 @@ struct is_in_streamable : decltype(_::is_in_streamable<OST,T>(0)) {};
 template <class OST, typename T>
 struct is_out_streamable : decltype(_::is_out_streamable<OST,T>(0)) {};
 
-template <typename T>
-static constexpr T min(T lhs, T rhs) noexcept { return lhs < rhs ? lhs : rhs; }
+template <typename T, typename U>
+static constexpr T min(T const & lhs, U rhs) noexcept { return lhs < rhs ? lhs : rhs; }
+
+template <typename T, typename U>
+static constexpr T max(T const & lhs, U rhs) noexcept { return lhs > rhs ? lhs : rhs; }
 
 template <typename T>
-static constexpr T & min(T & lhs, T & rhs) noexcept { return lhs < rhs ? lhs : rhs; }
-
-template <typename T>
-static constexpr T max(T lhs, T rhs) noexcept { return lhs > rhs ? lhs : rhs; }
-
-template <typename T>
-static constexpr T & max(T & lhs, T & rhs) noexcept { return lhs > rhs ? lhs : rhs; }
-
-template <typename T>
-static constexpr T abs(T rhs) { return rhs < 0 ? -rhs : rhs; }
-
-template <typename T>
-static constexpr T & abs(T & rhs) { return rhs < 0 ? -rhs : rhs; }
+static constexpr T abs(T const & rhs) { return rhs < 0 ? -rhs : rhs; }
 
 template <typename T>
 static constexpr bool 
