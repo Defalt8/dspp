@@ -107,7 +107,44 @@ class StringView
 	constexpr char_t const * end  () const noexcept { return m_pstring == nullptr ? nullptr : &m_pstring[m_size]; }
 	
 	inline char_t const * rbegin() const noexcept { return m_pstring == nullptr ? nullptr : &m_pstring[m_size > 0 ? (m_size - 1) : 0]; }
-	inline char_t const * rend  () const noexcept { return m_pstring == nullptr ? nullptr : &m_pstring[-1]; }
+	inline char_t const * rend  () const noexcept { return m_pstring == nullptr ? nullptr : &m_pstring[0]-1; }
+
+	inline size_t 
+	length() const noexcept
+	{
+		return m_pstring == nullptr ? 0 : strnlen(m_pstring, m_size);
+	}
+
+	constexpr StringView view() const noexcept { return { this->begin(), m_size }; }
+
+	constexpr StringView 
+	view(size_t size_) const noexcept 
+	{
+		return { this->begin(), min(size_, m_size) };
+	}
+
+	constexpr StringView 
+	view(size_t start_, size_t size_) const noexcept 
+	{
+		return { this->begin() + start_, (min(start_ + size_, m_size) - start_) };
+	}
+
+	void 
+	destroy() noexcept
+	{
+		if(m_pstring)
+		{
+			m_pstring = nullptr;
+			m_size    = 0;
+		}
+	}
+
+	void
+	swap(StringView & rhs) noexcept
+	{
+		ds::swap(m_pstring, rhs.m_pstring);
+		ds::swap(m_size, rhs.m_size);
+	}
 
 	constexpr bool
 	operator==(StringView const & rhs) const noexcept
@@ -320,17 +357,17 @@ template <class A>
 class String
 {
  public:
-	using char_t      = char;
-	using array_t     = char_t [];
-	using array_ptr_t = char_t (*) [];
-	using array_cptr_t = char_t const (*) [];
+	using char_t = char;
 
  private:
 	union {
-	array_ptr_t m_array  = nullptr;
-	char_t const * const m_view;
+		array_ptr_t<char_t> m_array  = nullptr;
+		fixed_cptr_t<4096,char_t> const m_view; // for debugging only
 	};
 	size_t      m_size   = 0;
+
+	static constexpr size_t _size_  = sizeof(char_t);
+	static constexpr size_t _align_ = alignof(char_t);
 
 	static inline void
 	_deallocate(void * block_)
@@ -390,7 +427,8 @@ class String
 
 	~String() noexcept
 	{
-		this->destroy();
+		if(m_array != nullptr)
+			_deallocate(m_array);
 	}
 
 	String(String && rhs) noexcept
@@ -402,20 +440,21 @@ class String
 	}
 
 	String(String const & rhs)
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * rhs.m_size, alignof(char_t))) }
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * rhs.m_size, _align_)) }
 		, m_size  { m_array != nullptr ? rhs.m_size : 0 }
 	{
 		if(m_array != nullptr)
-			_copy(&(*m_array)[0], &(*rhs.m_array)[0], max<size_t>(1, m_size) - 1);
+			_copy(&(*m_array)[0], &(*rhs.m_array)[0], max(1, m_size) - 1);
 	}
 	
 	String(String const & rhs, size_t length_)
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (length_), alignof(char_t))) }
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (length_ + 1), _align_)) }
 		, m_size  { m_array != nullptr ? (length_ + 1) : 0 }
 	{
 		if(m_array != nullptr)
 		{
-			_copy(&(*m_array)[0], &(*rhs.m_array)[0], min(m_size, rhs.m_size) - 1);
+			size_t min_size = min(m_size, rhs.m_size);
+			_copy(&(*m_array)[0], &(*rhs.m_array)[0], min_size);
 			(*m_array)[length_] = '\0';
 		}
 	}
@@ -426,7 +465,7 @@ class String
 	{}
 
 	String()
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * 1, alignof(char_t))) }
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * 1, _align_)) }
 		, m_size  { 1 }
 	{
 		if(m_array != nullptr)
@@ -434,7 +473,7 @@ class String
 	}
 	
 	String(size_t size_)
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (size_ + 1), alignof(char_t))) }
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (size_ + 1), _align_)) }
 		, m_size  { m_array != nullptr ? (size_ + 1) : 0 }
 	{
 		if(m_array != nullptr)
@@ -443,7 +482,7 @@ class String
 	
 	template <typename T, enable_if_t<is_constructible<char_t,T>::value,int> = 0>
 	String(size_t size_, T && fill_char)
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (size_ + 1), alignof(char_t))) }
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (size_ + 1), _align_)) }
 		, m_size  { m_array != nullptr ? (size_ + 1) : 0 }
 	{
 		if(m_array != nullptr)
@@ -456,7 +495,7 @@ class String
 	
 	template <size_t size_>
 	String(char_t const (& cstring)[size_])
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (size_), alignof(char_t))) }
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (size_), _align_)) }
 		, m_size  { m_array != nullptr ? size_ : 0 }
 	{
 		if(m_array != nullptr)
@@ -464,9 +503,9 @@ class String
 	}
 
 	String(char_t const * pstring, size_t length_ = size_t(-1))
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (
 				(length_ == size_t(-1) ? (length_ = strlen(pstring)) : length_) + 1
-			), alignof(char_t))) }
+			), _align_)) }
 		, m_size  { m_array != nullptr ? (length_ + 1) : 0 }
 	{
 		if(m_array != nullptr)
@@ -474,7 +513,7 @@ class String
 	}
 
 	String(StringView const & string_view_)
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (string_view_.size() + 1), alignof(char_t))) }
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (string_view_.size() + 1), _align_)) }
 		, m_size  { m_array != nullptr ? (string_view_.size() + 1) : 0 }
 	{
 		if(m_array != nullptr)
@@ -482,7 +521,7 @@ class String
 	}
 
 	String(StringView const & string_view_, size_t length_)
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (length_ + 1), alignof(char_t))) }
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (length_ + 1), _align_)) }
 		, m_size  { m_array != nullptr ? (length_ + 1) : 0 }
 	{
 		if(m_array != nullptr)
@@ -501,9 +540,9 @@ class String
 			, typename = ds::enabled_iterable_const_forward_iterator_t<U>
 		>
 	String(T && lhs, U && rhs, size_t _llen = -1, size_t _rlen = -1, size_t _tlen = -1)
-		: m_array { static_cast<array_ptr_t>(_allocate(sizeof(char_t) * (
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (
 					(_tlen = (_llen = _length(lhs)) + (_rlen = _length(rhs))) + 1
-				), alignof(char_t))) }
+				), _align_)) }
 		, m_size  { m_array != nullptr ? (_tlen + 1) : 0 }
 	{
 		if(m_array != nullptr)
@@ -781,8 +820,8 @@ class String
 		return (*m_array)[index];
 	}
 
-	inline array_t       & array()       noexcept { return *m_array; }
-	inline array_t const & array() const noexcept { return *m_array; }
+	inline array_ref_t<char_t>  & array()       noexcept { return *m_array; }
+	inline array_cref_t<char_t> & array() const noexcept { return *m_array; }
 
 	inline size_t size()       noexcept { return m_size >= 1 ? (m_size - 1) : 0; }
 	inline size_t size() const noexcept { return m_size >= 1 ? (m_size - 1) : 0; }
@@ -796,6 +835,26 @@ class String
 	inline char_t const * rbegin() const noexcept { return m_array == nullptr ? nullptr : &(*m_array)[m_size >= 2 ? (m_size-2) : 0]; }
 	inline char_t       * rend  ()       noexcept { return m_array == nullptr ? nullptr : &(*m_array)[-1]; }
 	inline char_t const * rend  () const noexcept { return m_array == nullptr ? nullptr : &(*m_array)[-1]; }
+
+	inline size_t 
+	length() const noexcept
+	{
+		return m_array == nullptr ? 0 : strnlen(&(*m_array)[0], m_size - 1);
+	}
+
+	inline StringView view() const noexcept { return { this->begin(), this->size() }; }
+
+	inline StringView 
+	view(size_t size_) const noexcept 
+	{
+		return { this->begin(), min(size_, this->size()) };
+	}
+
+	inline StringView 
+	view(size_t start_, size_t size_) const noexcept 
+	{
+		return { this->begin() + start_, (min(start_ + size_, this->size()) - start_) };
+	}
 
 	void
 	destroy() noexcept
@@ -868,18 +927,78 @@ struct OrderedHasher<String<A>> : integral_constant<size_t,OrderedHasher<char[]>
 };
 
 
+// write all chars of the string view.
 template <class OST, enable_if_t<is_out_streamable<OST,char const *>::value,int> = 0>
 static inline OST & 
 operator<<(OST & ost, ds::StringView const & rhs)
 {
-	return ost << rhs.begin();
+	ost.write(rhs.begin(), rhs.size());
+	return ost;
 }
 
-template <class OST, class A, enable_if_t<is_out_streamable<OST,char const *>::value,int> = 0>
+// write all chars of the string.
+template <class OST, class A, typename = decltype(decl<OST &>().write(decl<char const *>(),decl<size_t>()))>
 static inline OST & 
 operator<<(OST & ost, ds::String<A> const & rhs)
 {
-	return ost << rhs.begin();
+	ost.write(rhs.begin(), rhs.size());
+	return ost;
+}
+
+// read chars until whitespace, or until closing quote\" if quotes are used.
+// leading whitespaces are ignored except in quotes.
+// NOTE: the string is not reset before reading.
+//       if the string is null(noinit) then it is reset.
+template <class IST, class A, typename = decltype(decl<IST &>().read(decl<char *>(),decl<size_t>()))>
+static inline IST & 
+operator>>(IST & ist, ds::String<A> & rhs)
+{
+	using char_t = typename ds::String<A>::char_t;
+	constexpr size_t buffer_size = 1024;
+	char_t buffer[buffer_size];
+	char_t ch = '\0';
+	size_t i = 0;
+	bool nonspace   = false;
+	bool open_quote = false;
+	if(!rhs)
+		rhs = {};
+	do
+	{
+		ist.read(&ch, 1);
+		if(ch == '\0')
+			break;
+		else if(!open_quote && isspace(ch))
+		{
+			if(nonspace)
+				break;
+			else
+				continue; // until nonspace or \"
+		}
+		else if(ch == '\"')
+		{
+			if(nonspace)
+				break;
+			else if(!open_quote)
+			{
+				open_quote = true;
+				nonspace = true;
+				continue;
+			}
+			else
+				break;
+		}
+		if(!nonspace)
+			nonspace = true;
+		buffer[i++] = ch;
+		if(i >= buffer_size) // flush buffer
+		{
+			rhs = { rhs, StringView(buffer, i) };
+			i = 0;
+		}
+	} while(!ist.eof());
+	if(i > 0)
+		rhs = { rhs, StringView(buffer, i) };
+	return ist;
 }
 
 } // namespace ds
