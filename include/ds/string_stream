@@ -84,7 +84,7 @@ class StringStream
 	}
 
 	size_t 
-	read(char_t * pstring_, size_t size_)
+	read(char_t * pstring_, size_t size_) noexcept
 	{
 		size_t m_size_ = m_storage.size();
 		if(!pstring_ || m_size_ == 0 || m_position > m_size_)
@@ -95,8 +95,16 @@ class StringStream
 		return min_size;
 	}
 
+	int 
+	get_char() noexcept
+	{
+		if(this->eof())
+			return -1;
+		return m_storage[m_position++];
+	}
+
 	bool
-	set_position(size_t pos_)
+	set_position(size_t pos_) noexcept
 	{
 		if(pos_ > m_storage.size())
 			return false;
@@ -104,6 +112,13 @@ class StringStream
 		return true;
 	}
 	
+	StringStream &
+	operator<<(char_t ch)
+	{
+		this->write(&ch, 1);
+		return *this;
+	}
+
 	StringStream &
 	operator<<(char_t const * pstring_)
 	{
@@ -147,7 +162,7 @@ class StringStream
 	{
 		constexpr size_t buff_size = 32;
 		char_t buffer[buff_size];
-		constexpr auto format = integral_format[integral_index<T_>::value];
+		constexpr auto & format = integral_format[integral_index<T_>::value];
 		int n = snprintf(buffer, buff_size, format, int_);
 		if(n > 0) 
 			this->write(buffer, n);
@@ -160,7 +175,7 @@ class StringStream
 	{
 		constexpr size_t buff_size = 32;
 		char_t buffer[buff_size+1];
-		constexpr auto format = floating_point_generic_format[floating_point_index<T_>::value];
+		constexpr auto & format = floating_point_generic_format[floating_point_index<T_>::value];
 		int n = snprintf(buffer, buff_size, format, float_);
 		if(n > 0)
 		{
@@ -179,6 +194,68 @@ class StringStream
 				buffer[n++] = '.';
 			this->write(buffer, n);
 		} 
+		return *this;
+	}
+
+	StringStream &
+	operator>>(bool & val_)
+	{
+		constexpr size_t buff_size = 4;
+		char_t buffer[buff_size]{};
+		if(this->read(&buffer[0], buff_size) != buff_size)
+			return *this;
+		else if(strncmp(buffer, "true", buff_size) == 0)
+			val_ = true;
+		else 
+			val_ = false;
+		return *this;
+	}
+
+	template <typename T, typename T_ = remove_cvref_t<T>, enable_if_t<is_integral<T_>::value,int> = 0>
+	StringStream &
+	operator>>(T & int_)
+	{
+		if(!this->eof())
+		{
+			constexpr auto & format = integral_format[integral_index<T_>::value];
+			// form format 
+			char_t fbuff[8];
+			{
+				int i;
+				for(i = 0; format[i] != '\0'; ++i)
+					fbuff[i] = format[i];
+				fbuff[i++] = '%';
+				fbuff[i++] = 'n';
+				fbuff[i++] = '\0';
+			}
+			int n = 0;
+			if(sscanf_s(&m_storage[m_position], fbuff, &int_, &n) == 1)
+				m_position += n;
+		}
+		return *this;
+	}
+
+	template <typename T, typename T_ = remove_cvref_t<T>, enable_if_t<is_floating_point<T_>::value,int> = 0>
+	StringStream &
+	operator>>(T & float_)
+	{
+		if(!this->eof())
+		{
+			constexpr auto & format = floating_point_generic_format[floating_point_index<T_>::value];
+			// form format 
+			char_t fbuff[8];
+			{
+				int i;
+				for(i = 0; format[i] != '\0'; ++i)
+					fbuff[i] = format[i];
+				fbuff[i++] = '%';
+				fbuff[i++] = 'n';
+				fbuff[i++] = '\0';
+			}
+			int n = 0;
+			if(sscanf_s(&m_storage[m_position], fbuff, &float_, &n) == 1)
+				m_position += n;
+		}
 		return *this;
 	}
 
