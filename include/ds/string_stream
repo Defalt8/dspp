@@ -1,0 +1,190 @@
+#pragma once
+#ifndef DS_STRING_STREAM
+#define DS_STRING_STREAM
+
+#include "common"
+#include "string"
+
+namespace ds {
+
+template <class A = ds::DefaultAllocator>
+class StringStream
+{
+ public:
+	using storage_t = ds::string<A>;
+	using char_t    = typename storage_t::char_t;
+
+ private:
+	storage_t m_storage;
+	size_t    m_position = 0;
+
+ public:
+	~StringStream() = default;
+	StringStream()  = default;
+	StringStream(StringStream const & string_stream) = default;
+	StringStream(StringStream && string_stream) = default;
+	StringStream & operator=(StringStream const & string_stream) = default;
+	StringStream & operator=(StringStream && string_stream) = default;
+
+	StringStream(noinit_t)
+		: m_storage { noinit }
+	{}
+
+	StringStream(size_t size_)
+		: m_storage { size_ }
+	{}
+
+	StringStream(char_t const * pstring_, size_t size_)
+		: m_storage { pstring_, size_ }
+	{}
+
+	template <typename T, enable_if_t<is_constructible<storage_t,T>::value,int> = 0>
+	StringStream(T && arg)
+		: m_storage { ds::forward<T>(arg) }
+	{}
+
+	inline void
+	resize(size_t new_size)
+	{
+		m_storage = { m_storage, new_size };
+	}
+
+	size_t 
+	write(char_t const * pstring_, size_t size_)
+	{
+		if(!pstring_)
+			return 0;
+		size_t m_size_ = m_storage.size();
+		if(m_position + size_ > m_size_)
+			resize(max(64u,max(m_size_ * 3 / 2, m_size_ + size_)));
+		memcpy(&m_storage[m_position], pstring_, size_);
+		m_position += size_;
+		m_storage[m_position] = '\0';
+		return size_;
+	}
+
+	size_t 
+	write(char_t const * pstring_)
+	{
+		if(!pstring_)
+			return 0;
+		size_t i = 0;
+		char_t ch;
+		size_t m_size_ = m_storage.size();
+		while((ch = pstring_[i]) != '\0')
+		{
+			size_t current_i = m_position + i;
+			if(current_i > m_size_)
+				resize(m_size_ * 3 / 2);
+			m_storage[m_position + i++] = ch;
+		}
+		m_position += i;
+		m_storage[m_position] = '\0';
+		return i;
+	}
+
+	bool
+	set_position(size_t pos_)
+	{
+		if(pos_ > m_storage.size())
+			return false;
+		m_position = pos_;
+		return true;
+	}
+	
+	size_t 
+	read(char_t * pstring_, size_t size_)
+	{
+		size_t m_size_ = m_storage.size();
+		if(!pstring_ || m_size_ == 0 || m_position > m_size_)
+			return 0;
+		size_t min_size = min(size_, m_size_);
+		memcpy(pstring_, &m_storage[m_position], min_size);
+		m_position += min_size;
+		return min_size;
+	}
+
+	template <typename T, typename T_ = remove_cvref_t<T>, enable_if_t<is_integral<T_>::value,int> = 0>
+	StringStream &
+	operator<<(T && int_)
+	{
+		constexpr size_t buff_size = 32;
+		char_t buffer[buff_size];
+		constexpr auto format = integral_format[integral_index<T_>::value];
+		int n = snprintf(buffer, buff_size, format, int_);
+		if(n > 0) 
+			this->write(buffer, n);
+		return *this;
+	}
+
+	template <typename T, typename T_ = remove_cvref_t<T>, enable_if_t<is_floating_point<T_>::value,int> = 0>
+	StringStream &
+	operator<<(T && float_)
+	{
+		constexpr size_t buff_size = 32;
+		char_t buffer[buff_size+1];
+		constexpr auto format = floating_point_generic_format[floating_point_index<T_>::value];
+		int n = snprintf(buffer, buff_size, format, float_);
+		if(n > 0)
+		{
+			// append decimal point
+			bool no_need_ = false;
+			for(int i = 0; i < n; ++i)
+			{
+				char_t ch = buffer[i];
+				if(ch == '.' || ch == 'e')
+				{
+					no_need_ = true;
+					break;
+				}
+			}
+			if(!no_need_)
+				buffer[n++] = '.';
+			this->write(buffer, n);
+		} 
+		return *this;
+	}
+
+	inline ds::string_view view() const noexcept { return m_storage.view(m_position); }
+
+	storage_t const & storage() const noexcept { return m_storage; }
+
+	size_t position() const noexcept { return m_position; }
+	bool   eof()      const noexcept { return m_position > m_storage.size(); }
+
+	void
+	destroy() noexcept
+	{
+		m_storage.destroy();
+		m_position = 0;
+	}
+
+	void 
+	swap(StringStream & string_stream) noexcept
+	{
+		ds::swap(m_storage, rhs.m_storage);
+	}
+
+};
+
+template <class A = ds::DefaultAllocator>
+using string_stream = StringStream<A>;
+
+template <class A>
+static inline StringStream<A> &
+operator<<(StringStream<A> & ost, ds::StringStream<>::char_t const * pstring_)
+{
+	ost.write(pstring_);
+	return ost;
+}
+
+} // namespace ds
+
+static ds::StringStream<>
+operator"" _dsstrm(ds::StringStream<>::char_t const * pstring_, size_t size_)
+{
+	return { pstring_, size_ };
+}
+
+
+#endif // DS_STRING_STREAM
