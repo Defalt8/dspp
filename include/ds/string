@@ -10,7 +10,7 @@
 namespace ds {
 
 class StringView;
-template <class A = ds::DefaultAllocator> 
+template <class A = ds::default_allocator> 
 class String;
 
 template <>
@@ -898,7 +898,7 @@ class String
 
 using string_view = StringView;
 
-template <class A = ds::DefaultAllocator> 
+template <class A = ds::default_allocator> 
 using string = String<A>;
 
 

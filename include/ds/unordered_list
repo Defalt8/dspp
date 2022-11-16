@@ -11,9 +11,9 @@
 namespace ds {
 
 template <size_t table_size_, typename E> struct UnorderedListNode;
-template <size_t table_size_, typename E, class A = DefaultAllocator> class UnorderedListIterator;
-template <size_t table_size_, typename E, class A = DefaultAllocator> class ConstUnorderedListIterator;
-template <size_t table_size_, typename E, class A = DefaultAllocator> class UnorderedList;
+template <size_t table_size_, typename E, class A = default_allocator> class UnorderedListIterator;
+template <size_t table_size_, typename E, class A = default_allocator> class ConstUnorderedListIterator;
+template <size_t table_size_, typename E, class A = default_allocator> class UnorderedList;
 
 namespace traits {
 
@@ -844,13 +844,13 @@ class UnorderedList
 };
 
 
-template <size_t table_size_, typename E, class A = DefaultAllocator> 
+template <size_t table_size_, typename E, class A = default_allocator> 
 using unordered_list_iterator = UnorderedListIterator<table_size_,E,A>;
 
-template <size_t table_size_, typename E, class A = DefaultAllocator> 
+template <size_t table_size_, typename E, class A = default_allocator> 
 using const_unordered_list_iterator = UnorderedListIterator<table_size_,E,A>;
 
-template <size_t table_size_, typename E, class A = DefaultAllocator> 
+template <size_t table_size_, typename E, class A = default_allocator> 
 using unordered_list = UnorderedList<table_size_,E,A>;
 
 

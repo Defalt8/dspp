@@ -8,37 +8,37 @@ Test(default_allocator_nt_test)
 
 	Testcase(test_allocate_requirements)
 	{
-		AssertTrue(ds::is_same<decltype(ds::DefaultAllocatorNT::allocate(size_t(0), ds::align_t(0))), void *>::value);
+		AssertTrue(ds::is_same<decltype(ds::default_allocator_nt::allocate(size_t(0), ds::align_t(0))), void *>::value);
 	} TestcaseEnd(test_allocate_requirements);
 
 	Testcase(test_deallocate_requirements)
 	{
-		AssertTrue(ds::is_same<decltype(ds::DefaultAllocatorNT::deallocate((void *)nullptr)), void>::value);
+		AssertTrue(ds::is_same<decltype(ds::default_allocator_nt::deallocate((void *)nullptr)), void>::value);
 	} TestcaseEnd(test_deallocate_requirements);
 
 	Testcase(test_passing_allocation)
 	{
 		constexpr size_t size_ = 32;
-		auto block_ = ds::DefaultAllocatorNT::allocate(size_);
+		auto block_ = ds::default_allocator_nt::allocate(size_);
 		AssertNotNull(block_);
-		ds::DefaultAllocatorNT::deallocate(block_);
+		ds::default_allocator_nt::deallocate(block_);
 	} TestcaseEnd(test_passing_allocation);
 
 	Testcase(test_failing_allocation)
 	{
 		constexpr size_t size_ = -1;
 		void * block_ = nullptr;
-		AssertThrowNone(block_ = ds::DefaultAllocatorNT::allocate(size_));
+		AssertThrowNone(block_ = ds::default_allocator_nt::allocate(size_));
 		ExpectNull(block_);
-		ds::DefaultAllocatorNT::deallocate(block_);
+		ds::default_allocator_nt::deallocate(block_);
 	} TestcaseEnd(test_failing_allocation);
 
 	Testcase(test_zero_size_allocation)
 	{
 		constexpr size_t size_ = 0;
-		auto block_ = ds::DefaultAllocatorNT::allocate(size_);
+		auto block_ = ds::default_allocator_nt::allocate(size_);
 		AssertNotNull(block_);
-		ds::DefaultAllocatorNT::deallocate(block_);
+		ds::default_allocator_nt::deallocate(block_);
 	} TestcaseEnd(test_zero_size_allocation);
 
 };

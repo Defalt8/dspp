@@ -10,7 +10,7 @@
 
 namespace ds {
 
-template <typename E, class A = DefaultAllocator> class Array;
+template <typename E, class A = default_allocator> class Array;
 
 namespace traits {
 
@@ -921,7 +921,7 @@ class Array<E &,A>
 
 };
 
-template <typename E, class A = DefaultAllocator>
+template <typename E, class A = default_allocator>
 using array = Array<E,A>;
 
 

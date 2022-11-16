@@ -9,7 +9,7 @@
 
 namespace ds {
 
-template <typename T, class A = DefaultAllocator> class Unique;
+template <typename T, class A = default_allocator> class Unique;
 
 namespace traits {
 
@@ -51,7 +51,7 @@ namespace traits {
 /// @brief   The object is destroyed when this `Unique` instance is destroyed.  
 /// @brief   No copies; Only moves are allowed.
 /// @tparam T object type.
-/// @tparam A allocator type. default is `DefaultAllocator`
+/// @tparam A allocator type. default is `default_allocator`
 template <typename T, class A>
 class Unique
 {
@@ -427,7 +427,7 @@ class Unique<T[],A>
 	Unique() = delete;
 };
 
-template <typename T, class A = DefaultAllocator> 
+template <typename T, class A = default_allocator> 
 using unique = Unique<T,A>;
 
 

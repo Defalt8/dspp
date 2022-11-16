@@ -8,7 +8,7 @@
 
 namespace ds {
 
-template <typename T, class A = DefaultAllocator> class Shared;
+template <typename T, class A = default_allocator> class Shared;
 
 namespace traits {
 
@@ -28,7 +28,7 @@ namespace traits {
 /// @brief     instance.
 /// @brief   Both copies and moves are allowed.
 /// @tparam T object type.
-/// @tparam A allocator type. default is `DefaultAllocator`
+/// @tparam A allocator type. default is `default_allocator`
 template <typename T, class A>
 class Shared
 {
@@ -208,7 +208,7 @@ class Shared
 };
 
 
-template <typename T, class A = DefaultAllocator> 
+template <typename T, class A = default_allocator> 
 using shared = Shared<T,A>;
 
 

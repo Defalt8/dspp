@@ -7,11 +7,11 @@
 
 namespace ds {
 
-template <size_t table_size_, typename K, typename V, class A = DefaultAllocator> 
+template <size_t table_size_, typename K, typename V, class A = default_allocator> 
 using UnorderedMapIterator = UnorderedList<table_size_,Entry<K,V>,A>;
-template <size_t table_size_, typename K, typename V, class A = DefaultAllocator> 
+template <size_t table_size_, typename K, typename V, class A = default_allocator> 
 using ConstUnorderedMapIterator = UnorderedList<table_size_,Entry<K,V>,A>;
-template <size_t table_size_, typename K, typename V, class A = DefaultAllocator> 
+template <size_t table_size_, typename K, typename V, class A = default_allocator> 
 class UnorderedMap;
 
 namespace traits {
@@ -167,7 +167,7 @@ class UnorderedMap : protected UnorderedList<table_size_,Entry<K,V>,A>
 };
 
 
-template <size_t table_size_, typename K, typename V, class A = ds::DefaultAllocator>
+template <size_t table_size_, typename K, typename V, class A = ds::default_allocator>
 using unordered_map = UnorderedMap<table_size_,K,V,A>;
 
 template <size_t table_size_, typename K, typename V, class A>

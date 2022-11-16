@@ -10,9 +10,9 @@
 namespace ds {
 
 template <int type_, typename E> struct ListNode;
-template <int type_, typename E, class A = DefaultAllocator> class ListIterator;
-template <int type_, typename E, class A = DefaultAllocator> class ConstListIterator;
-template <int type_, typename E, class A = DefaultAllocator> class List;
+template <int type_, typename E, class A = default_allocator> class ListIterator;
+template <int type_, typename E, class A = default_allocator> class ConstListIterator;
+template <int type_, typename E, class A = default_allocator> class List;
 
 namespace traits {
 
@@ -1336,13 +1336,13 @@ class List<2,E,A>
 };
 
 
-template <int type_, typename E, class A = DefaultAllocator> 
+template <int type_, typename E, class A = default_allocator> 
 using list_iterator = ListIterator<type_,E,A>;
 
-template <int type_, typename E, class A = DefaultAllocator> 
+template <int type_, typename E, class A = default_allocator> 
 using const_list_iterator = ListIterator<type_,E,A>;
 
-template <int type_, typename E, class A = DefaultAllocator> 
+template <int type_, typename E, class A = default_allocator> 
 using list = List<type_,E,A>;
 
 

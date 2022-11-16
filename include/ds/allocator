@@ -7,7 +7,7 @@
 namespace ds {
 
 // throwing allocator using ::operator new
-class DefaultAllocator 
+class NewDeleteAllocator 
 {
  public:
 	struct allocation_failure : public std::bad_alloc
@@ -33,7 +33,7 @@ class DefaultAllocator
 };
 
 // no throw allocator using ::operator new
-class DefaultAllocatorNT 
+class NewDeleteAllocatorNT 
 {
  public:
 	DS_nodiscard static inline void * 
@@ -183,8 +183,11 @@ class LocalForwardAllocatorNT
 
 };
 
-using default_allocator    = DefaultAllocator;
-using default_allocator_nt = DefaultAllocatorNT;
+using default_allocator    = NewDeleteAllocator;
+using default_allocator_nt = NewDeleteAllocatorNT;
+
+using new_delete_allocator    = NewDeleteAllocator;
+using new_delete_allocator_nt = NewDeleteAllocatorNT;
 
 template <class UID, class A>
 using allocator_interface = AllocatorInterface<UID,A>;

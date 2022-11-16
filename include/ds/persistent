@@ -8,7 +8,7 @@
 
 namespace ds {
 
-template <typename T, class A = DefaultAllocator> class Persistent;
+template <typename T, class A = default_allocator> class Persistent;
 
 namespace traits {
 
@@ -25,7 +25,7 @@ namespace traits {
 /// @brief    referencing the same object is destroyed.  
 /// @brief   Both copies and moves are allowed.
 /// @tparam T object type.
-/// @tparam A allocator type. default is `DefaultAllocator`
+/// @tparam A allocator type. default is `default_allocator`
 template <typename T, class A>
 class Persistent
 {
@@ -192,7 +192,7 @@ class Persistent
 };
 
 
-template <typename T, class A = DefaultAllocator> 
+template <typename T, class A = default_allocator> 
 using persistent = Persistent<T,A>;
 
 
