@@ -5,7 +5,6 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <cassert>
 #include <exception>
 #include <new>
@@ -343,6 +342,20 @@ namespace _ {
 	false_type is_out_streamable(...);
 
 } // namespace _
+
+
+template <typename T>
+struct is_string : false_type {};
+
+template <>
+struct is_string<char *> : true_type {};
+
+template <>
+struct is_string<char[]> : true_type {};
+
+template <size_t size_>
+struct is_string<char[size_]> : true_type {};
+
 
 template <class OST, typename T>
 struct is_in_streamable : decltype(_::is_in_streamable<OST,T>(0)) {};
@@ -1096,21 +1109,21 @@ struct Entry
 	K const key   {};
 	V       value {};
 
-	Entry() = default;
-	Entry(Entry &&) = default;
-	Entry(Entry const &) = default;
+	constexpr Entry() = default;
+	constexpr Entry(Entry &&) = default;
+	constexpr Entry(Entry const &) = default;
 	Entry & operator=(Entry &&) = default;
 	Entry & operator=(Entry const &) = default;
 
 	template <typename K_ = K, enable_if_t<is_constructible<K,K_>::value,int> = 0>
-	explicit Entry(K_ && key_)
+	constexpr explicit Entry(K_ && key_)
 		: key   { ds::forward<K_>(key_) }
 	{}
 
 	template <typename K_ = K, typename V_ = V
 			, enable_if_t<is_constructible<K,K_>::value,int> = 0
 			, enable_if_t<is_constructible<V,V_>::value,int> = 0>
-	Entry(K_ && key_, V_ && value_)
+	constexpr Entry(K_ && key_, V_ && value_)
 		: key   { ds::forward<K_>(key_) }
 		, value { ds::forward<V_>(value_) }
 	{}
