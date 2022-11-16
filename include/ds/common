@@ -1118,9 +1118,9 @@ string_compare(char const * lhs, char const * rhs, size_t lsize, size_t rsize) n
 	}
 	return i == lsize && i == rsize
 		? 0
-		: i == rsize
+		: i == lsize
 			? -1 
-			: i != rsize;
+			: i == rsize;
 }
 
 static constexpr int
