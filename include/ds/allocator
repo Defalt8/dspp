@@ -37,7 +37,7 @@ using new_delete_allocator    = NewDeleteAllocator;
 
 
 // no throw allocator using ::operator new
-class NewDeleteAllocatorNT 
+class NewDeleteNTAllocator 
 {
  public:
 	DS_nodiscard static inline void * 
@@ -54,7 +54,7 @@ class NewDeleteAllocatorNT
 
 };
 
-using new_delete_allocator_nt = NewDeleteAllocatorNT;
+using new_delete_allocator_nt = NewDeleteNTAllocator;
 
 
 // throwing base allocator
@@ -88,18 +88,18 @@ class AllocatorNTBase
 	DS_nodiscard virtual void * 
 	allocate(size_t size_, DS_maybe_unused size_t align_ = alignof(max_align_t)) noexcept
 	{
-		return NewDeleteAllocatorNT::allocate(size_, align_);
+		return NewDeleteNTAllocator::allocate(size_, align_);
 	}
 
 	virtual void 
 	deallocate(void * block_) noexcept
 	{
-		return NewDeleteAllocatorNT::deallocate(block_);
+		return NewDeleteNTAllocator::deallocate(block_);
 	}
 
 };
 
-using allocatornt_base = AllocatorNTBase;
+using allocator_nt_base = AllocatorNTBase;
 
 // a throwing static interface to non-static allocator types
 template <class UID_, class A>
@@ -139,6 +139,19 @@ class AllocatorInterface
 			ds_throw(interface_busy());
 	}
 	
+	AllocatorInterface &
+	operator=(A & allocator_)
+	{
+		if(&allocator_ != _allocator)
+		{
+			if(_allocator == nullptr || _owner == this)
+				_allocator = &allocator_;
+			else
+				ds_throw(interface_busy());
+		}
+		return *this;
+	}
+	
 	DS_nodiscard static inline void * 
 	allocate(size_t size_, size_t align_ = alignof(max_align_t))
 	{
@@ -168,7 +181,7 @@ using allocator_interface = AllocatorInterface<UID,A>;
 
 // a no-throw static interface to non-static allocator types
 template <class UID_, class A>
-class AllocatorInterfaceNT
+class AllocatorNTInterface
 {
  public:
 	using UID         = UID_;
@@ -176,10 +189,10 @@ class AllocatorInterfaceNT
 	
  private:
 	static thread_local Allocator            * _allocator;
-	static thread_local AllocatorInterfaceNT * _owner;
+	static thread_local AllocatorNTInterface * _owner;
 
  public:
-	~AllocatorInterfaceNT()
+	~AllocatorNTInterface()
 	{
 		if(_owner == this)
 		{
@@ -188,13 +201,24 @@ class AllocatorInterfaceNT
 		}
 	}
 
-	AllocatorInterfaceNT(A & allocator_)
+	AllocatorNTInterface(A & allocator_)
 	{
 		if(_allocator == nullptr)
 		{
 			_allocator = &allocator_;
 			_owner     = this;
 		}
+	}
+	
+	AllocatorNTInterface &
+	operator=(A & allocator_)
+	{
+		if(&allocator_ != _allocator)
+		{
+			if(_allocator == nullptr || _owner == this)
+				_allocator = &allocator_;
+		}
+		return *this;
 	}
 	
 	DS_nodiscard static inline void * 
@@ -215,13 +239,13 @@ class AllocatorInterfaceNT
 };
 
 template <class UID, class A>
-thread_local A * AllocatorInterfaceNT<UID,A>::_allocator = nullptr;
+thread_local A * AllocatorNTInterface<UID,A>::_allocator = nullptr;
 
 template <class UID, class A>
-thread_local AllocatorInterfaceNT<UID,A> * AllocatorInterfaceNT<UID,A>::_owner = nullptr;
+thread_local AllocatorNTInterface<UID,A> * AllocatorNTInterface<UID,A>::_owner = nullptr;
 
 template <class UID, class A>
-using allocator_interface_nt = AllocatorInterfaceNT<UID,A>;
+using allocator_nt_interface = AllocatorNTInterface<UID,A>;
 
 
 // a throwing helper class to store and manage non-static allocators and their interface
@@ -242,7 +266,7 @@ class AllocatorWrapper
 	AllocatorWrapper(Args &&... args)
 		: _allocator { ds::forward<Args>(args)... }
 	{}
-	
+
 };
 
 template <class UID, class A>
@@ -251,12 +275,12 @@ using allocator_wrapper = AllocatorWrapper<UID,A>;
 
 // a no-throw helper class to store and manage non-static allocators and their interface
 template <class UID_, class A>
-class AllocatorWrapperNT
+class AllocatorNTWrapper
 {
  public:
 	using UID         = UID_;
 	using Allocator   = A;
-	using Interface   = AllocatorInterfaceNT<UID,A>;
+	using Interface   = AllocatorNTInterface<UID,A>;
 
  private:
 	Allocator _allocator;
@@ -264,14 +288,14 @@ class AllocatorWrapperNT
 
  public:
 	template <typename... Args, enable_if_t<is_constructible<Allocator,Args...>::value,int> = 0>
-	AllocatorWrapperNT(Args &&... args)
+	AllocatorNTWrapper(Args &&... args)
 		: _allocator { ds::forward<Args>(args)... }
 	{}
 	
 };
 
 template <class UID, class A>
-using allocator_wrapper_nt = AllocatorWrapperNT<UID,A>;
+using allocator_nt_wrapper = AllocatorNTWrapper<UID,A>;
 
 
 template <size_t size_, size_t align_ = alignof(max_align_t)>
@@ -335,7 +359,7 @@ using local_forward_allocator = LocalForwardAllocator<size_,align_>;
 
 
 template <size_t sz_, size_t al_ = alignof(max_align_t)>
-class LocalForwardAllocatorNT : public AllocatorNTBase
+class LocalForwardNTAllocator : public AllocatorNTBase
 {
 	AlignedBytes<sz_,al_>     mem {noinit};
 	byte_ptr_t                head = &mem.bytes[0];
@@ -365,7 +389,7 @@ class LocalForwardAllocatorNT : public AllocatorNTBase
 };
 
 template <size_t size_, align_t align_ = alignof(max_align_t)>
-using local_forward_allocator_nt = LocalForwardAllocatorNT<size_,align_>;
+using local_forward_nt_allocator = LocalForwardNTAllocator<size_,align_>;
 
 
 class DynamicForwardAllocator : public AllocatorBase
@@ -413,7 +437,7 @@ class DynamicForwardAllocator : public AllocatorBase
 
 using dynamic_forward_allocator = DynamicForwardAllocator;
 
-class DynamicForwardAllocatorNT : public AllocatorNTBase
+class DynamicForwardNTAllocator : public AllocatorNTBase
 {
 	byte_ptr_t   _mem  = nullptr;
 	byte_cptr_t  _end  = nullptr;
@@ -421,13 +445,13 @@ class DynamicForwardAllocatorNT : public AllocatorNTBase
 
  public:
 
-	~DynamicForwardAllocatorNT()
+	~DynamicForwardNTAllocator()
 	{
 		if(_mem != nullptr)
 			NewDeleteAllocator::deallocate(_mem);
 	}
 
-	DynamicForwardAllocatorNT(size_t size_, align_t align_ = alignof(max_align_t))
+	DynamicForwardNTAllocator(size_t size_, align_t align_ = alignof(max_align_t))
 		: _mem { static_cast<byte_ptr_t>(NewDeleteAllocator::allocate(size_, align_)) }
 		, _end { _mem == nullptr ? nullptr : _mem + size_ }
 	{}
@@ -449,11 +473,11 @@ class DynamicForwardAllocatorNT : public AllocatorNTBase
 
 };
 
-using dynamic_forward_allocator_nt = DynamicForwardAllocatorNT;
+using dynamic_forward_nt_allocator = DynamicForwardNTAllocator;
 
 
 using default_allocator    = NewDeleteAllocator;
-using default_allocator_nt = NewDeleteAllocatorNT;
+using default_nt_allocator = NewDeleteNTAllocator;
 
 
 } // namespace ds

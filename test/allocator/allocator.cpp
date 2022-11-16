@@ -39,9 +39,9 @@ Test(default_allocator_test)
 	Testcase(test_zero_size_allocation)
 	{
 		constexpr size_t size_ = 0;
-		auto block_ = ds::default_allocator_nt::allocate(size_);
+		auto block_ = ds::default_nt_allocator::allocate(size_);
 		AssertNotNull(block_);
-		ds::default_allocator_nt::deallocate(block_);
+		ds::default_nt_allocator::deallocate(block_);
 	} TestcaseEnd(test_zero_size_allocation);
 
 };
