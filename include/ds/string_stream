@@ -2,6 +2,8 @@
 #ifndef DS_STRING_STREAM
 #define DS_STRING_STREAM
 
+#include <cstdio>
+#include <cstring>
 #include "common"
 #include "string"
 
@@ -274,7 +276,7 @@ class StringStream
 	}
 
 	void 
-	swap(StringStream & string_stream) noexcept
+	swap(StringStream & rhs) noexcept
 	{
 		ds::swap(m_storage, rhs.m_storage);
 	}
