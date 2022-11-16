@@ -332,7 +332,7 @@ class StringView
 	constexpr char_t const * begin() const noexcept { return m_pstring == nullptr ? nullptr : m_pstring; }
 	constexpr char_t const * end  () const noexcept { return m_pstring == nullptr ? nullptr : m_pstring + m_size; }
 	
-	constexpr char_t const * rbegin() const noexcept { return m_pstring == nullptr ? nullptr : m_pstring + min(1, m_size) - 1; }
+	constexpr char_t const * rbegin() const noexcept { return m_pstring == nullptr ? nullptr : m_pstring + min<size_t>(1, m_size) - 1; }
 	constexpr char_t const * rend  () const noexcept { return m_pstring == nullptr ? nullptr : m_pstring-1; }
 
 	constexpr StringView view() const noexcept { return { this->begin(), m_size }; }
@@ -1024,13 +1024,13 @@ operator>>(IST & ist, ds::String<A> & rhs)
 } // namespace ds
 
 static constexpr ds::StringView operator"" 
-_dstrv(char const * pstring, size_t length)
+_dsstrv(char const * pstring, size_t length)
 {
 	return { pstring, length };
 }
 
 static inline ds::String<> operator"" 
-_dstr(char const * pstring, size_t length)
+_dsstr(char const * pstring, size_t length)
 {
 	return { pstring, length };
 }

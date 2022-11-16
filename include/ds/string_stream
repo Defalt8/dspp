@@ -56,7 +56,7 @@ class StringStream
 			return 0;
 		size_t m_size_ = m_storage.size();
 		if(m_position + size_ > m_size_)
-			resize(max(64u,max(m_size_ * 3 / 2, m_size_ + size_)));
+			resize(max<size_t>(64,max(m_size_ * 3 / 2, m_size_ + size_)));
 		memcpy(&m_storage[m_position], pstring_, size_);
 		m_position += size_;
 		m_storage[m_position] = '\0';
@@ -260,6 +260,20 @@ class StringStream
 				m_position += n;
 		}
 		return *this;
+	}
+
+	size_t
+	flush_to(FILE * file_) noexcept
+	{
+		size_t msize_ = m_storage.size();
+		if(file_ != nullptr && msize_ > 0 && m_position > 0)
+		{
+			size_t n = fwrite(&m_storage[0], sizeof(char_t), m_position, file_);
+			fflush(file_);
+			m_position = 0;
+			return n;
+		}
+		return 0;
 	}
 
 	inline ds::string_view view() const noexcept { return m_storage.view(m_position); }
