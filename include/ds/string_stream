@@ -176,7 +176,7 @@ class StringStream
 	operator<<(T && float_)
 	{
 		constexpr size_t buff_size = 32;
-		char_t buffer[buff_size+1];
+		char_t buffer[buff_size+2];
 		constexpr auto & format = floating_point_generic_format[floating_point_index<T_>::value];
 		int n = snprintf(buffer, buff_size, format, float_);
 		if(n > 0)
@@ -193,7 +193,10 @@ class StringStream
 				}
 			}
 			if(!no_need_)
+			{
 				buffer[n++] = '.';
+				buffer[n++] = '0';
+			}
 			this->write(buffer, n);
 		} 
 		return *this;
