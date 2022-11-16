@@ -999,6 +999,26 @@ struct usage_sn<OrderedList<table_size_,E,A>,size_,count_>
 	static constexpr size_t value = (_single + (-_single & (alignof(OrderedListNode<table_size_,E>) - 1))) * count_;
 };
 
+template <size_t table_size_, typename E, class A>
+struct inserter<OrderedList<table_size_,E,A>,E>
+{
+	OrderedList<table_size_,E,A> & _ordered_list;
+
+	inline bool
+	init(size_t required_size)
+	{
+		return true;
+	}
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	inline bool
+	insert(T && object)
+	{
+		return bool(_ordered_list.insert(ds::forward<T>(object)));
+	}
+
+};
+
 
 } // namespace ds
 

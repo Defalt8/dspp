@@ -8,7 +8,7 @@ namespace ds {
 
 template <
 	typename _element_t = void,
-	typename _size_t = void,
+	typename _size_t    = void,
 	typename _indexable_iterator_t        = void,
 	typename _const_indexable_iterator_t  = void const,
 	typename _forward_iterator_t          = void,

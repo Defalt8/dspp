@@ -1357,6 +1357,45 @@ struct usage_sn<List<type_,E,A>,size_,count_>
 };
 
 
+template <typename E, class A>
+struct inserter<List<1,E,A>,E>
+{
+	List<1,E,A> & _list;
+
+	inline bool
+	init(size_t required_size)
+	{
+		return true;
+	}
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	inline bool 
+	insert(T && object)
+	{
+		return bool(_list.insert_first(ds::forward<T>(object)));
+	}
+};
+
+template <typename E, class A>
+struct inserter<List<2,E,A>,E>
+{
+	List<2,E,A> & _list;
+
+	inline bool
+	init(size_t required_size)
+	{
+		return true;
+	}
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	inline bool 
+	insert(T && object)
+	{
+		return bool(_list.insert_last(ds::forward<T>(object)));
+	}
+};
+
+
 } // namespace ds
 
 #endif // DS_LIST

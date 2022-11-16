@@ -865,6 +865,26 @@ struct usage_sn<UnorderedList<table_size_,E,A>,size_,count_>
 };
 
 
+template <size_t table_size_, typename E, class A>
+struct inserter<UnorderedList<table_size_,E,A>,E>
+{
+	UnorderedList<table_size_,E,A> & _unordered_list;
+
+	inline bool
+	init(size_t required_size)
+	{
+		return true;
+	}
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	inline bool
+	insert(T && object)
+	{
+		return bool(_unordered_list.insert(ds::forward<T>(object)));
+	}
+
+};
+
 } // namespace ds
 
 #endif // DS_UNORDERED_LIST

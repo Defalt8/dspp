@@ -4,6 +4,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <cstdio>
 #include <cassert>
 #include <exception>
@@ -1209,6 +1210,39 @@ template <class C, typename it_t = decltype(decl<C const &>().rend())>
 static constexpr it_t rend(C const & object_) { return object_.rend(); }
 
 
+namespace traits {
+
+template <typename T>
+struct iterable;
+
+} // namespace traits
+
+template <class C, typename E>
+struct inserter
+{
+	// C & container;
+	// bool init(size_t required_size);
+	// template <typename T>
+	// bool insert(T && object);
+};
+
+namespace _ {
+	template <class C, typename E, typename = decltype(decl<ds::inserter<C,E>>().insert(decl<E>()))>
+	true_type has_inserter(int);
+	template <class C, typename E>
+	false_type has_inserter(...);
+} // namespace _
+
+template <class C, typename E>
+struct has_inserter : decltype(_::has_inserter<C,E>(0)) {};
+
+template <class C, typename E = typename traits::iterable<C>::element_t>
+using inserter_t = conditional_t<has_inserter<remove_reference_t<C>,E>::value
+		, ds::inserter<C,E>
+		, void
+	>;
+
+
 template <typename K, typename V>
 struct Entry
 {
@@ -1287,7 +1321,7 @@ struct OrderedHasher<Entry<K,V>> : integral_constant<size_t,OrderedHasher<K>::va
 template <typename K, typename V>
 using entry = Entry<K,V>;
 
-static thread_local char const * stream_separator = " ";
+static thread_local char const * stream_separator = ", ";
 static thread_local char const * stream_separator_key_value = ": ";
 
 template <class OST, typename K, typename V

@@ -84,6 +84,42 @@ class UnorderedMap : protected UnorderedList<table_size_,Entry<K,V>,A>
 		return this->position_of(ds::forward<K_>(key))->value;
 	}
 
+	template <typename T
+			, enable_if_t<is_same<remove_cvref_t<T>,entry_t>::value,int> = 0
+		>
+	inline iterator_t
+	insert(T && entry)
+	{
+		return this->insert_replace(ds::forward<T>(entry));
+	}
+
+	template <typename T
+			, enable_if_t<is_same<remove_cvref_t<T>,entry_t>::value,int> = 0
+		>
+	inline iterator_t
+	insert_noreplace(T && entry)
+	{
+		return this->insert_unique(ds::forward<T>(entry));
+	}
+
+	template <typename... Args
+			, enable_if_t<is_constructible<entry_t,Args...>::value,int> = 0
+		>
+	inline iterator_t
+	emplace(Args &&... args)
+	{
+		return this->emplace_replace(ds::forward<Args>(args)...);
+	}
+
+	template <typename... Args
+			, enable_if_t<is_constructible<entry_t,Args...>::value,int> = 0
+		>
+	inline iterator_t
+	emplace_noreplace(Args &&... args)
+	{
+		return this->emplace_unique(ds::forward<Args>(args)...);
+	}
+
 	template <typename K_, typename V_
 			, enable_if_t<is_constructible<entry_t,K_,V_>::value,int> = 0
 		>
@@ -133,6 +169,26 @@ class UnorderedMap : protected UnorderedList<table_size_,Entry<K,V>,A>
 
 template <size_t table_size_, typename K, typename V, class A = ds::DefaultAllocator>
 using unordered_map = UnorderedMap<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A>
+struct inserter<UnorderedMap<table_size_,K,V,A>,Entry<K,V>>
+{
+	UnorderedMap<table_size_,K,V,A> & _unordered_map;
+
+	inline bool
+	init(size_t required_size)
+	{
+		return true;
+	}
+
+	template <typename T, enable_if_t<is_constructible<Entry<K,V>,T>::value,int> = 0>
+	inline bool
+	insert(T && object)
+	{
+		return bool(_unordered_map.insert(Entry<K,V>{ ds::forward<T>(object) }));
+	}
+
+};
 
 
 } // namespace ds

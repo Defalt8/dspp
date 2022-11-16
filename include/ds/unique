@@ -214,7 +214,9 @@ class Unique<E[size_],A>
 	inline void 
 	_default_construct(conditional_t<!is_constructible<E>::value 
 			|| is_trivially_constructible<E>::value,array_t,impossible_t> & array_, size_t start_ = 0) 
-	{}
+	{
+		memset(&array_[start_], 0, sizeof(E) * (size_ - start_));
+	}
 
  public:
 	struct null_pointer : public exception
@@ -434,6 +436,36 @@ struct usage<Unique<T,A>> { static constexpr size_t value = Unique<T,A>::usage()
 
 template <typename T, class A, size_t count_>
 struct usage_n<Unique<T,A>,count_> { static constexpr size_t value = Unique<T,A>::usage(count_); };
+
+
+template <typename E, size_t size_, class A>
+struct inserter<Unique<E[size_],A>,E>
+{
+	Unique<E[size_],A> & _unique;
+	size_t i = 0;
+
+	inline bool
+	init(size_t required_size)
+	{
+		if(required_size > size_)
+			return false;
+		_unique = {};
+		return true;
+	}
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	inline bool
+	insert(T && object)
+	{
+		if(i >= size_)
+			return false;
+		auto & e = _unique[i++];
+		destruct(e);
+		construct_at<E>(&e, ds::forward<T>(object));
+		return true;
+	}
+
+};
 
 
 } // namespace ds

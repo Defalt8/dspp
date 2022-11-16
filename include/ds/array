@@ -129,10 +129,17 @@ namespace _ {
 		_construct(void * block_, size_t size_, Array<E,A> const & rhs)
 		{
 			auto array_ = static_cast<array_t *>(block_);
-			auto cit  = rhs.begin();
-			auto end_ = &(*array_)[size_];
-			for(E * it = &(*array_)[0]; it != end_; ++it, ++cit)
-				array_copier<E,A>::_construct_at((void*)it, *cit);
+			if DS_constexpr17 (is_trivially_copy_constructible<E>::value)
+			{
+				memcpy(&(*array_)[0], &rhs[0], sizeof(E) * size_);
+			}
+			else
+			{
+				auto cit  = rhs.begin();
+				auto end_ = &(*array_)[size_];
+				for(E * it = &(*array_)[0]; it != end_; ++it, ++cit)
+					array_copier<E,A>::_construct_at((void*)it, *cit);
+			}
 			return ds::move(array_);
 		}
 
@@ -166,7 +173,11 @@ class Array
 	using array_t = E[];
 
  protected:
-	array_t * m_array = nullptr;
+	union {
+		array_t * m_array = nullptr;
+		// for debugging only
+		fixed_cptr_t<4096,E> m_fixedv;
+	};
 	size_t    m_size  = 0;
 
 	struct impossible_t { size_t m_size = 0; };
@@ -182,6 +193,20 @@ class Array
 	{
 		return A::allocate(size_ * sizeof(E), alignof(E));
 	}
+
+	inline void
+	_default_construct(conditional_t<is_constructible<E>::value,array_t,impossible_t> & array_, size_t start_ = 0)
+	{
+		if DS_constexpr17 (is_trivially_constructible<E>::value)
+			memset(&array_[start_], 0, sizeof(E) * (m_size - start_));
+		else
+			for(size_t i = start_; i < m_size; ++i)
+				construct_at<E>(&array_[i]);
+	}
+
+	inline void
+	_default_construct(conditional_t<!is_constructible<E>::value,array_t,impossible_t> & array_, size_t start_ = 0)
+	{}
 
 	template <typename E_, class A_,bool>
 	friend struct _::array_copier;
@@ -214,11 +239,7 @@ class Array
 		, m_size  { m_array ? size_ : 0 }
 	{
 		if(m_array)
-		{
-			auto end_ = this->end();
-			for(E * it = this->begin(); it != end_; ++it)
-				construct_at<E>((void*)it);
-		}
+			this->_default_construct(*m_array);
 	}
 
 	template <typename Arg>
@@ -227,11 +248,7 @@ class Array
 		, m_size  { m_array ? size_ : 0 }
 	{
 		if(m_array)
-		{
-			auto end_ = this->end();
-			for(E * it = this->begin(); it != end_; ++it)
-				construct_at<E>((void*)it);
-		}
+			this->_default_construct(*m_array, 0);
 	}
 
 	template <typename Func, enable_if_t<is_constructible<E,decltype(decl<Func>()())>::value,int> = 0>
@@ -513,7 +530,11 @@ class Array<E &,A>
 	using array_t = E * [];
 
  protected:
-	array_t * m_array = nullptr;
+	union {
+		array_t * m_array = nullptr;
+		// for debugging only
+		fixed_cptr_t<4096,E *> m_fixedv;
+	};
 	size_t    m_size  = 0;
 
 	struct impossible_t { size_t m_size = 0; };
@@ -658,11 +679,7 @@ class Array<E &,A>
 		, m_size  { m_array ? size_ : 0 }
 	{
 		if(m_array)
-		{
-			auto end_ = this->end();
-			for(auto it = this->begin(); it != end_; ++it)
-				construct_at<E *>((void*)it.current);
-		}
+			memset(&array_[0], 0, sizeof(E *) * m_size);
 	}
 
 	template <typename Arg>
@@ -916,6 +933,33 @@ struct usage_sn<Array<E,A>,size_,count_>
 {
 	static constexpr size_t _single = usage_s<Array<E,A>,size_>::value;
 	static constexpr size_t value = (_single + (-_single & (alignof(E) - 1))) * count_;
+};
+
+template <typename E, class A>
+struct inserter<Array<E,A>,E>
+{
+	Array<E,A> & _array;
+	size_t i = 0;
+	
+	inline bool
+	init(size_t required_size)
+	{
+		if(_array.size() < required_size)
+			_array = { required_size };
+		return required_size <= _array.size();
+	}
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	inline bool 
+	insert(T && object)
+	{
+		if(i >= _array.size())
+			return false;
+		auto & e = _array[i++];
+		destruct(e);
+		construct_at<E>(&e, ds::forward<T>(object));
+		return true;
+	}
 };
 
 

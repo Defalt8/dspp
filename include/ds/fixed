@@ -319,6 +319,34 @@ struct usage_sn<Fixed<fsz_,E>,size_,count_>
 	static constexpr size_t value = (_single + (-_single & (alignof(E) - 1))) * count_;
 };
 
+template <size_t size_, typename E>
+struct inserter<Fixed<size_,E>,E>
+{
+	Fixed<size_,E> & _fixed;
+	size_t i = 0;
+	
+	constexpr bool
+	init(size_t required_size)
+	{
+		if(required_size > size_)
+			return false;
+		_fixed = {};
+		return true;
+	}
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	constexpr bool 
+	insert(T && object)
+	{
+		if(i >= size_)
+			return false;
+		auto & e = _fixed[i++];
+		destruct(e);
+		construct_at<E>(&e, ds::forward<T>(object));
+		return true;
+	}
+};
+
 
 template <typename E, typename T, typename... Ts
 	, enable_if_t<is_constructible<Fixed<sizeof...(Ts)+1,E>,T,Ts...>::value,int> = 0> 
