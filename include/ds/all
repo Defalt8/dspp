@@ -1,0 +1,25 @@
+#pragma once
+#ifndef DS_ALL
+#define DS_ALL
+
+#include "macros"
+#include "common"
+#include "traits/allocator"
+#include "traits/iterable"
+#include "allocator"
+#include "unique"
+#include "shared"
+#include "persistent"
+#include "fixed"
+#include "string"
+#include "string_stream"
+#include "tuple"
+#include "variant"
+#include "array"
+#include "list"
+#include "unordered_list"
+#include "unordered_map"
+#include "ordered_list"
+#include "ordered_map"
+
+#endif // DS_ALL

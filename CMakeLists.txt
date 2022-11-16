@@ -2,6 +2,7 @@ cmake_minimum_required( VERSION 3.4 )
 project( dspp VERSION 0.16.55 LANGUAGES CXX )
 
 set( DS_HEADER_FILES
+	include/ds/all
 	include/ds/macros
 	include/ds/common
 	include/ds/traits/allocator
@@ -13,8 +14,9 @@ set( DS_HEADER_FILES
 	include/ds/shared
 	include/ds/tuple
 	include/ds/variant
-	include/ds/array
 	include/ds/string
+	include/ds/string_stream
+	include/ds/array
 	include/ds/list
 	include/ds/unordered_list
 	include/ds/unordered_map
