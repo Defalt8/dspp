@@ -2,8 +2,6 @@
 #ifndef DS_STRING
 #define DS_STRING
 
-#include <cstring>
-#include <cstdlib>
 #include "common"
 #include "traits/allocator"
 #include "traits/iterable"
@@ -14,6 +12,12 @@ namespace ds {
 class StringView;
 template <class A = ds::DefaultAllocator> 
 class String;
+
+template <>
+struct is_string<StringView> : true_type {};
+
+template <class A>
+struct is_string<String<A>> : true_type {};
 
 namespace traits {
 
@@ -79,10 +83,24 @@ class StringView
 	using char_t = char;
 
  private:
-	char_t const * m_pstring = nullptr;
+	union {
+		char_t const * m_pstring = nullptr;
+		// for debugging only
+		fixed_cptr_t<4096,char_t> const m_fixedv;
+	};
 	size_t         m_size    = 0;
 
  public:
+	struct null_pointer : public exception
+	{
+		char const * what() const noexcept override { return "null string view"; }
+	};
+
+	struct index_out_of_bounds : public exception
+	{
+		char const * what() const noexcept override { return "string view index out of bounds"; }
+	};
+
 	constexpr StringView() = default;
 	constexpr StringView(StringView &&) = default;
 	constexpr StringView(StringView const &) = default;
@@ -90,7 +108,7 @@ class StringView
 	StringView & operator=(StringView const &) = default;
 
 	template <size_t size_>
-	constexpr StringView(char_t const (&cstring)[size_])
+	constexpr StringView(char_t const (& cstring)[size_])
 		: m_pstring { &cstring[0] }
 		, m_size    { size_ - 1 }
 	{}
@@ -100,20 +118,222 @@ class StringView
 		, m_size    { length_ }
 	{}
 
+	constexpr bool operator!() const noexcept { return m_pstring == nullptr; }
+
+	explicit constexpr operator bool()       noexcept { return m_pstring != nullptr; }
+	explicit constexpr operator bool() const noexcept { return m_pstring != nullptr; }
+
+	constexpr bool
+	operator==(char_t const * pstring) const noexcept
+	{
+		return m_pstring != nullptr && pstring != nullptr 
+			&& string_compare(m_pstring, pstring, m_size) == 0;
+	}
+
+	constexpr bool
+	operator==(StringView const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs.m_pstring != nullptr 
+			&& string_compare(m_pstring, rhs.m_pstring, m_size, rhs.m_size) == 0;
+	}
+
+	template <class A>
+	constexpr bool
+	operator==(String<A> const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs 
+			&& string_compare(m_pstring, &rhs[0], m_size, rhs.size()) == 0;
+	}
+
+	constexpr bool
+	operator!=(char_t const * pstring) const noexcept
+	{
+		return m_pstring != nullptr && pstring != nullptr 
+			&& string_compare(m_pstring, pstring, m_size) != 0;
+	}
+
+	constexpr bool
+	operator!=(StringView const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs.m_pstring != nullptr 
+			&& string_compare(m_pstring, rhs.m_pstring, m_size, rhs.m_size) != 0;
+	}
+
+	template <class A>
+	constexpr bool
+	operator!=(String<A> const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs 
+			&& string_compare(m_pstring, &rhs[0], m_size, rhs.size()) != 0;
+	}
+
+	constexpr bool
+	operator<=(char_t const * pstring) const noexcept
+	{
+		return m_pstring != nullptr && pstring != nullptr 
+			&& string_compare(m_pstring, pstring, m_size) <= 0;
+	}
+
+	constexpr bool
+	operator<=(StringView const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs.m_pstring != nullptr 
+			&& string_compare(m_pstring, rhs.m_pstring, m_size, rhs.m_size) <= 0;
+	}
+
+	template <class A>
+	constexpr bool
+	operator<=(String<A> const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs 
+			&& string_compare(m_pstring, &rhs[0], m_size, rhs.size()) <= 0;
+	}
+
+	constexpr bool
+	operator>=(char_t const * pstring) const noexcept
+	{
+		return m_pstring != nullptr && pstring != nullptr 
+			&& string_compare(m_pstring, pstring, m_size) >= 0;
+	}
+
+	constexpr bool
+	operator>=(StringView const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs.m_pstring != nullptr 
+			&& string_compare(m_pstring, rhs.m_pstring, m_size, rhs.m_size) >= 0;
+	}
+
+	template <class A>
+	constexpr bool
+	operator>=(String<A> const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs 
+			&& string_compare(m_pstring, &rhs[0], m_size, rhs.size()) >= 0;
+	}
+
+	constexpr bool
+	operator<(char_t const * pstring) const noexcept
+	{
+		return m_pstring != nullptr && pstring != nullptr 
+			&& string_compare(m_pstring, pstring, m_size) < 0;
+	}
+
+	constexpr bool
+	operator<(StringView const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs.m_pstring != nullptr 
+			&& string_compare(m_pstring, rhs.m_pstring, m_size, rhs.m_size) < 0;
+	}
+
+	template <class A>
+	constexpr bool
+	operator<(String<A> const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs 
+			&& string_compare(m_pstring, &rhs[0], m_size, rhs.size()) < 0;
+	}
+
+	constexpr bool
+	operator>(char_t const * pstring) const noexcept
+	{
+		return m_pstring != nullptr && pstring != nullptr 
+			&& string_compare(m_pstring, pstring, m_size) > 0;
+	}
+
+	constexpr bool
+	operator>(StringView const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs.m_pstring != nullptr 
+			&& string_compare(m_pstring, rhs.m_pstring, m_size, rhs.m_size) > 0;
+	}
+
+	template <class A>
+	constexpr bool
+	operator>(String<A> const & rhs) const noexcept
+	{
+		return m_pstring != nullptr && rhs 
+			&& string_compare(m_pstring, &rhs[0], m_size, rhs.size()) > 0;
+	}
+
+
+	template <size_t size_>
+	constexpr int 
+	compare(char_t const (& cstring)[size_]) const noexcept
+	{
+		return m_pstring == nullptr ? -2
+			: string_compare(m_pstring, &cstring[0], m_size, size_);
+	}
+	
+	constexpr int 
+	compare(char_t const * pstring) const noexcept
+	{
+		return m_pstring == nullptr || pstring == nullptr ? -2
+			: string_compare(m_pstring, pstring, m_size);
+	}
+	
+	constexpr int 
+	compare(StringView const & rhs) const noexcept
+	{
+		return m_pstring == nullptr || rhs.m_pstring == nullptr ? -2
+			: string_compare(m_pstring, rhs.m_pstring, m_size, rhs.m_size);
+	}
+
+	template <class A_>
+	constexpr int 
+	compare(String<A_> const & rhs) const noexcept
+	{
+		return m_pstring == nullptr || !rhs ? -2
+			: string_compare(m_pstring, &rhs[0], m_size, rhs.size());
+	}
+
+	template <size_t size_>
+	constexpr int 
+	partial_compare(char_t const (& cstring)[size_]) const noexcept
+	{
+		return m_pstring == nullptr ? -2
+			: string_partial_compare(m_pstring, &cstring[0], m_size, size_);
+	}
+	
+	constexpr int 
+	partial_compare(char_t const * pstring) const noexcept
+	{
+		return m_pstring == nullptr || pstring == nullptr ? -2
+			: string_partial_compare(m_pstring, pstring, m_size);
+	}
+	
+	constexpr int 
+	partial_compare(StringView const & rhs) const noexcept
+	{
+		return m_pstring == nullptr || rhs.m_pstring == nullptr ? -2 
+			: string_partial_compare(m_pstring, &rhs[0], m_size, rhs.m_size);
+	}
+
+	template <class A_>
+	constexpr int 
+	partial_compare(String<A_> const & rhs) const noexcept
+	{
+		return m_pstring == nullptr || !rhs ? -1 
+			: string_partial_compare(m_pstring, rhs.begin(), m_size, rhs.size());
+	}
+
+	char_t const & 
+	at(size_t index) const noexcept(false)
+	{
+		ds_throw_if(m_pstring == nullptr, null_pointer());
+		ds_throw_if(index >= m_size, index_out_of_bounds());
+		return m_pstring[index];
+	}
+
 	constexpr size_t size()       noexcept { return m_size; }
 	constexpr size_t size() const noexcept { return m_size; }
 	
-	constexpr char_t const * begin() const noexcept { return m_pstring == nullptr ? nullptr : &m_pstring[0]; }
-	constexpr char_t const * end  () const noexcept { return m_pstring == nullptr ? nullptr : &m_pstring[m_size]; }
+	constexpr char_t const & operator[](size_t index) const noexcept { return m_pstring[index]; }
 	
-	inline char_t const * rbegin() const noexcept { return m_pstring == nullptr ? nullptr : &m_pstring[m_size > 0 ? (m_size - 1) : 0]; }
-	inline char_t const * rend  () const noexcept { return m_pstring == nullptr ? nullptr : &m_pstring[0]-1; }
-
-	inline size_t 
-	length() const noexcept
-	{
-		return m_pstring == nullptr ? 0 : strnlen(m_pstring, m_size);
-	}
+	constexpr char_t const * begin() const noexcept { return m_pstring == nullptr ? nullptr : m_pstring; }
+	constexpr char_t const * end  () const noexcept { return m_pstring == nullptr ? nullptr : m_pstring + m_size; }
+	
+	constexpr char_t const * rbegin() const noexcept { return m_pstring == nullptr ? nullptr : m_pstring + min(1, m_size) - 1; }
+	constexpr char_t const * rend  () const noexcept { return m_pstring == nullptr ? nullptr : m_pstring-1; }
 
 	constexpr StringView view() const noexcept { return { this->begin(), m_size }; }
 
@@ -146,210 +366,6 @@ class StringView
 		ds::swap(m_size, rhs.m_size);
 	}
 
-	constexpr bool
-	operator==(StringView const & rhs) const noexcept
-	{
-		return m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size == rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) == 0;
-	}
-
-	template <class A>
-	constexpr bool
-	operator==(String<A> const & rhs) const noexcept
-	{
-		return m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size == rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) == 0;
-	}
-
-	constexpr bool
-	operator==(char_t const * pstring) const noexcept
-	{
-		return m_pstring != nullptr && pstring != nullptr 
-			&& strncmp(m_pstring, pstring, m_size) == 0;
-	}
-
-	constexpr bool
-	operator!=(StringView const & rhs) const noexcept
-	{
-		return !(m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size == rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) == 0);
-	}
-
-	template <class A>
-	constexpr bool
-	operator!=(String<A> const & rhs) const noexcept
-	{
-		return !(m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size == rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) == 0);
-	}
-
-	constexpr bool
-	operator!=(char_t const * pstring) const noexcept
-	{
-		return !(m_pstring != nullptr && pstring != nullptr 
-			&& strncmp(m_pstring, pstring, m_size) == 0);
-	}
-
-	constexpr bool
-	operator<=(StringView const & rhs) const noexcept
-	{
-		return m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size <= rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) <= 0;
-	}
-
-	template <class A>
-	constexpr bool
-	operator<=(String<A> const & rhs) const noexcept
-	{
-		return m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size <= rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) <= 0;
-	}
-
-	constexpr bool
-	operator<=(char_t const * pstring) const noexcept
-	{
-		return m_pstring != nullptr && pstring != nullptr 
-			&& strncmp(m_pstring, pstring, m_size) <= 0;
-	}
-
-	constexpr bool
-	operator>=(StringView const & rhs) const noexcept
-	{
-		return m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size >= rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) >= 0;
-	}
-
-	template <class A>
-	constexpr bool
-	operator>=(String<A> const & rhs) const noexcept
-	{
-		return m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size >= rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) >= 0;
-	}
-
-	constexpr bool
-	operator>=(char_t const * pstring) const noexcept
-	{
-		return m_pstring != nullptr && pstring != nullptr 
-			&& strncmp(m_pstring, pstring, m_size) >= 0;
-	}
-
-	constexpr bool
-	operator<(StringView const & rhs) const noexcept
-	{
-		return m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size <= rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) < 0;
-	}
-
-	template <class A>
-	constexpr bool
-	operator<(String<A> const & rhs) const noexcept
-	{
-		return m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size <= rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) < 0;
-	}
-
-	constexpr bool
-	operator<(char_t const * pstring) const noexcept
-	{
-		return m_pstring != nullptr && pstring != nullptr 
-			&& strncmp(m_pstring, pstring, m_size) < 0;
-	}
-
-	constexpr bool
-	operator>(StringView const & rhs) const noexcept
-	{
-		return m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size >= rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) > 0;
-	}
-
-	template <class A>
-	constexpr bool
-	operator>(String<A> const & rhs) const noexcept
-	{
-		return m_pstring != nullptr && rhs.m_pstring != nullptr 
-			&& m_size >= rhs.m_size
-			&& strcmp(m_pstring, rhs.m_pstring) > 0;
-	}
-
-	constexpr bool
-	operator>(char_t const * pstring) const noexcept
-	{
-		return m_pstring != nullptr && pstring != nullptr 
-			&& strncmp(m_pstring, pstring, m_size) > 0;
-	}
-
-	inline int 
-	compare(StringView const & rhs) const noexcept
-	{
-		return m_pstring == nullptr 
-			? -1 
-			: strcmp(&m_pstring[0], rhs.begin());
-	}
-
-	template <class A_>
-	inline int 
-	compare(String<A_> const & rhs) const noexcept
-	{
-		return m_pstring == nullptr 
-			? -1 
-			: strcmp(&m_pstring[0], rhs.begin());
-	}
-
-	template <size_t size_>
-	inline int 
-	compare(char_t const (&cstring)[size_]) const noexcept
-	{
-		return m_pstring == nullptr 
-			? -1 
-			: strcmp(&m_pstring[0], &cstring[0]);
-	}
-	
-	inline int 
-	compare(char_t const * pstring) const noexcept
-	{
-		return m_pstring == nullptr 
-			? -1 
-			: strcmp(&m_pstring[0], pstring);
-	}
-	
-	inline int 
-	partial_compare(StringView const & rhs) const noexcept
-	{
-		return m_pstring == nullptr 
-			? -1 
-			: strncmp(&m_pstring[0], rhs.begin(), min(this->size(), rhs.size()));
-	}
-
-	template <class A_>
-	inline int 
-	partial_compare(String<A_> const & rhs) const noexcept
-	{
-		return m_pstring == nullptr 
-			? -1 
-			: strncmp(&m_pstring[0], rhs.begin(), min(this->size(), rhs.size()));
-	}
-
-	template <size_t size_>
-	inline int 
-	partial_compare(char_t const (&cstring)[size_]) const noexcept
-	{
-		return m_pstring == nullptr 
-			? -1 
-			: strncmp(&m_pstring[0], &cstring[0], min(this->size(), size_ - 1));
-	}
-	
 };
 
 
@@ -362,7 +378,9 @@ class String
  private:
 	union {
 		array_ptr_t<char_t> m_array  = nullptr;
-		fixed_cptr_t<4096,char_t> const m_view; // for debugging only
+		// for debugging only
+		char_t                    const * m_ptrv;
+		fixed_cptr_t<4096,char_t> const   m_fixedv;
 	};
 	size_t      m_size   = 0;
 
@@ -398,7 +416,7 @@ class String
 	static inline size_t
 	_length(char_t const * pstring) noexcept
 	{
-		return strlen(pstring);
+		return string_length(pstring);
 	}
 
 	static inline void
@@ -420,6 +438,11 @@ class String
 	}
 
  public:
+	struct null_pointer : public exception
+	{
+		char const * what() const noexcept override { return "null string"; }
+	};
+	
 	struct index_out_of_bounds : public exception
 	{
 		char const * what() const noexcept override { return "string index out of bounds"; }
@@ -495,16 +518,16 @@ class String
 	
 	template <size_t size_>
 	String(char_t const (& cstring)[size_])
-		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (size_), _align_)) }
-		, m_size  { m_array != nullptr ? size_ : 0 }
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (size_ + 1), _align_)) }
+		, m_size  { m_array != nullptr ? (size_ + 1) : 0 }
 	{
 		if(m_array != nullptr)
-			_copy(&(*m_array)[0], &cstring[0], min(1,size_) - 1);
+			_copy(&(*m_array)[0], &cstring[0], size_);
 	}
 
 	String(char_t const * pstring, size_t length_ = size_t(-1))
 		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (
-				(length_ == size_t(-1) ? (length_ = strlen(pstring)) : length_) + 1
+				(length_ == size_t(-1) ? (length_ = string_length(pstring)) : length_) + 1
 			), _align_)) }
 		, m_size  { m_array != nullptr ? (length_ + 1) : 0 }
 	{
@@ -598,144 +621,6 @@ class String
 		return *this;
 	}
 
-	inline bool
-	operator==(String const & rhs) const noexcept
-	{
-		return m_array != nullptr && rhs.m_array != nullptr 
-			&& m_size == rhs.m_size
-			&& strcmp(&(*m_array)[0], rhs.begin()) == 0;
-	}
-
-	inline bool
-	operator==(StringView const & rhs) const noexcept
-	{
-		return m_array != nullptr && rhs.begin() != nullptr 
-			&& m_size == rhs.size() + 1
-			&& strcmp(&(*m_array)[0], rhs.begin()) == 0;
-	}
-
-	inline bool
-	operator==(char_t const * pstring) const noexcept
-	{
-		return m_array != nullptr && pstring != nullptr 
-			&& strncmp(&(*m_array)[0], pstring, m_size) == 0;
-	}
-
-	inline bool
-	operator!=(String const & rhs) const noexcept
-	{
-		return !(m_array != nullptr && rhs.m_array != nullptr 
-			&& m_size == rhs.m_size
-			&& strcmp(&(*m_array)[0], rhs.begin()) == 0);
-	}
-
-	inline bool
-	operator!=(StringView const & rhs) const noexcept
-	{
-		return !(m_array != nullptr && rhs.begin() != nullptr 
-			&& m_size == rhs.size() + 1
-			&& strcmp(&(*m_array)[0], rhs.begin()) == 0);
-	}
-
-	inline bool
-	operator!=(char_t const * pstring) const noexcept
-	{
-		return !(m_array != nullptr && pstring != nullptr 
-			&& strncmp(&(*m_array)[0], pstring, m_size) == 0);
-	}
-
-	inline bool
-	operator<=(String const & rhs) const noexcept
-	{
-		return m_array != nullptr && rhs.m_array != nullptr 
-			&& m_size <= rhs.m_size
-			&& strcmp(&(*m_array)[0], rhs.begin()) <= 0;
-	}
-
-	inline bool
-	operator<=(StringView const & rhs) const noexcept
-	{
-		return m_array != nullptr && rhs.begin() != nullptr 
-			&& m_size <= rhs.size() + 1
-			&& strcmp(&(*m_array)[0], rhs.begin()) <= 0;
-	}
-
-	inline bool
-	operator<=(char_t const * pstring) const noexcept
-	{
-		return m_array != nullptr && pstring != nullptr 
-			&& strncmp(&(*m_array)[0], pstring, m_size) <= 0;
-	}
-
-	inline bool
-	operator>=(String const & rhs) const noexcept
-	{
-		return m_array != nullptr && rhs.m_array != nullptr 
-			&& m_size >= rhs.m_size
-			&& strcmp(&(*m_array)[0], rhs.begin()) >= 0;
-	}
-
-	inline bool
-	operator>=(StringView const & rhs) const noexcept
-	{
-		return m_array != nullptr && rhs.begin() != nullptr 
-			&& m_size >= rhs.size() + 1
-			&& strcmp(&(*m_array)[0], rhs.begin()) >= 0;
-	}
-
-	inline bool
-	operator>=(char_t const * pstring) const noexcept
-	{
-		return m_array != nullptr && pstring != nullptr 
-			&& strncmp(&(*m_array)[0], pstring, m_size) >= 0;
-	}
-
-	inline bool
-	operator<(String const & rhs) const noexcept
-	{
-		return m_array != nullptr && rhs.m_array != nullptr 
-			&& m_size <= rhs.m_size
-			&& strcmp(&(*m_array)[0], rhs.begin()) < 0;
-	}
-
-	inline bool
-	operator<(StringView const & rhs) const noexcept
-	{
-		return m_array != nullptr && rhs.begin() != nullptr 
-			&& m_size <= rhs.size() + 1
-			&& strcmp(&(*m_array)[0], rhs.begin()) < 0;
-	}
-
-	inline bool
-	operator<(char_t const * pstring) const noexcept
-	{
-		return m_array != nullptr && pstring != nullptr 
-			&& strncmp(&(*m_array)[0], pstring, m_size) < 0;
-	}
-
-	inline bool
-	operator>(String const & rhs) const noexcept
-	{
-		return m_array != nullptr && rhs.m_array != nullptr 
-			&& m_size >= rhs.m_size
-			&& strcmp(&(*m_array)[0], rhs.begin()) > 0;
-	}
-
-	inline bool
-	operator>(StringView const & rhs) const noexcept
-	{
-		return m_array != nullptr && rhs.begin() != nullptr 
-			&& m_size >= rhs.size() + 1
-			&& strcmp(&(*m_array)[0], rhs.begin()) > 0;
-	}
-
-	inline bool
-	operator>(char_t const * pstring) const noexcept
-	{
-		return m_array != nullptr && pstring != nullptr 
-			&& strncmp(&(*m_array)[0], pstring, m_size) > 0;
-	}
-
 
 	inline bool operator!() const noexcept { return m_array == nullptr; }
 
@@ -745,70 +630,204 @@ class String
 	inline char_t       & operator[](size_t index)       noexcept { return (*m_array)[index]; }
 	inline char_t const & operator[](size_t index) const noexcept { return (*m_array)[index]; }
 	
+
 	template <class A_>
-	inline int 
-	compare(String<A_> const & rhs) const noexcept
+	inline bool
+	operator==(String<A_> const & rhs) const noexcept
 	{
-		return m_array == nullptr 
-			? -1 
-			: strcmp(&(*m_array)[0], rhs.begin());
+		return m_array != nullptr && rhs
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) == 0;
 	}
 
-	inline int 
-	compare(StringView const & rhs) const noexcept
+	inline bool
+	operator==(StringView const & rhs) const noexcept
 	{
-		return m_array == nullptr 
-			? -1 
-			: strcmp(&(*m_array)[0], rhs.begin());
+		return m_array != nullptr && rhs 
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) == 0;
+	}
+
+	inline bool
+	operator==(char_t const * pstring) const noexcept
+	{
+		return m_array != nullptr && pstring != nullptr 
+			&& string_compare(&(*m_array)[0], pstring, this->size()) == 0;
+	}
+
+	template <class A_>
+	inline bool
+	operator!=(String<A_> const & rhs) const noexcept
+	{
+		return m_array != nullptr && rhs
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) != 0;
+	}
+
+	inline bool
+	operator!=(StringView const & rhs) const noexcept
+	{
+		return m_array != nullptr && rhs 
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) != 0;
+	}
+
+	inline bool
+	operator!=(char_t const * pstring) const noexcept
+	{
+		return m_array != nullptr && pstring != nullptr 
+			&& string_compare(&(*m_array)[0], pstring, this->size()) != 0;
+	}
+
+	template <class A_>
+	inline bool
+	operator<=(String<A_> const & rhs) const noexcept
+	{
+		return m_array != nullptr && rhs
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) <= 0;
+	}
+
+	inline bool
+	operator<=(StringView const & rhs) const noexcept
+	{
+		return m_array != nullptr && rhs 
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) <= 0;
+	}
+
+	inline bool
+	operator<=(char_t const * pstring) const noexcept
+	{
+		return m_array != nullptr && pstring != nullptr 
+			&& string_compare(&(*m_array)[0], pstring, this->size()) <= 0;
+	}
+
+	template <class A_>
+	inline bool
+	operator>=(String<A_> const & rhs) const noexcept
+	{
+		return m_array != nullptr && rhs
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) >= 0;
+	}
+
+	inline bool
+	operator>=(StringView const & rhs) const noexcept
+	{
+		return m_array != nullptr && rhs 
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) >= 0;
+	}
+
+	inline bool
+	operator>=(char_t const * pstring) const noexcept
+	{
+		return m_array != nullptr && pstring != nullptr 
+			&& string_compare(&(*m_array)[0], pstring, this->size()) >= 0;
+	}
+
+	template <class A_>
+	inline bool
+	operator<(String<A_> const & rhs) const noexcept
+	{
+		return m_array != nullptr && rhs
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) < 0;
+	}
+
+	inline bool
+	operator<(StringView const & rhs) const noexcept
+	{
+		return m_array != nullptr && rhs 
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) < 0;
+	}
+
+	inline bool
+	operator<(char_t const * pstring) const noexcept
+	{
+		return m_array != nullptr && pstring != nullptr 
+			&& string_compare(&(*m_array)[0], pstring, this->size()) < 0;
+	}
+
+	template <class A_>
+	inline bool
+	operator>(String<A_> const & rhs) const noexcept
+	{
+		return m_array != nullptr && rhs
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) > 0;
+	}
+
+	inline bool
+	operator>(StringView const & rhs) const noexcept
+	{
+		return m_array != nullptr && rhs 
+			&& string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size()) > 0;
+	}
+
+	inline bool
+	operator>(char_t const * pstring) const noexcept
+	{
+		return m_array != nullptr && pstring != nullptr 
+			&& string_compare(&(*m_array)[0], pstring, this->size()) > 0;
 	}
 
 	template <size_t size_>
 	inline int 
-	compare(char_t const (&cstring)[size_]) const noexcept
+	compare(char_t const (& cstring)[size_]) const noexcept
 	{
-		return m_array == nullptr 
-			? -1 
-			: strcmp(&(*m_array)[0], &cstring[0]);
+		return m_array == nullptr ? -2
+			: string_compare(&(*m_array)[0], &cstring[0], this->size(), size_);
 	}
 	
 	inline int 
 	compare(char_t const * pstring) const noexcept
 	{
-		return m_array == nullptr 
-			? -1 
-			: strcmp(&(*m_array)[0], pstring);
+		return m_array == nullptr || pstring == nullptr ? -2
+			: string_compare(&(*m_array)[0], pstring, this->size());
 	}
 	
+	template <class A_>
+	inline int 
+	compare(String<A_> const & rhs) const noexcept
+	{
+		return m_array == nullptr || !rhs ? -2 
+			: string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size());
+	}
 
+	inline int 
+	compare(StringView const & rhs) const noexcept
+	{
+		return m_array == nullptr || !rhs ? -2 
+			: string_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size());
+	}
+
+
+	template <size_t size_>
+	inline int 
+	partial_compare(char_t const (& cstring)[size_]) const noexcept
+	{
+		return m_array == nullptr ? -2
+			: string_partial_compare(&(*m_array)[0], &cstring[0], this->size(), size_);
+	}
+	
+	inline int 
+	partial_compare(char_t const * pstring) const noexcept
+	{
+		return m_array == nullptr || pstring == nullptr ? -2
+			: string_partial_compare(&(*m_array)[0], pstring, this->size());
+	}
+	
 	template <class A_>
 	inline int 
 	partial_compare(String<A_> const & rhs) const noexcept
 	{
-		return m_array == nullptr 
-			? -1 
-			: strncmp(&(*m_array)[0], rhs.begin(), min(this->size(), rhs.size()));
+		return m_array == nullptr || !rhs ? -2 
+			: string_partial_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size());
 	}
 
 	inline int 
 	partial_compare(StringView const & rhs) const noexcept
 	{
-		return m_array == nullptr 
-			? -1 
-			: strncmp(&(*m_array)[0], rhs.begin(), min(this->size(), rhs.size()));
+		return m_array == nullptr || !rhs ? -2
+			: string_partial_compare(&(*m_array)[0], &rhs[0], this->size(), rhs.size());
 	}
 
-	template <size_t size_>
-	inline int 
-	partial_compare(char_t const (&cstring)[size_]) const noexcept
-	{
-		return m_array == nullptr 
-			? -1 
-			: strncmp(&(*m_array)[0], &cstring[0], min(this->size(), size_ - 1));
-	}
-	
 	char_t & 
 	at(size_t index) noexcept(false)
 	{
+		ds_throw_if(m_array == nullptr, null_pointer());
 		ds_throw_if(index >= m_size, index_out_of_bounds());
 		return (*m_array)[index];
 	}
@@ -816,6 +835,7 @@ class String
 	char_t const & 
 	at(size_t index) const noexcept(false)
 	{
+		ds_throw_if(m_array == nullptr, null_pointer());
 		ds_throw_if(index >= m_size, index_out_of_bounds());
 		return (*m_array)[index];
 	}
@@ -839,7 +859,7 @@ class String
 	inline size_t 
 	length() const noexcept
 	{
-		return m_array == nullptr ? 0 : strnlen(&(*m_array)[0], m_size - 1);
+		return m_array == nullptr ? 0 : string_length(&(*m_array)[0], m_size - 1);
 	}
 
 	inline StringView view() const noexcept { return { this->begin(), this->size() }; }
