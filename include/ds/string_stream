@@ -113,6 +113,21 @@ class StringStream
 	}
 	
 	StringStream &
+	operator<<(Flush to_)
+	{
+		this->flush_to(to_._file);
+		return *this;
+	}
+	
+	StringStream &
+	operator<<(Endl to_)
+	{
+		this->write("\n", 1);
+		this->flush_to(to_._file);
+		return *this;
+	}
+	
+	StringStream &
 	operator<<(char_t ch)
 	{
 		this->write(&ch, 1);

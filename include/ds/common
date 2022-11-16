@@ -1052,6 +1052,21 @@ struct sequence
 };
 
 
+struct Flush
+{
+	FILE * _file = nullptr;
+};
+
+static thread_local Flush flush { stdout };
+
+struct Endl
+{
+	FILE * _file = nullptr;
+};
+
+static thread_local Endl endl { stdout };
+
+
 static constexpr size_t 
 string_length(char const * pstring_) noexcept
 {
