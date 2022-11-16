@@ -749,7 +749,7 @@ class Array<E &,A>
 		if(m_array)
 		{
 			auto end_ = this->end().current;
-			auto cit  = rhs.begin().current;
+			auto cit  = &array_[0];
 			for(auto it  = this->begin().current; it != end_; ++it, ++cit)
 				construct_at<E *>((void*)it, &*cit);
 		}
