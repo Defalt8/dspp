@@ -1597,6 +1597,7 @@ sort(It begin_, It end_, C && compare = {}) noexcept
 			}
 			// sort
 			{
+				ds::swap(*begin_, *(begin_+3));
 				It pivot = begin_;
 				It left  = begin_ + 1;
 				It right = end_ - 1;
