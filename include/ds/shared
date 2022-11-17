@@ -211,6 +211,9 @@ class Shared
 template <typename T, class A = default_allocator> 
 using shared = Shared<T,A>;
 
+template <typename T, class A = default_nt_allocator> 
+using nt_shared = Shared<T,A>;
+
 
 template <typename T, class A>
 struct usage<Shared<T,A>> { static constexpr size_t value = Shared<T,A>::usage(); };

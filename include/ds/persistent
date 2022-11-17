@@ -195,6 +195,9 @@ class Persistent
 template <typename T, class A = default_allocator> 
 using persistent = Persistent<T,A>;
 
+template <typename T, class A = default_nt_allocator> 
+using nt_persistent = Persistent<T,A>;
+
 
 template <typename T, class A>
 struct usage<Persistent<T,A>> { static constexpr size_t value = Persistent<T,A>::usage(); };

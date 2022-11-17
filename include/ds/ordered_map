@@ -182,7 +182,22 @@ class OrderedMap : protected OrderedList<table_size_,Entry<K,V>,A>
 
 
 template <size_t table_size_, typename K, typename V, class A = ds::default_allocator>
+using ordered_map_iterator = OrderedMapIterator<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::default_allocator>
+using const_ordered_map_iterator = ConstOrderedMapIterator<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::default_allocator>
 using ordered_map = OrderedMap<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::default_nt_allocator>
+using nt_ordered_map_iterator = OrderedMapIterator<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::default_nt_allocator>
+using const_nt_ordered_map_iterator = ConstOrderedMapIterator<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::default_nt_allocator>
+using nt_ordered_map = OrderedMap<table_size_,K,V,A>;
 
 
 template <size_t table_size_, typename K, typename V, class A>

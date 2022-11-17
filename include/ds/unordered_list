@@ -853,6 +853,15 @@ using const_unordered_list_iterator = UnorderedListIterator<table_size_,E,A>;
 template <size_t table_size_, typename E, class A = default_allocator> 
 using unordered_list = UnorderedList<table_size_,E,A>;
 
+template <size_t table_size_, typename E, class A = default_nt_allocator> 
+using nt_unordered_list_iterator = UnorderedListIterator<table_size_,E,A>;
+
+template <size_t table_size_, typename E, class A = default_nt_allocator> 
+using const_nt_unordered_list_iterator = UnorderedListIterator<table_size_,E,A>;
+
+template <size_t table_size_, typename E, class A = default_nt_allocator> 
+using nt_unordered_list = UnorderedList<table_size_,E,A>;
+
 
 template <size_t table_size_, typename E, class A, size_t size_>
 struct usage_s<UnorderedList<table_size_,E,A>,size_> { static constexpr size_t value = (sizeof(UnorderedListNode<table_size_,E>) + usage<E>::value) * size_; };

@@ -901,12 +901,15 @@ using string_view = StringView;
 template <class A = ds::default_allocator> 
 using string = String<A>;
 
+template <class A = ds::default_nt_allocator> 
+using nt_string = String<A>;
+
 
 template <class A, size_t size_>
 struct usage_s<String<A>,size_>
 {
 	using char_t = typename String<A>::char_t;
-	static constexpr size_t value = sizeof(char_t) * size_ + usage_n<char_t,size_>::value;
+	static constexpr size_t value = sizeof(char_t) * (size_ + 1);
 };
 
 template <class A, size_t size_, size_t count_>

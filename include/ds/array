@@ -924,6 +924,9 @@ class Array<E &,A>
 template <typename E, class A = default_allocator>
 using array = Array<E,A>;
 
+template <typename E, class A = default_nt_allocator>
+using nt_array = Array<E,A>;
+
 
 template <typename E, class A, size_t size_>
 struct usage_s<Array<E,A>,size_> { static constexpr size_t value = sizeof(E) * size_ + usage_n<E,size_>::value; };

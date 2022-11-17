@@ -168,7 +168,22 @@ class UnorderedMap : protected UnorderedList<table_size_,Entry<K,V>,A>
 
 
 template <size_t table_size_, typename K, typename V, class A = ds::default_allocator>
+using unordered_map_iterator = UnorderedMapIterator<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::default_allocator>
+using const_unordered_map_iterator = ConstUnorderedMapIterator<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::default_allocator>
 using unordered_map = UnorderedMap<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::default_nt_allocator>
+using nt_unordered_map_iterator = UnorderedMapIterator<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::default_nt_allocator>
+using const_nt_unordered_map_iterator = ConstUnorderedMapIterator<table_size_,K,V,A>;
+
+template <size_t table_size_, typename K, typename V, class A = ds::default_nt_allocator>
+using nt_unordered_map = UnorderedMap<table_size_,K,V,A>;
 
 template <size_t table_size_, typename K, typename V, class A>
 struct inserter<UnorderedMap<table_size_,K,V,A>,Entry<K,V>>

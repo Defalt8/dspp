@@ -1345,6 +1345,15 @@ using const_list_iterator = ListIterator<type_,E,A>;
 template <int type_, typename E, class A = default_allocator> 
 using list = List<type_,E,A>;
 
+template <int type_, typename E, class A = default_nt_allocator> 
+using nt_list_iterator = ListIterator<type_,E,A>;
+
+template <int type_, typename E, class A = default_nt_allocator> 
+using const_nt_list_iterator = ListIterator<type_,E,A>;
+
+template <int type_, typename E, class A = default_nt_allocator> 
+using nt_list = List<type_,E,A>;
+
 
 template <int type_, typename E, class A, size_t size_>
 struct usage_s<List<type_,E,A>,size_> { static constexpr size_t value = (sizeof(ListNode<type_,E>) + usage<E>::value) * size_; };

@@ -430,6 +430,9 @@ class Unique<T[],A>
 template <typename T, class A = default_allocator> 
 using unique = Unique<T,A>;
 
+template <typename T, class A = default_nt_allocator> 
+using nt_unique = Unique<T,A>;
+
 
 template <typename T, class A>
 struct usage<Unique<T,A>> { static constexpr size_t value = Unique<T,A>::usage(); };
