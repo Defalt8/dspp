@@ -1,0 +1,194 @@
+#pragma once
+#ifndef DS_FIXED_STACK
+#define DS_FIXED_STACK
+
+#include "common"
+#include "traits/iterable"
+
+namespace ds {
+
+template <size_t capacity_, typename E>
+class FixedStack;
+
+namespace traits {
+
+	template <size_t capacity_, typename E>
+	struct iterable<FixedStack<capacity_,E>> : public iterable_traits<
+			  E
+			, size_t
+			, E *
+			, E const *
+			, E *
+			, E const *
+			, E *
+			, E const *
+		> 
+	{};
+
+	template <size_t capacity_, typename E>
+	struct iterable<FixedStack<capacity_,E> const> : public iterable_traits<
+			  E
+			, size_t
+			, void
+			, E const *
+			, void
+			, E const *
+			, void
+			, E const *
+		> 
+	{};
+
+
+} // namespace trait
+
+
+template <size_t capacity_, typename E>
+class FixedStack
+{
+ public:
+    using stack_t = E[capacity_];
+
+ private:
+	union {
+    	stack_t m_stack;
+	};
+	size_t  m_top   = 0;
+
+ public:
+	struct index_out_of_bounds : public exception
+	{
+		char const * 
+		what() const noexcept override
+		{
+			return "fixed stack index out of bounds";
+		}
+	};
+
+	~FixedStack()
+	{
+		while(m_top > 0)
+		{
+			auto & e = m_stack[--m_top];
+			destruct(e);
+		}
+	}
+
+	FixedStack()
+	{}
+	
+	FixedStack(FixedStack && rhs)
+		: m_top { rhs.m_top }
+	{
+		rhs.m_top = 0;
+		for(size_t i = 0; i < m_top; ++i)
+		{
+			auto & e = m_stack[i];
+			auto & r = rhs.m_stack[i];
+			construct_at<E>(&e, ds::move(r));
+			destruct(r);
+		}
+	}
+	
+	FixedStack(FixedStack const & rhs)
+		: m_top { rhs.m_top }
+	{
+		for(size_t i = 0; i < rhs.m_top; ++i)
+		{
+			auto & e = m_stack[i];
+			construct_at<E>(&e, rhs.m_stack[i]);
+		}
+	}
+	
+	template <typename T = E, size_t tsize_
+			, enable_if_t<(tsize_ <= capacity_),int> = 0
+			, enable_if_t<is_constructible<E,T>::value,int> = 0
+		>
+	FixedStack(T (&& array_)[tsize_])
+	{
+		for(auto & e : array_)
+			construct_at<E>(&m_stack[m_top++], ds::move(e));
+	}
+	
+	FixedStack & operator=(FixedStack &&) = default;
+	FixedStack & operator=(FixedStack const &) = default;
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+    E * 
+	push(T && object)
+	{
+		if(m_top < capacity_)
+		{
+			auto & e = m_stack[m_top];
+			construct_at<E>(&e, ds::forward<T>(object));
+			++m_top;
+			return &e;
+		}
+		return nullptr;
+	}
+
+    bool
+	pop()
+	{
+		if(m_top > 0)
+		{
+			auto & e = m_stack[--m_top];
+			destruct(e);
+			return true;
+		}
+		return false;
+	}
+	
+    bool
+	pop(E & move_to_)
+	{
+		if(m_top > 0)
+		{
+			auto & e = m_stack[--m_top];
+			move_to_ = ds::move(e);
+			destruct(e);
+			return true;
+		}
+		return false;
+	}
+
+	inline E       & operator[](size_t index_)       noexcept { return m_stack[index_]; }
+	inline E const & operator[](size_t index_) const noexcept { return m_stack[index_]; }
+
+	inline E & 
+	at(size_t index) noexcept(false)
+	{
+		ds_throw_if(index >= m_top, index_out_of_bounds());
+		return m_stack[index];
+	}
+
+	inline E const & 
+	at(size_t index) const noexcept(false)
+	{
+		ds_throw_if(index >= m_top, index_out_of_bounds());
+		return m_stack[index];
+	}
+
+	inline size_t capacity() const noexcept { return capacity_; }
+
+	inline size_t size() const noexcept { return m_top; }
+
+	inline E       * begin()       noexcept { return m_top == 0 ? nullptr : &m_stack[0]; }
+	inline E const * begin() const noexcept { return m_top == 0 ? nullptr : &m_stack[0]; }
+
+	inline E       * end()       noexcept { return m_top == 0 ? nullptr : &m_stack[m_top]; }
+	inline E const * end() const noexcept { return m_top == 0 ? nullptr : &m_stack[m_top]; }
+
+	inline E       * rbegin()       noexcept { return m_top == 0 ? nullptr : &m_stack[m_top-1]; }
+	inline E const * rbegin() const noexcept { return m_top == 0 ? nullptr : &m_stack[m_top-1]; }
+
+	inline E       * rend()       noexcept { return m_top == 0 ? nullptr : &m_stack[0]-1; }
+	inline E const * rend() const noexcept { return m_top == 0 ? nullptr : &m_stack[0]-1; }
+
+};
+
+template <size_t capacity_, typename E>
+using fixed_stack = FixedStack<capacity_,E>;
+
+} // namespace ds
+
+#endif // DS_FIXED_STACK

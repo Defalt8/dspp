@@ -9,6 +9,7 @@ set( DS_HEADER_FILES
 	include/ds/traits/iterator
 	include/ds/allocator
 	include/ds/fixed
+	include/ds/fixed_stack
 	include/ds/unique
 	include/ds/persistent
 	include/ds/shared
