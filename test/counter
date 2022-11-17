@@ -52,7 +52,6 @@ struct Counter
 	operator=(Counter && rhs)
 	{
 		_value = rhs._value;
-		_count++;
 		_moves++;
 		return *this;
 	}
@@ -61,7 +60,6 @@ struct Counter
 	operator=(Counter const & rhs)
 	{
 		_value = rhs._value;
-		_count++;
 		_copies++;
 		return *this;
 	}

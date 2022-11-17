@@ -467,7 +467,7 @@ class String
 		, m_size  { m_array != nullptr ? rhs.m_size : 0 }
 	{
 		if(m_array != nullptr)
-			_copy(&(*m_array)[0], &(*rhs.m_array)[0], max(1, m_size) - 1);
+			_copy(&(*m_array)[0], &(*rhs.m_array)[0], max<size_t>(1, m_size) - 1);
 	}
 	
 	String(String const & rhs, size_t length_)

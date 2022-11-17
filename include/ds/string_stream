@@ -66,7 +66,7 @@ class StringStream
 	size_t 
 	write(char_t const * pstring_)
 	{
-		if(!pstring_)
+		if(pstring_ == nullptr)
 			return 0;
 		size_t i = 0;
 		char_t ch;
@@ -74,7 +74,7 @@ class StringStream
 		while((ch = pstring_[i]) != '\0')
 		{
 			size_t current_i = m_position + i;
-			if(current_i > m_size_)
+			if(current_i >= m_size_)
 				resize(m_size_ * 3 / 2);
 			m_storage[m_position + i++] = ch;
 		}
