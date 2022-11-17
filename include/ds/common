@@ -1413,27 +1413,33 @@ hex_value(char hex_char)
 		return 0;
 }
 
+// efficient reverse.
+template<typename It> 
+static constexpr void
+reverse(It begin_, It end_)
+{
+	if(begin_ == end_)
+		return;
+	while(begin_ != --end_)
+	{
+		ds::swap(*begin_, *end_);
+		if(++begin_ == end_)
+			break;
+	}
+}
 
 // efficient reverse.
 template <typename T
-		, typename = decltype(size(decl<T>()))
 		, typename = decltype(begin(decl<T>()))
-		, typename = decltype(rbegin(decl<T>()))
+		, typename = decltype(end(decl<T>()))
 	>
 static constexpr void
-reverse(T && forward_and_reverse_iterable)
+reverse(T && f_iterable)
 {
-	auto size_ = size(forward_and_reverse_iterable);
-	auto it    = begin(forward_and_reverse_iterable);
-	auto rit   = rbegin(forward_and_reverse_iterable);
-	if(size_ <= 1)
-		return;
-	size_ /= 2;
-	for(; size_-- > 0; ++it, --rit)
-		ds::swap(*it, *rit);
+	ds::reverse(ds::begin(f_iterable), ds::end(f_iterable));
 }
 
-// a very fast quick sort.
+// a very fast quick sort. optimized to the max.
 template<typename It, class C = less<decltype(*decl<It &>())>
 		, enable_if_t<is_integral<decltype(decl<It &>() - decl<It &>())>::value,int> = 0
 		, enable_if_t<is_same<decltype(decl<It &>() < decl<It &>()),bool>::value,int> = 0
@@ -1443,12 +1449,9 @@ template<typename It, class C = less<decltype(*decl<It &>())>
 void 
 sort(It begin_, It end_, C && compare = {}) noexcept
 {
-	while(begin_ < end_)
+	while(begin_ < end_ - 1)
 	{
-		It const last_ = end_ - 1;
 		size_t const size_ = (end_ - begin_);
-		if(size_ == 1)
-			break;
 		if(size_ == 2)
 		{
 			auto & a = *(begin_), & b = *(begin_+1);
@@ -1487,8 +1490,10 @@ sort(It begin_, It end_, C && compare = {}) noexcept
 			}
 			break;
 		}
-		else
+		else // size_ >= 4
 		{
+			It const last_ = end_ - 1;
+			// check if sorted
 			{
 				bool sorted = true;
 				bool reverse_sorted = true;
@@ -1522,7 +1527,9 @@ sort(It begin_, It end_, C && compare = {}) noexcept
 					break;
 				}
 			}
+			// sort
 			{
+				ds::swap(*begin_, *(begin_+3));
 				It pivot = begin_;
 				It left  = begin_ + 1;
 				It right = last_;
@@ -1530,7 +1537,7 @@ sort(It begin_, It end_, C && compare = {}) noexcept
 				{
 					while(left < right && compare(*left, *pivot))
 						++left;
-					while(!(right < left) && !compare(*right, *pivot))
+					while(!((right < left) || compare(*right, *pivot)))
 						--right;
 					if(left < right)
 						ds::swap(*left, *right);
@@ -1543,6 +1550,20 @@ sort(It begin_, It end_, C && compare = {}) noexcept
 			}
 		}
 	}
+}
+
+
+// a very fast quick sort. optimized to the max.
+template <typename T, class C = less<decltype(*decl<T &>().begin())>
+		, typename = decltype(size(decl<T>()))
+		, typename = decltype(begin(decl<T>()))
+		, typename = decltype(rbegin(decl<T>()))
+	>
+static constexpr void
+sort(T && fr_iterable, C && compare = {})
+{
+	if(fr_iterable.size() > 1)
+		ds::sort(begin(fr_iterable), end(fr_iterable), ds::forward<C>(compare));
 }
 
 
