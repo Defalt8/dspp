@@ -105,6 +105,14 @@ class Unique
 		: _ptr { construct_at_safe<T>(_allocate(sizeof(T), alignof(T))) }
 	{}
 
+	template <typename D, typename... Args
+			, typename = decltype(dynamic_cast<T &>(decl<D &>()))
+			, enable_if_t<is_constructible<D,Args...>::value,int> = 0
+		>
+	Unique(make<D> type, Args &&... args)
+		: _ptr { construct_at_safe<D>(_allocate(sizeof(D), alignof(D)), ds::forward<Args>(args)...) }
+	{}
+
 	template <typename Arg, typename... Args
 			, enable_if_t<!is_same<remove_cvref_t<Arg>,Unique>::value,int> = 0
 			, enable_if_t<is_constructible<T,Arg,Args...>::value,int> = 0

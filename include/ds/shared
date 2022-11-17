@@ -49,6 +49,12 @@ class Shared
 			, owner  { owner_ }
 		{}
 
+		template <typename D, typename... Args>
+		Storage(Shared * owner_, make<D> type, Args &&... args)
+			: object { construct_at_safe<D>(_allocate(sizeof(D), alignof(D)), ds::forward<Args>(args)...) }
+			, owner  { owner_ }
+		{}
+
 	};
 
 	Storage * _ptr = nullptr;
@@ -93,12 +99,22 @@ class Shared
 		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this) }
 	{}
 
+	template <typename D, typename... Args
+			, typename = decltype(dynamic_cast<T &>(decl<D &>()))
+			, enable_if_t<is_constructible<D,Args...>::value,int> = 0
+		>
+	Shared(make<D> type, Args &&... args)
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this
+				, type, ds::forward<Args>(args)...) }
+	{}
+
 	template <typename Arg, typename... Args
 			, enable_if_t<!is_same<remove_cvref_t<Arg>,Shared>::value,int> = 0
 			, enable_if_t<is_constructible<T,Arg,Args...>::value,int> = 0
 		>
 	Shared(Arg && arg, Args &&... args)
-		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this, ds::forward<Arg>(arg), ds::forward<Args>(args)...) }
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this
+				, ds::forward<Arg>(arg), ds::forward<Args>(args)...) }
 	{}
 
 	Shared(Shared && rhs) noexcept
