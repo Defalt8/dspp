@@ -51,7 +51,10 @@ template <typename E>
 using array_cptr_t = E const (*)[];
 
 template <typename T>
-struct in_place_t {};
+struct inplace {};
+
+template <typename T>
+struct make {};
 
 static constexpr noinit_t noinit = noinit_t {};
 static constexpr double   nanf   = float(__builtin_nan("0"));

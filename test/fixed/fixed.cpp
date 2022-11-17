@@ -219,13 +219,13 @@ Test(fixed_test)
 			AssertEQ(Counter::moves(), 0);
 			AssertEQ(Counter::copies(), 0);
 			fixed_moved_ = ds::move(fixed_);
-			AssertEQ(Counter::count(), 15);
+			AssertEQ(Counter::count(), 10);
 			AssertEQ(Counter::active(), 10);
 			AssertEQ(Counter::moves(), 5);
 			AssertEQ(Counter::copies(), 0);
 			AssertTrue(compare_eq(fixed_moved_.array(), {1,2,3,4,5}));
 		}
-		AssertEQ(Counter::count(), 15);
+		AssertEQ(Counter::count(), 10);
 		AssertEQ(Counter::active(), 0);
 		AssertEQ(Counter::moves(), 5);
 		AssertEQ(Counter::copies(), 0);
@@ -242,14 +242,14 @@ Test(fixed_test)
 			AssertEQ(Counter::moves(), 0);
 			AssertEQ(Counter::copies(), 0);
 			fixed_copy_ = fixed_;
-			AssertEQ(Counter::count(), 15);
+			AssertEQ(Counter::count(), 10);
 			AssertEQ(Counter::active(), 10);
 			AssertEQ(Counter::moves(), 0);
 			AssertEQ(Counter::copies(), 5);
 			AssertTrue(compare_eq(fixed_.array(), {1,2,3,4,5}));
 			AssertTrue(compare_eq(fixed_copy_.array(), {1,2,3,4,5}));
 		}
-		AssertEQ(Counter::count(), 15);
+		AssertEQ(Counter::count(), 10);
 		AssertEQ(Counter::active(), 0);
 		AssertEQ(Counter::moves(), 0);
 		AssertEQ(Counter::copies(), 5);

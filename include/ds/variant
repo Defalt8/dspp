@@ -65,7 +65,7 @@ namespace _ {
 				, enable_if_t<is_same<T_,T>::value,int> = 0
 				, enable_if_t<is_constructible<T,Args...>::value,int> = 0
 			>
-		Union(ds::in_place_t<T_>, Args &&... args)
+		Union(ds::inplace<T_>, Args &&... args)
 			: object { ds::forward<Args>(args)... }
 		{}
 
@@ -73,7 +73,7 @@ namespace _ {
 				, enable_if_t<!is_same<T_,T>::value,int> = 0
 				, enable_if_t<is_type_in_pack<remove_cvref_t<T_>,Ts...>::value,int> = 0
 			>
-		Union(ds::in_place_t<T_> in_place_, Args &&... args)
+		Union(ds::inplace<T_> in_place_, Args &&... args)
 			: others { in_place_, ds::forward<Args>(args)... }
 		{}
 
@@ -379,9 +379,9 @@ class Variant<T,Ts...>
 	template <typename T_, typename... Args
 			, index_t   index_ = index_t(type_index<T_,0,T,Ts...>::value)
 			, enable_if_t<(index_ < size_),int> = 0
-			, enable_if_t<is_constructible<union_t,in_place_t<T_>,Args...>::value,int> = 0
+			, enable_if_t<is_constructible<union_t,inplace<T_>,Args...>::value,int> = 0
 		>
-	Variant(in_place_t<T_> in_place_, Args &&... args)
+	Variant(inplace<T_> in_place_, Args &&... args)
 		: m_union { in_place_, ds::forward<Args>(args)... }
 		, m_index { index_ }
 	{}

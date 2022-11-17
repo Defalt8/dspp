@@ -30,17 +30,12 @@ class StringStream
 		: m_storage { noinit }
 	{}
 
-	StringStream(size_t size_)
-		: m_storage { size_ }
+	StringStream(size_t capacity_)
+		: m_storage { capacity_ }
 	{}
 
 	StringStream(char_t const * pstring_, size_t size_)
 		: m_storage { pstring_, size_ }
-	{}
-
-	template <typename T, enable_if_t<is_constructible<storage_t,T>::value,int> = 0>
-	StringStream(T && arg)
-		: m_storage { ds::forward<T>(arg) }
 	{}
 
 	inline void
