@@ -56,7 +56,12 @@ class StringStream
 			return 0;
 		size_t m_size_ = m_storage.size();
 		if(m_position + size_ > m_size_)
-			resize(max<size_t>(64,max(m_size_ * 3 / 2, m_size_ + size_)));
+		{
+			size_t new_size = max<size_t>(64,max(m_size_ * 3 / 2, m_size_ + size_));
+			resize(new_size);
+			if(m_storage.size() != new_size)
+				return 0;
+		}
 		memcpy(&m_storage[m_position], pstring_, size_);
 		m_position += size_;
 		m_storage[m_position] = '\0';
@@ -75,7 +80,12 @@ class StringStream
 		{
 			size_t current_i = m_position + i;
 			if(current_i >= m_size_)
-				resize(m_size_ * 3 / 2);
+			{
+				size_t new_size = max<size_t>(64,m_size_ * 3 / 2);
+				resize(new_size);
+				if(m_storage.size() != new_size)
+					return i;
+			}
 			m_storage[m_position + i++] = ch;
 		}
 		m_position += i;
@@ -315,6 +325,23 @@ class StringStream
 
 template <class A = ds::default_allocator>
 using string_stream = StringStream<A>;
+
+template <class A = ds::default_nt_allocator>
+using nt_string_stream = StringStream<A>;
+
+template <class A, size_t size_>
+struct usage_s<StringStream<A>,size_>
+{
+	static constexpr size_t value = usage_s<typename StringStream<A>::storage_t,size_>::value;
+};
+
+template <class A, size_t size_, size_t count_>
+struct usage_sn<StringStream<A>,size_,count_>
+{
+	static constexpr size_t _single = usage_s<StringStream<A>,size_>::value;
+	static constexpr size_t value = _single * count_;
+};
+
 
 } // namespace ds
 
