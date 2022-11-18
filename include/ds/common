@@ -848,8 +848,8 @@ struct type_at_index<0,T,Ts...>
 	using type = T;
 };
 
-template <size_t index_, typename T, typename... Ts>
-using type_at_index_t = typename type_at_index<index_,T,Ts...>::type;
+template <size_t index_, typename... Ts>
+using type_at_index_t = typename type_at_index<index_,Ts...>::type;
 
 
 template <typename T, size_t start_ = 0, typename... Ts>
@@ -991,6 +991,14 @@ swap(fixed_ptr_t<size_,E> & lhs, fixed_ptr_t<size_,E> & rhs) noexcept
 template <typename T>
 static constexpr void
 swap(T const & lhs, T const & rhs) noexcept = delete;
+
+
+static inline size_t
+aligned_offset(void * block_, align_t align_)
+{
+	return (~size_t(block_)+1) & (--align_);
+}
+
 
 template <typename T, bool = is_destructible<T>::value && !is_trivially_destructible<T>::value>
 struct safe_destructor
