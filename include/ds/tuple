@@ -43,6 +43,11 @@ using tuple_at_index_t = typename tuple_at_index<index_,T,Ts...>::type;
 template <typename T, typename... Ts>
 class Tuple<T,Ts...> : protected Tuple<Ts...>
 {
+ public:
+	template <size_t index_>
+	using type_at = ds::type_at_index_t<index_,T,Ts...>;
+
+ private:
 	T m_object {};
 
 	template <typename... Ts_>
