@@ -83,11 +83,7 @@ class StringView
 	using char_t = char;
 
  private:
-	union {
-		char_t const * m_pstring = nullptr;
-		// for debugging only
-		fixed_cptr_t<4096,char_t> const m_fixedv;
-	};
+	char_t const * m_pstring = nullptr;
 	size_t         m_size    = 0;
 
  public:
