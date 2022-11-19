@@ -299,7 +299,9 @@ class StringStream
 		return 0;
 	}
 
-	inline ds::string_view view() const noexcept { return m_storage.view(m_position); }
+	inline StringView view() const && noexcept = delete;
+
+	inline StringView view() const & noexcept { return m_storage.view(m_position); }
 
 	storage_t const & storage() const noexcept { return m_storage; }
 

@@ -875,16 +875,24 @@ class String
 		return m_array == nullptr ? 0 : string_length(&(*m_array)[0], m_size - 1);
 	}
 
-	inline StringView view() const noexcept { return { this->begin(), this->size() }; }
+	inline StringView view() const && noexcept = delete;
+	inline StringView view(size_t size_) const && noexcept = delete;
+	inline StringView view(size_t start_, size_t size_) const && noexcept = delete;
 
 	inline StringView 
-	view(size_t size_) const noexcept 
+	view() const & noexcept 
+	{
+		return { this->begin(), this->size() }; 
+	}
+
+	inline StringView 
+	view(size_t size_) const & noexcept 
 	{
 		return { this->begin(), min(size_, this->size()) };
 	}
 
 	inline StringView 
-	view(size_t start_, size_t size_) const noexcept 
+	view(size_t start_, size_t size_) const & noexcept 
 	{
 		return { this->begin() + start_, (min(start_ + size_, this->size()) - start_) };
 	}
