@@ -583,6 +583,12 @@ class String
 		return { *this, ds::forward<T>(rhs) };
 	}
 	
+	String 
+	operator+(char_t const * pstring_) const
+	{
+		return { *this, StringView(pstring_, string_length(pstring_)) };
+	}
+	
 	template <typename T
 			, typename = ds::enabled_iterable_size_t<T>
 			, typename = ds::enabled_iterable_element_t<T>
@@ -617,6 +623,18 @@ class String
 		return *this;
 	}
 
+	template <class C, enable_if_t<is_constructible<C,char_t *, char_t *>::value,int> = 0>
+	inline operator C() 
+	{
+		return { this->begin(), this->end() };
+	}
+	
+	template <class C, enable_if_t<is_constructible<C,char_t const *, char_t const *>::value,int> = 0>
+	inline operator C() const 
+	{
+		return { this->begin(), this->end() };
+	}
+
 
 	inline bool operator!() const noexcept { return m_array == nullptr; }
 
@@ -626,7 +644,6 @@ class String
 	inline char_t       & operator[](size_t index)       noexcept { return (*m_array)[index]; }
 	inline char_t const & operator[](size_t index) const noexcept { return (*m_array)[index]; }
 	
-
 	template <class A_>
 	inline bool
 	operator==(String<A_> const & rhs) const noexcept
@@ -947,18 +964,18 @@ struct OrderedHasher<String<A>> : integral_constant<size_t,OrderedHasher<char[]>
 
 
 // write all chars of the string view.
-template <class OST, enable_if_t<is_out_streamable<OST,char const *>::value,int> = 0>
+template <class OST, typename = decltype(decl<OST &>().write(decl<decltype(decl<StringView &>().begin())>(),decl<size_t>()))>
 static inline OST & 
-operator<<(OST & ost, ds::StringView const & rhs)
+operator<<(OST && ost, StringView const & rhs)
 {
 	ost.write(rhs.begin(), rhs.size());
 	return ost;
 }
 
 // write all chars of the string.
-template <class OST, class A, typename = decltype(decl<OST &>().write(decl<char const *>(),decl<size_t>()))>
+template <class OST, class A, typename = decltype(decl<OST &>().write(decl<decltype(decl<String<A> &>().begin())>(),decl<size_t>()))>
 static inline OST & 
-operator<<(OST & ost, ds::String<A> const & rhs)
+operator<<(OST && ost, String<A> const & rhs)
 {
 	ost.write(rhs.begin(), rhs.size());
 	return ost;
@@ -968,9 +985,9 @@ operator<<(OST & ost, ds::String<A> const & rhs)
 // leading whitespaces are ignored except in quotes.
 // NOTE: the string is not reset before reading.
 //       if the string is null(noinit) then it is reset.
-template <class IST, class A, typename = decltype(decl<IST &>().read(decl<char *>(),decl<size_t>()))>
+template <class IST, class A, typename = decltype(decl<IST &>().read(decl<typename ds::String<A>::char_t *>(),decl<size_t>()))>
 static inline IST & 
-operator>>(IST & ist, ds::String<A> & rhs)
+operator>>(IST && ist, ds::String<A> & rhs)
 {
 	using char_t = typename ds::String<A>::char_t;
 	constexpr size_t buffer_size = 1024;
