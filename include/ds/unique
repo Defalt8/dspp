@@ -106,8 +106,12 @@ class Unique
 	{}
 
 	template <typename D, typename... Args
-			, typename = decltype(dynamic_cast<T &>(decl<D &>()))
-			, enable_if_t<is_constructible<D,Args...>::value,int> = 0
+			, enable_if_t<
+				   is_constructible<D,Args...>::value 
+				&& is_virtually_destructible<T>::value
+				&& is_dynamic_castable<D &,T &>::value
+				, int
+			> = 0
 		>
 	Unique(make<D> type, Args &&... args)
 		: _ptr { construct_at_safe<D>(_allocate(sizeof(D), alignof(D)), ds::forward<Args>(args)...) }
@@ -118,7 +122,8 @@ class Unique
 			, enable_if_t<is_constructible<T,Arg,Args...>::value,int> = 0
 		>
 	Unique(Arg && arg, Args &&... args)
-		: _ptr { construct_at_safe<T>(_allocate(sizeof(T), alignof(T)), ds::forward<Arg>(arg), ds::forward<Args>(args)...) }
+		: _ptr { construct_at_safe<T>(_allocate(sizeof(T), alignof(T))
+				, ds::forward<Arg>(arg), ds::forward<Args>(args)...) }
 	{}
 
 	Unique & 
@@ -421,6 +426,13 @@ class Unique<E[size_],A>
 
 };
 
+// no const
+template <typename T, class A> 
+class Unique<T const,A>
+{
+	Unique() = delete;
+};
+
 // no references
 template <typename T, class A> 
 class Unique<T &,A>
@@ -428,7 +440,7 @@ class Unique<T &,A>
 	Unique() = delete;
 };
 
-// no array types
+// no unsized array types
 template <typename T, class A> 
 class Unique<T[],A>
 {

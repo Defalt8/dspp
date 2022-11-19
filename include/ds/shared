@@ -100,8 +100,12 @@ class Shared
 	{}
 
 	template <typename D, typename... Args
-			, typename = decltype(dynamic_cast<T &>(decl<D &>()))
-			, enable_if_t<is_constructible<D,Args...>::value,int> = 0
+			, enable_if_t<
+				   is_constructible<D,Args...>::value 
+				&& is_virtually_destructible<T>::value
+				&& is_dynamic_castable<D &,T &>::value
+				, int
+			> = 0
 		>
 	Shared(make<D> type, Args &&... args)
 		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this
@@ -221,6 +225,27 @@ class Shared
 		ds::swap(_ptr, rhs._ptr);
 	}
 
+};
+
+// no const
+template <typename T, class A> 
+class Shared<T const,A>
+{
+	Shared() = delete;
+};
+
+// no references
+template <typename T, class A> 
+class Shared<T &,A>
+{
+	Shared() = delete;
+};
+
+// no unsized array types
+template <typename T, class A> 
+class Shared<T[],A>
+{
+	Shared() = delete;
 };
 
 
