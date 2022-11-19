@@ -109,7 +109,7 @@ class Unique
 			, enable_if_t<
 				   is_constructible<D,Args...>::value 
 				&& is_virtually_destructible<T>::value
-				&& is_dynamic_castable<D &,T &>::value
+				&& is_static_castable<D &,T &>::value
 				, int
 			> = 0
 		>
