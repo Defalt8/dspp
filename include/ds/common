@@ -1195,7 +1195,7 @@ template <class OST, typename K, typename V
 		, enable_if_t<is_out_streamable<OST,char const *>::value,int> = 0
 	>
 static OST & 
-operator<<(OST & ost, ds::Entry<K,V> const & rhs)
+operator<<(OST && ost, ds::Entry<K,V> const & rhs)
 {
 	return ost << rhs.key << stream_separator_key_value << rhs.value;
 }
@@ -1210,7 +1210,7 @@ template <class OST, typename C
 		, enable_if_t<is_out_streamable<OST,char const *>::value,int> = 0
 	>
 static OST & 
-operator<<(OST & ost, C const & rhs)
+operator<<(OST && ost, C const & rhs)
 {
 	auto end_ = rhs.end();
 	for(auto it = rhs.begin();;)

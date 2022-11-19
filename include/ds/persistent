@@ -205,6 +205,15 @@ struct usage<Persistent<T,A>> { static constexpr size_t value = Persistent<T,A>:
 template <typename T, class A, size_t count_>
 struct usage_n<Persistent<T,A>,count_> { static constexpr size_t value = Persistent<T,A>::usage(count_); };
 
+template <class OST, typename T, class A
+		, enable_if_t<is_out_streamable<OST,decltype(decl<Persistent<T,A> const &>().ref())>::value,int> = 0
+	>
+static OST &
+operator<<(OST && ostream, Persistent<T,A> const & rhs)
+{
+	return ostream << rhs.ref();
+}
+
 
 } // namespace ds
 

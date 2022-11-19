@@ -490,6 +490,15 @@ struct inserter<Unique<E[size_],A>,E>
 
 };
 
+template <class OST, typename T, class A
+		, enable_if_t<is_out_streamable<OST,decltype(decl<Unique<T,A> const &>().ref())>::value,int> = 0
+	>
+static OST &
+operator<<(OST && ostream, Unique<T,A> const & rhs)
+{
+	return ostream << rhs.ref();
+}
+
 
 } // namespace ds
 
