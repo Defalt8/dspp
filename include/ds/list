@@ -108,7 +108,10 @@ struct ListNode<2,E>
 
 
 template <int type_, typename E, class A>
-class ListIterator {};
+class ListIterator 
+{
+	ListIterator() = delete;
+};
 
 template <typename E, class A>
 class ListIterator<1,E,A>
@@ -359,7 +362,10 @@ class ListIterator<2,E,A>
 
 
 template <int type_, typename E, class A>
-class ConstListIterator {};
+class ConstListIterator 
+{
+	ConstListIterator() = delete;
+};
 
 template <typename E, class A>
 class ConstListIterator<1,E,A>
@@ -591,7 +597,31 @@ class ConstListIterator<2,E,A>
 
 
 template <int type_, typename E, class A> 
-class List {};
+class List 
+{
+	List() = delete;
+};
+
+// no references
+template <int type_, typename E, class A> 
+class List<type_,E &,A>
+{
+	List() = delete;
+};
+
+// no sized array types
+template <int type_, size_t size_, typename E, class A> 
+class List<type_,E[size_],A>
+{
+	List() = delete;
+};
+
+// no unsized array types
+template <int type_, typename E, class A> 
+class List<type_,E[],A>
+{
+	List() = delete;
+};
 
 template <typename E, class A> 
 class List<1,E,A>
@@ -718,6 +748,30 @@ class List<1,E,A>
 	List(T (&& array_)[size_])
 	{
 		for(size_t i = 0; i < size_ && this->emplace_last(ds::move(array_[i])); ++i);
+	}
+
+	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T const &>::value,int> = 0>
+	List(T const (& array_)[size_])
+	{
+		for(size_t i = 0; i < size_ && this->emplace_last(array_[i]); ++i);
+	}
+
+	// generic move/copy constructor
+	template <class C
+			, typename E_ = iterable_element_t<C>
+			, typename T_ = conditional_t<is_same<C,remove_cvref_t<C>>::value,E_,E_ const &>
+			, enable_if_t<
+				( !is_same<remove_cvref_t<C>,List>::value
+				&& iterable_has_element<remove_ref_t<C>>::value
+				&& iterable_has_forward_iterator<remove_ref_t<C>>::value
+				&& is_constructible<E,T_>::value)
+			, int> = 0
+		>
+	List(C && rhs)
+	{
+		auto it   = rhs.begin();
+		auto end_ = rhs.end();
+		for(; it != end_ && this->emplace_last(ds::forward<T_>(*it)); ++it);
 	}
 
 	List & 
@@ -1083,6 +1137,59 @@ class List<2,E,A>
 		for(size_t i = 0; i < size_ && this->insert_last(ds::move(array_[i])); ++i);
 	}
 
+	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T const &>::value,int> = 0>
+	List(T const (& array_)[size_])
+	{
+		for(size_t i = 0; i < size_ && this->emplace_last(array_[i]); ++i);
+	}
+
+	// generic move/copy constructor
+	template <class C
+			, typename E_ = iterable_element_t<C>
+			, typename T_ = conditional_t<is_same<C,remove_cvref_t<C>>::value,E_,E_ const &>
+			, enable_if_t<
+				( !is_same<remove_cvref_t<C>,List>::value
+				&& iterable_has_element<remove_ref_t<C>>::value
+				&& iterable_has_forward_iterator<remove_ref_t<C>>::value
+				&& is_constructible<E,T_>::value)
+			, int> = 0
+		>
+	List(C && rhs)
+	{
+		auto it   = rhs.begin();
+		auto end_ = rhs.end();
+		for(; it != end_ && this->emplace_last(ds::forward<T_>(*it)); ++it);
+	}
+
+	// generic move/copy concatenating constructor
+	template <class C1, class C2
+			, typename E1_ = iterable_element_t<C1>
+			, typename E2_ = iterable_element_t<C2>
+			, typename T1_ = conditional_t<is_same<C1,remove_cvref_t<C1>>::value,E1_,E1_ const &>
+			, typename T2_ = conditional_t<is_same<C2,remove_cvref_t<C2>>::value,E2_,E2_ const &>
+			, enable_if_t<
+				  (iterable_has_element<remove_ref_t<C1>>::value
+				&& iterable_has_element<remove_ref_t<C2>>::value
+				&& iterable_has_forward_iterator<remove_ref_t<C1>>::value
+				&& iterable_has_forward_iterator<remove_ref_t<C2>>::value
+				&& is_constructible<E,T1_>::value
+				&& is_constructible<E,T2_>::value)
+			,int> = 0
+		>
+	List(C1 && lhs, C2 && rhs)
+	{
+		{
+			auto lit   = lhs.begin();
+			auto lend_ = lhs.end();
+			for(; lit != lend_ && this->emplace_last(ds::forward<T1_>(*lit)); ++lit);
+		}
+		{
+			auto rit   = rhs.begin();
+			auto rend_ = rhs.end();
+			for(; rit != rend_ && this->emplace_last(ds::forward<T2_>(*rit)); ++rit);
+		}
+	}
+
 	template <typename Begin, typename End
 		, typename T = decltype(*decl<Begin &>())
 		, typename   = decltype(++decl<Begin &>())
@@ -1111,6 +1218,37 @@ class List<2,E,A>
 			this->destroy();
 			for(auto node = rhs.m_first; node != nullptr && this->emplace_last(node->object); node = node->next);
 		}
+		return *this;
+	}
+
+	template <class C
+			, typename E_ = enabled_iterable_element_t<C>
+			, typename    = enabled_iterable_forward_iterator_t<C>
+			, typename T_ = conditional_t<is_same<C,remove_cvref_t<C>>::value,E_,E_ const &>
+			, enable_if_t<is_constructible<E,T_>::value,int> = 0
+		>
+	inline List
+	operator+(C && rhs) const
+	{
+		return { *this, ds::forward<C>(rhs) };
+	}
+
+	template <class C
+			, typename E_ = iterable_element_t<C>
+			, typename T_ = conditional_t<is_same<C,remove_cvref_t<C>>::value,E_,E_ const &>
+			, enable_if_t<
+				( !is_same<remove_cvref_t<C>,List>::value
+				&& iterable_has_element<remove_ref_t<C>>::value
+				&& iterable_has_forward_iterator<remove_ref_t<C>>::value
+				&& is_constructible<E,T_>::value)
+			, int> = 0
+		>
+	inline List &
+	operator+=(C && rhs)
+	{
+		auto it   = rhs.begin();
+		auto end_ = rhs.end();
+		for(; it != end_ && this->emplace_last(ds::forward<T_>(*it)); ++it);
 		return *this;
 	}
 
