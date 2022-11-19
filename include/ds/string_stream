@@ -33,6 +33,10 @@ class StringStream
 		: m_storage { capacity_ }
 	{}
 
+	StringStream(storage_t string_)
+		: m_storage { ds::move(string_) }
+	{}
+
 	StringStream(char_t const * pstring_, size_t size_)
 		: m_storage { pstring_, size_ }
 	{}
