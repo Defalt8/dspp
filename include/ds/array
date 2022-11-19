@@ -87,7 +87,7 @@ namespace _ {
 	struct array_destructor
 	{
 		static inline void
-		destruct(E (& array_)[], size_t size_) noexcept
+		destruct(E * array_, size_t size_) noexcept
 		{
 			while(size_ > 0)
 				array_[--size_].~E();
@@ -97,7 +97,7 @@ namespace _ {
 	template <typename E>
 	struct array_destructor<E,false>
 	{
-		static inline void destruct(E (& array_)[], size_t size_) noexcept {}
+		static inline void destruct(E * array_, size_t size_) noexcept {}
 	};
 
 	template <typename E, class A, bool = is_copy_constructible<E>::value>
@@ -122,7 +122,7 @@ namespace _ {
 		_reconstruct_at(Array<E,A> * this_, Array<E,A> const & rhs) noexcept
 		{
 			this_->~Array();
-			return construct_at<Array<E,A>>((void*)this_, rhs);
+			return construct_at<Array<E,A>>(this_, rhs);
 		}
 		
 		static constexpr array_t * 
@@ -260,7 +260,7 @@ class Array
 		{
 			auto end_ = this->end();
 			for(E * it = this->begin(); it != end_; ++it)
-				construct_at<E>((void*)it, func());
+				construct_at<E>(it, func());
 		}
 	}
 
@@ -273,7 +273,7 @@ class Array
 		{
 			auto end_ = this->end();
 			for(E * it = this->begin(); it != end_; ++it)
-				construct_at<E>((void*)it, arg);
+				construct_at<E>(it, arg);
 		}
 	}
 
@@ -302,7 +302,7 @@ class Array
 			auto end_ = this->end();
 			auto cit  = rhs.begin();
 			for(E * it = this->begin(); it != end_; ++it, ++cit)
-				construct_at<E>((void*)it, *cit);
+				construct_at<E>(it, *cit);
 		}
 	}
 
@@ -316,7 +316,7 @@ class Array
 			auto end_ = this->end();
 			auto cit  = &array_[0];
 			for(auto it = this->begin(); it != end_; ++it, ++cit)
-				construct_at<E>((void*)it, ds::move(*cit));
+				construct_at<E>(it, ds::move(*cit));
 		}
 	}
 
@@ -330,7 +330,7 @@ class Array
 			auto end_ = this->end();
 			auto cit  = &array_[0];
 			for(E * it = this->begin(); it != end_; ++it, ++cit)
-				construct_at<E>((void*)it, *cit);
+				construct_at<E>(it, *cit);
 		}
 	}
 
@@ -344,7 +344,7 @@ class Array
 			auto end_ = this->end();
 			auto cit  = array_.begin();
 			for(E * it = this->begin(); it != end_; ++it, ++cit)
-				construct_at<E>((void*)it, ds::move(*cit));
+				construct_at<E>(it, ds::move(*cit));
 		}
 	}
 
@@ -358,7 +358,7 @@ class Array
 			auto end_ = this->end();
 			auto cit  = array_.begin();
 			for(E * it = this->begin(); it != end_; ++it, ++cit)
-				construct_at<E>((void*)it, *cit);
+				construct_at<E>(it, *cit);
 		}
 	}
 
@@ -384,7 +384,7 @@ class Array
 			using i_t = remove_cvref_t<decltype(*cit)>;
 			using T = conditional_t<is_same<C,remove_reference_t<C>>::value,i_t,i_t &>;
 			for(E * it = this->begin(); it != end_; ++it, ++cit)
-				construct_at<E>((void*)it, ds::forward<T>(*cit));
+				construct_at<E>(it, ds::forward<T>(*cit));
 		}
 	}
 
@@ -406,7 +406,7 @@ class Array
 				using i_t = remove_reference_t<decltype(*lit)>;
 				using T   = conditional_t<is_same<remove_cvref_t<C1>,C1>::value,i_t,i_t &>;
 				for(; lit < lend_; ++lit, ++it)
-					construct_at<E>((void*)it, ds::forward<T>(*lit));
+					construct_at<E>(it, ds::forward<T>(*lit));
 			}
 			{
 				auto rhs_size = rhs.size();
@@ -415,7 +415,7 @@ class Array
 				using i_t = remove_reference_t<decltype(*rit)>;
 				using T   = conditional_t<is_same<remove_cvref_t<C2>,C2>::value,i_t,i_t &>;
 				for(; rit < rend_; ++rit, ++it)
-					construct_at<E>((void*)it, ds::forward<T>(*rit));
+					construct_at<E>(it, ds::forward<T>(*rit));
 			}
 		}
 	}
@@ -679,7 +679,7 @@ class Array<E &,A>
 		, m_size  { m_array ? size_ : 0 }
 	{
 		if(m_array)
-			memset(&array_[0], 0, sizeof(E *) * m_size);
+			memset(&(*m_array)[0], 0, sizeof(E *) * m_size);
 	}
 
 	template <typename Arg>
@@ -689,9 +689,9 @@ class Array<E &,A>
 	{
 		if(m_array)
 		{
-			auto end_ = this->end();
-			for(E * it = this->begin(); it != end_; ++it)
-				construct_at<E *>((void*)it.current);
+			auto end_ = &(*m_array)[m_size];
+			for(auto it = &(*m_array)[0]; it != end_; ++it)
+				construct_at<E *>(it);
 		}
 	}
 
@@ -702,9 +702,9 @@ class Array<E &,A>
 	{
 		if(m_array)
 		{
-			auto end_ = this->end();
-			for(auto it = this->begin(); it != end_; ++it)
-				construct_at<E *>((void*)it.current, &func());
+			auto end_ = &(*m_array)[m_size];
+			for(auto it = &(*m_array)[0]; it != end_; ++it)
+				construct_at<E *>(it, &func());
 		}
 	}
 
@@ -715,9 +715,9 @@ class Array<E &,A>
 	{
 		if(m_array)
 		{
-			auto end_ = this->end();
-			for(E * it = this->begin(); it != end_; ++it)
-				construct_at<E *>((void*)it.current, arg);
+			auto end_ = &(*m_array)[m_size];
+			for(auto it = &(*m_array)[0]; it != end_; ++it)
+				construct_at<E *>(it, arg);
 		}
 	}
 
@@ -735,10 +735,10 @@ class Array<E &,A>
 	{
 		if(m_array)
 		{
-			auto end_ = this->end().current;
-			auto cit  = rhs.begin().current;
-			for(auto it  = this->begin().current; it != end_; ++it, ++cit)
-				construct_at<E *>((void*)it, *cit);
+			auto end_ = &(*m_array)[m_size];
+			auto cit  = &(*rhs.m_array)[0];
+			for(auto it = &(*m_array)[0]; it != end_; ++it, ++cit)
+				construct_at<E *>(it, *cit);
 		}
 	}
 
@@ -751,10 +751,10 @@ class Array<E &,A>
 	{
 		if(m_array)
 		{
-			auto end_ = this->end().current;
-			auto cit  = rhs.begin();
-			for(auto it  = this->begin().current; it != end_; ++it, ++cit)
-				construct_at<E *>((void*)it, &*cit);
+			auto end_ = &(*m_array)[m_size];
+			auto cit  = &(*rhs.m_array)[0];
+			for(auto it = &(*m_array)[0]; it != end_; ++it, ++cit)
+				construct_at<E *>(it, &*cit);
 		}
 	}
 
@@ -765,10 +765,10 @@ class Array<E &,A>
 	{
 		if(m_array)
 		{
-			auto end_ = this->end().current;
+			auto end_ = &(*m_array)[m_size];
 			auto cit  = &array_[0];
-			for(auto it  = this->begin().current; it != end_; ++it, ++cit)
-				construct_at<E *>((void*)it, &*cit);
+			for(auto it = &(*m_array)[0]; it != end_; ++it, ++cit)
+				construct_at<E *>(it, &*cit);
 		}
 	}
 
@@ -783,10 +783,10 @@ class Array<E &,A>
 	{
 		if(m_array)
 		{
-			auto end_ = this->end().current;
+			auto end_ = &(*m_array)[m_size];
 			auto cit  = rhs.begin();
-			for(auto it  = this->begin().current; it != end_; ++it, ++cit)
-				construct_at<E *>((void*)it, &*cit);
+			for(auto it = &(*m_array)[0]; it != end_; ++it, ++cit)
+				construct_at<E *>(it, &*cit);
 			int i = 0;
 		}
 	}
@@ -801,20 +801,20 @@ class Array<E &,A>
 	{
 		if(m_array)
 		{
-			auto it   = &(*m_array)[0];
+			auto it = &(*m_array)[0];
 			{
 				auto lhs_size = lhs.size();
 				auto lend_    = lhs.end();
 				auto lit      = lhs.begin();
 				for(; lit < lend_; ++lit, ++it)
-					construct_at<E *>((void*)it, &*lit);
+					construct_at<E *>(it, &*lit);
 			}
 			{
 				auto rhs_size = rhs.size();
 				auto rend_    = rhs.end();
 				auto rit      = rhs.begin();
 				for(; rit < rend_; ++rit, ++it)
-					construct_at<E *>((void*)it, &*rit);
+					construct_at<E *>(it, &*rit);
 			}
 		}
 	}
@@ -891,10 +891,10 @@ class Array<E &,A>
 	inline size_t size()       noexcept { return m_size; }
 	inline size_t size() const noexcept { return m_size; }
 	
-	inline Iterator       begin()       noexcept { return { &(*m_array)[0] }; }
-	inline ConstIterator  begin() const noexcept { return { &(*m_array)[0] }; }
-	inline Iterator       end  ()       noexcept { return { &(*m_array)[m_size] }; }
-	inline ConstIterator  end  () const noexcept { return { &(*m_array)[m_size] }; }
+	inline Iterator       begin()       noexcept { return { m_array == nullptr ? nullptr : &(*m_array)[0] }; }
+	inline ConstIterator  begin() const noexcept { return { m_array == nullptr ? nullptr : &(*m_array)[0] }; }
+	inline Iterator       end  ()       noexcept { return { m_array == nullptr ? nullptr : &(*m_array)[m_size] }; }
+	inline ConstIterator  end  () const noexcept { return { m_array == nullptr ? nullptr : &(*m_array)[m_size] }; }
 	
 	inline Iterator       rbegin()       noexcept { return { m_array == nullptr ? nullptr : &(*m_array)[m_size-1] }; }
 	inline ConstIterator  rbegin() const noexcept { return { m_array == nullptr ? nullptr : &(*m_array)[m_size-1] }; }
@@ -906,7 +906,7 @@ class Array<E &,A>
 	{
 		if(m_array)
 		{
-			_deallocate((void*)m_array);
+			_deallocate(m_array);
 			m_array = nullptr;
 			m_size  = 0;
 		}
