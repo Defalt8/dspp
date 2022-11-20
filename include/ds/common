@@ -941,6 +941,12 @@ struct Sequence
 struct Flush
 {
 	FILE * _file = nullptr;
+
+	Flush() = default;
+	Flush(FILE * file_)
+		: _file { file_ }
+	{}
+
 };
 
 static thread_local Flush flush { stdout };
@@ -948,6 +954,12 @@ static thread_local Flush flush { stdout };
 struct Endl
 {
 	FILE * _file = nullptr;
+
+	Endl() = default;
+	Endl(FILE * file_)
+		: _file { file_ }
+	{}
+
 };
 
 static thread_local Endl endl { stdout };
