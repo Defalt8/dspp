@@ -59,13 +59,13 @@ Test(persistent_test)
 		ExpectEQ(Counter::moves(), 0);
 	} TestcaseEnd(test_default_construct);
 
-	Testcase(test_value_constructible)
+	Testcase(test_arg_constructible)
 	{
 		AssertTrue(ds::is_constructible<ds::Persistent<Counter>,int>::value);
 		AssertTrue(ds::is_constructible<ds::Persistent<Counter>,Counter>::value);
-	} TestcaseEnd(test_value_constructible);
+	} TestcaseEnd(test_arg_constructible);
 	
-	Testcase(test_value_construct)
+	Testcase(test_arg_construct)
 	{
 		{
 			auto persistent = ds::Persistent<Counter>(5);
@@ -80,7 +80,73 @@ Test(persistent_test)
 		ExpectEQ(Counter::active(), 0);
 		ExpectEQ(Counter::copies(), 0);
 		ExpectEQ(Counter::moves(), 0);
-	} TestcaseEnd(test_value_construct);
+	} TestcaseEnd(test_arg_construct);
+
+	struct Base
+	{
+		virtual Counter const & counter() const = 0;
+	};
+
+	struct Derived : Base
+	{
+		Counter _counter = 0;
+
+		Counter const & counter() const override { return _counter; }
+
+		~Derived() = default;
+		Derived()  = default;
+		Derived(int value_) 
+			: _counter { value_ } 
+		{}
+	};
+
+	struct VBase
+	{
+		virtual ~VBase() = default;
+		virtual Counter const & counter() const = 0;
+	};
+
+	struct VDerived : VBase
+	{
+		Counter _counter = 0;
+
+		Counter const & counter() const override { return _counter; }
+
+		~VDerived() = default;
+		VDerived()  = default;
+		VDerived(int value_) 
+			: _counter { value_ } 
+		{}
+	};
+
+	Testcase(test_polymorphic_arg_inconstructible)
+	{
+		AssertFalse(ds::is_constructible<ds::Persistent<Base>,ds::make<Derived>>::value);
+		AssertFalse(ds::is_constructible<ds::Persistent<Base>,ds::make<VDerived>>::value);
+		AssertFalse(ds::is_constructible<ds::Persistent<VBase>,ds::make<Derived>>::value);
+	} TestcaseEnd(test_polymorphic_arg_inconstructible);
+	
+	Testcase(test_polymorphic_arg_constructible)
+	{
+		AssertTrue(ds::is_constructible<ds::Persistent<VBase>,ds::make<VDerived>>::value);
+	} TestcaseEnd(test_polymorphic_arg_constructible);
+	
+	Testcase(test_polymorphic_arg_construct)
+	{
+		{
+			auto unique = ds::Persistent<VBase>(ds::make<VDerived>(), 5);
+			AssertNotNull(unique);
+			AssertEQ(unique->counter(), 5);
+			ExpectEQ(Counter::count(), 1);
+			ExpectEQ(Counter::active(), 1);
+			ExpectEQ(Counter::copies(), 0);
+			ExpectEQ(Counter::moves(), 0);
+		}
+		ExpectEQ(Counter::count(), 1);
+		ExpectEQ(Counter::active(), 0);
+		ExpectEQ(Counter::copies(), 0);
+		ExpectEQ(Counter::moves(), 0);
+	} TestcaseEnd(test_polymorphic_arg_construct);
 
 	Testcase(test_move_constructible)
 	{
@@ -353,8 +419,11 @@ TestRegistry(persistent_test)
 	Register(test_noinit)
 	Register(test_default_constructible)
 	Register(test_default_construct)
-	Register(test_value_constructible)
-	Register(test_value_construct)
+	Register(test_arg_constructible)
+	Register(test_arg_construct)
+	Register(test_polymorphic_arg_inconstructible)
+	Register(test_polymorphic_arg_constructible)
+	Register(test_polymorphic_arg_construct)
 	Register(test_move_constructible)
 	Register(test_move_construct)
 	Register(test_move_assignable)

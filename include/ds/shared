@@ -36,7 +36,7 @@ class Shared
 	
 	struct Storage
 	{
-		T      * object {};
+		T      * object_ptr = nullptr;
 		count_t  references = 1;
 		Shared * owner = nullptr;
 
@@ -45,13 +45,13 @@ class Shared
 
 		template <typename... Args>
 		Storage(Shared * owner_, Args &&... args)
-			: object { construct_at_safe<T>(_allocate(sizeof(T), alignof(T)), ds::forward<Args>(args)...) }
+			: object_ptr { construct_at_safe<T>(_allocate(sizeof(T), alignof(T)), ds::forward<Args>(args)...) }
 			, owner  { owner_ }
 		{}
 
 		template <typename D, typename... Args>
 		Storage(Shared * owner_, make<D> type, Args &&... args)
-			: object { construct_at_safe<D>(_allocate(sizeof(D), alignof(D)), ds::forward<Args>(args)...) }
+			: object_ptr { construct_at_safe<D>(_allocate(sizeof(D), alignof(D)), ds::forward<Args>(args)...) }
 			, owner  { owner_ }
 		{}
 
@@ -164,38 +164,38 @@ class Shared
 		return *this;
 	}
 	
-	inline bool operator!() const noexcept { return _ptr == nullptr || _ptr->object == nullptr; }
+	inline bool operator!() const noexcept { return _ptr == nullptr || _ptr->object_ptr == nullptr; }
 
-	explicit inline operator bool()        noexcept { return _ptr != nullptr && _ptr->object != nullptr; }
-	explicit inline operator bool()  const noexcept { return _ptr != nullptr && _ptr->object != nullptr; }
+	explicit inline operator bool()        noexcept { return _ptr != nullptr && _ptr->object_ptr != nullptr; }
+	explicit inline operator bool()  const noexcept { return _ptr != nullptr && _ptr->object_ptr != nullptr; }
 
-	inline T       & operator*()        noexcept { return *_ptr->object; }
-	inline T const & operator*()  const noexcept { return *_ptr->object; }
+	inline T       & operator*()        noexcept { return *_ptr->object_ptr; }
+	inline T const & operator*()  const noexcept { return *_ptr->object_ptr; }
 
-	inline T       * operator->()       noexcept { return _ptr ? _ptr->object : nullptr; }
-	inline T const * operator->() const noexcept { return _ptr ? _ptr->object : nullptr; }
+	inline T       * operator->()       noexcept { return _ptr->object_ptr; }
+	inline T const * operator->() const noexcept { return _ptr->object_ptr; }
 
-	inline T       * ptr()       noexcept { return _ptr ? _ptr->object : nullptr; }
-	inline T const * ptr() const noexcept { return _ptr ? _ptr->object : nullptr; }
+	inline T       * ptr()       noexcept { return _ptr == nullptr ? nullptr : _ptr->object_ptr; }
+	inline T const * ptr() const noexcept { return _ptr == nullptr ? nullptr : _ptr->object_ptr; }
 
-	inline count_t ref_count()        noexcept { return _ptr ? _ptr->references : 0; }
-	inline count_t ref_count()  const noexcept { return _ptr ? _ptr->references : 0; }
+	inline count_t ref_count()        noexcept { return _ptr == nullptr ? 0 : _ptr->references; }
+	inline count_t ref_count()  const noexcept { return _ptr == nullptr ? 0 : _ptr->references; }
 
-	inline bool is_owner()        noexcept { return _ptr && _ptr->owner == this; }
-	inline bool is_owner()  const noexcept { return _ptr && _ptr->owner == this; }
+	inline bool is_owner()        noexcept { return _ptr != nullptr && _ptr->owner == this; }
+	inline bool is_owner()  const noexcept { return _ptr != nullptr && _ptr->owner == this; }
 
 	T & 
 	ref() noexcept(false)
 	{
-		ds_throw_if(_ptr == nullptr || _ptr->object == nullptr, null_pointer());
-		return *_ptr->object;
+		ds_throw_if(_ptr == nullptr || _ptr->object_ptr == nullptr, null_pointer());
+		return *_ptr->object_ptr;
 	}
 
 	T const & 
 	ref() const noexcept(false)
 	{
-		ds_throw_if(_ptr == nullptr || _ptr->object == nullptr, null_pointer());
-		return *_ptr->object;
+		ds_throw_if(_ptr == nullptr || _ptr->object_ptr == nullptr, null_pointer());
+		return *_ptr->object_ptr;
 	}
 
 	void 
@@ -203,11 +203,11 @@ class Shared
 	{
 		if(_ptr)
 		{
-			if(_ptr->object && _ptr->owner == this)
+			if(_ptr->object_ptr && _ptr->owner == this)
 			{
-				destruct(*_ptr->object);
-				_deallocate(_ptr->object);
-				_ptr->object = nullptr;
+				destruct(*_ptr->object_ptr);
+				_deallocate(_ptr->object_ptr);
+				_ptr->object_ptr = nullptr;
 				_ptr->owner  = nullptr;
 			}
 			if(--_ptr->references == 0)

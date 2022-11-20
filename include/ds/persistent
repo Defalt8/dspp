@@ -33,16 +33,31 @@ class Persistent
 	
 	struct Storage
 	{
-		T       object {};
+		T     * object_ptr = nullptr;
 		count_t references = 1;
 
-		Storage() = default;
 		Storage(Storage &&) = delete;
 		Storage(Storage const &) = delete;
 
-		template <typename Arg, typename... Args>
-		Storage(Arg && arg, Args &&... args)
-			: object(ds::forward<Arg>(arg), ds::forward<Args>(args)...)
+		~Storage()
+		{
+			if(object_ptr)
+			{
+				destruct(*object_ptr);
+				_deallocate(object_ptr);
+			}
+		}
+
+		template <typename... Args>
+		Storage(Args &&... args)
+			: object_ptr { construct_at_safe<T>(_allocate(sizeof(T), alignof(T))
+						 , ds::forward<Args>(args)...) }
+		{}
+
+		template <typename D, typename... Args>
+		Storage(make<D> type, Args &&... args)
+			: object_ptr { construct_at_safe<D>(_allocate(sizeof(D), alignof(D))
+						 , ds::forward<Args>(args)...) }
 		{}
 
 	};
@@ -93,6 +108,19 @@ class Persistent
 		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage))) }
 	{}
 
+	template <typename D, typename... Args
+			, enable_if_t<
+				   is_constructible<D,Args...>::value 
+				&& is_virtually_destructible<T>::value
+				&& is_static_castable<D &,T &>::value
+				, int
+			> = 0
+		>
+	Persistent(make<D> type, Args &&... args)
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage))
+				, type, ds::forward<Args>(args)...) }
+	{}
+
 	template <typename Arg, typename... Args
 			, enable_if_t<!is_same<remove_cvref_t<Arg>,Persistent>::value,int> = 0
 			, enable_if_t<is_constructible<T,Arg,Args...>::value,int> = 0
@@ -140,36 +168,36 @@ class Persistent
 		return *this;
 	}
 	
-	inline bool operator!()       noexcept { return _ptr == nullptr; }
-	inline bool operator!() const noexcept { return _ptr == nullptr; }
+	inline bool operator!()       noexcept { return _ptr == nullptr || _ptr->object_ptr == nullptr; }
+	inline bool operator!() const noexcept { return _ptr == nullptr || _ptr->object_ptr == nullptr; }
 
-	explicit inline operator bool()        noexcept { return _ptr != nullptr; }
-	explicit inline operator bool()  const noexcept { return _ptr != nullptr; }
+	explicit inline operator bool()        noexcept { return _ptr != nullptr && _ptr->object_ptr != nullptr; }
+	explicit inline operator bool()  const noexcept { return _ptr != nullptr && _ptr->object_ptr != nullptr; }
 
-	inline T       & operator*()        noexcept { return _ptr->object; }
-	inline T const & operator*()  const noexcept { return _ptr->object; }
+	inline T       & operator*()        noexcept { return *_ptr->object_ptr; }
+	inline T const & operator*()  const noexcept { return *_ptr->object_ptr; }
 
-	inline T       * operator->()       noexcept { return _ptr ? &_ptr->object : nullptr; }
-	inline T const * operator->() const noexcept { return _ptr ? &_ptr->object : nullptr; }
+	inline T       * operator->()       noexcept { return _ptr->object_ptr; }
+	inline T const * operator->() const noexcept { return _ptr->object_ptr; }
 
-	inline T       * ptr()       noexcept { return _ptr ? &_ptr->object : nullptr; }
-	inline T const * ptr() const noexcept { return _ptr ? &_ptr->object : nullptr; }
+	inline T       * ptr()       noexcept { return _ptr == nullptr ? nullptr : _ptr->object_ptr; }
+	inline T const * ptr() const noexcept { return _ptr == nullptr ? nullptr : _ptr->object_ptr; }
 
-	inline count_t ref_count()        noexcept { return _ptr ? _ptr->references : 0; }
-	inline count_t ref_count()  const noexcept { return _ptr ? _ptr->references : 0; }
+	inline count_t ref_count()        noexcept { return _ptr == nullptr ? 0 : _ptr->references; }
+	inline count_t ref_count()  const noexcept { return _ptr == nullptr ? 0 : _ptr->references; }
 
 	T & 
 	ref() noexcept(false)
 	{
-		ds_throw_if(_ptr == nullptr, null_pointer());
-		return _ptr->object;
+		ds_throw_if(_ptr == nullptr || _ptr->object_ptr == nullptr, null_pointer());
+		return *_ptr->object_ptr;
 	}
 
 	T const & 
 	ref() const noexcept(false)
 	{
-		ds_throw_if(_ptr == nullptr, null_pointer());
-		return _ptr->object;
+		ds_throw_if(_ptr == nullptr || _ptr->object_ptr == nullptr, null_pointer());
+		return *_ptr->object_ptr;
 	}
 
 	void 
