@@ -5,6 +5,7 @@
 #include "common"
 #include "traits/allocator"
 #include "allocator"
+#include "unique"
 
 namespace ds {
 
@@ -29,8 +30,10 @@ namespace traits {
 template <typename T, class A>
 class Persistent
 {
+ public:
 	using count_t = size_t;
 	
+ private:
 	struct Storage
 	{
 		T     * object_ptr = nullptr;
@@ -47,6 +50,10 @@ class Persistent
 				_deallocate(object_ptr);
 			}
 		}
+
+		Storage(inplace<T *>, T * ptr_)
+			: object_ptr { ptr_ }
+		{}
 
 		template <typename... Args>
 		Storage(Args &&... args)
@@ -128,6 +135,13 @@ class Persistent
 	Persistent(Arg && arg, Args &&... args)
 		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), ds::forward<Arg>(arg), ds::forward<Args>(args)...) }
 	{}
+
+	Persistent(Unique<T,A> && unique_) noexcept
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage))
+				, inplace<T *>(), unique_._ptr) }
+	{
+		unique_._ptr = nullptr;
+	}
 
 	Persistent(Persistent && rhs) noexcept
 		: _ptr { rhs._ptr }

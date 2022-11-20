@@ -3,6 +3,9 @@
 #include <ds/shared>
 #include "../counter"
 
+template class ds::Shared<int>;
+template class ds::Shared<Counter>;
+
 Test(shared_test)
 {
 	TestInit(shared_test);
@@ -153,6 +156,30 @@ Test(shared_test)
 		ExpectEQ(Counter::copies(), 0);
 		ExpectEQ(Counter::moves(), 0);
 	} TestcaseEnd(test_polymorphic_arg_construct);
+
+	Testcase(test_unique_constructible)
+	{
+		AssertTrue(ds::is_constructible<ds::Shared<Counter>,ds::Unique<Counter>>::value);
+	} TestcaseEnd(test_unique_constructible);
+
+	Testcase(test_unique_construct)
+	{
+		{
+			auto unique = ds::Unique<Counter>(5);
+			AssertNotNull(unique);
+			Counter * object_ptr_ = &*unique;
+			auto shared = ds::Shared<Counter>(ds::move(unique));
+			AssertNotNull(shared);
+			AssertNull(unique);
+			ExpectTrue(shared.is_owner());
+			ExpectEQ(shared.ref_count(), 1);
+			AssertEQ(&*shared, object_ptr_);
+		}
+		ExpectEQ(Counter::count(), 1);
+		ExpectEQ(Counter::active(), 0);
+		ExpectEQ(Counter::copies(), 0);
+		ExpectEQ(Counter::moves(), 0);
+	} TestcaseEnd(test_unique_construct);
 
 	Testcase(test_move_constructible)
 	{
@@ -481,6 +508,8 @@ TestRegistry(shared_test)
 	Register(test_polymorphic_arg_inconstructible)
 	Register(test_polymorphic_arg_constructible)
 	Register(test_polymorphic_arg_construct)
+	Register(test_unique_constructible)
+	Register(test_unique_construct)
 	Register(test_move_constructible)
 	Register(test_move_construct)
 	Register(test_move_assignable)

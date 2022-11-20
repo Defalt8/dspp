@@ -5,6 +5,7 @@
 #include "common"
 #include "traits/allocator"
 #include "allocator"
+#include "unique"
 
 namespace ds {
 
@@ -32,8 +33,10 @@ namespace traits {
 template <typename T, class A>
 class Shared
 {
+ public:
 	using count_t = size_t;
 	
+ private:
 	struct Storage
 	{
 		T      * object_ptr = nullptr;
@@ -42,6 +45,11 @@ class Shared
 
 		Storage(Storage &&) = delete;
 		Storage(Storage const &) = delete;
+
+		Storage(Shared * owner_, inplace<T *>, T * ptr_)
+			: object_ptr { ptr_ }
+			, owner      { owner_ }
+		{}
 
 		template <typename... Args>
 		Storage(Shared * owner_, Args &&... args)
@@ -108,8 +116,8 @@ class Shared
 			> = 0
 		>
 	Shared(make<D> type, Args &&... args)
-		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this
-				, type, ds::forward<Args>(args)...) }
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage))
+				, this, type, ds::forward<Args>(args)...) }
 	{}
 
 	template <typename Arg, typename... Args
@@ -117,9 +125,16 @@ class Shared
 			, enable_if_t<is_constructible<T,Arg,Args...>::value,int> = 0
 		>
 	Shared(Arg && arg, Args &&... args)
-		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this
-				, ds::forward<Arg>(arg), ds::forward<Args>(args)...) }
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage))
+				, this, ds::forward<Arg>(arg), ds::forward<Args>(args)...) }
 	{}
+
+	Shared(Unique<T,A> && unique_) noexcept
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage))
+				, this, inplace<T *>(), unique_._ptr) }
+	{
+		unique_._ptr = nullptr;
+	}
 
 	Shared(Shared && rhs) noexcept
 		: _ptr { rhs._ptr }

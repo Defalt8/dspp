@@ -10,6 +10,8 @@
 namespace ds {
 
 template <typename T, class A = default_allocator> class Unique;
+template <typename T, class A> class Shared;
+template <typename T, class A> class Persistent;
 
 namespace traits {
 
@@ -55,6 +57,9 @@ namespace traits {
 template <typename T, class A>
 class Unique
 {
+	friend class Shared<T,A>;
+	friend class Persistent<T,A>;
+
 	T * _ptr = nullptr;
 
 	static inline void

@@ -3,6 +3,9 @@
 #include <ds/persistent>
 #include "../counter"
 
+template class ds::Persistent<int>;
+template class ds::Persistent<Counter>;
+
 Test(persistent_test)
 {
 	TestInit(persistent_test);
@@ -147,6 +150,29 @@ Test(persistent_test)
 		ExpectEQ(Counter::copies(), 0);
 		ExpectEQ(Counter::moves(), 0);
 	} TestcaseEnd(test_polymorphic_arg_construct);
+
+	Testcase(test_unique_constructible)
+	{
+		AssertTrue(ds::is_constructible<ds::Persistent<Counter>,ds::Unique<Counter>>::value);
+	} TestcaseEnd(test_unique_constructible);
+
+	Testcase(test_unique_construct)
+	{
+		{
+			auto unique = ds::Unique<Counter>(5);
+			AssertNotNull(unique);
+			Counter * object_ptr_ = &*unique;
+			auto persistent = ds::Persistent<Counter>(ds::move(unique));
+			AssertNotNull(persistent);
+			AssertNull(unique);
+			ExpectEQ(persistent.ref_count(), 1);
+			AssertEQ(&*persistent, object_ptr_);
+		}
+		ExpectEQ(Counter::count(), 1);
+		ExpectEQ(Counter::active(), 0);
+		ExpectEQ(Counter::copies(), 0);
+		ExpectEQ(Counter::moves(), 0);
+	} TestcaseEnd(test_unique_construct);
 
 	Testcase(test_move_constructible)
 	{
@@ -424,6 +450,8 @@ TestRegistry(persistent_test)
 	Register(test_polymorphic_arg_inconstructible)
 	Register(test_polymorphic_arg_constructible)
 	Register(test_polymorphic_arg_construct)
+	Register(test_unique_constructible)
+	Register(test_unique_construct)
 	Register(test_move_constructible)
 	Register(test_move_construct)
 	Register(test_move_assignable)
