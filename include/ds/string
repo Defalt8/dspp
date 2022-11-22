@@ -114,6 +114,9 @@ class StringView
 		, m_size    { length_ }
 	{}
 
+	template <class A_>
+	StringView(String<A_> const & _string);
+
 	constexpr bool operator!() const noexcept { return m_pstring == nullptr; }
 
 	explicit constexpr operator bool()       noexcept { return m_pstring != nullptr; }
@@ -916,6 +919,12 @@ class String
 	}
 
 }; 
+
+template <class A_>
+StringView::StringView(String<A_> const & _string)
+	: m_pstring { _string.begin() }
+	, m_size    { _string.size() }
+{}
 
 using string_view = StringView;
 
