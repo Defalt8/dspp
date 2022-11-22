@@ -356,10 +356,6 @@ class UnorderedList
 	using iterator_t       = UnorderedListIterator<table_size_,E,A>;
 	using const_iterator_t = ConstUnorderedListIterator<table_size_,E,A>;
 
-	// static constexpr bool _hash_requirement = is_hashable<E>::value;
-	// static_assert(_hash_requirement, "ds::Hasher<E> specialization required");
-
- private:
 	struct Storage
 	{
 		table_t   table = {};
@@ -369,6 +365,10 @@ class UnorderedList
 	
 	using storage_t = Unique<Storage,A>; 
 
+	// static constexpr bool _hash_requirement = is_hashable<E>::value;
+	// static_assert(_hash_requirement, "ds::Hasher<E> specialization required");
+
+ private:
 	storage_t m_data = {};
 	size_t    m_size   = 0;
 
@@ -864,7 +864,11 @@ using nt_unordered_list = UnorderedList<table_size_,E,A>;
 
 
 template <size_t table_size_, typename E, class A, size_t size_>
-struct usage_s<UnorderedList<table_size_,E,A>,size_> { static constexpr size_t value = (sizeof(UnorderedListNode<table_size_,E>) + usage<E>::value) * size_; };
+struct usage_s<UnorderedList<table_size_,E,A>,size_> 
+{ 
+	static constexpr size_t value = usage<typename UnorderedList<table_size_,E,A>::storage_t>::value +
+		(sizeof(UnorderedListNode<table_size_,E>) + usage<E>::value) * size_; 
+};
 
 template <size_t table_size_, typename E, class A, size_t size_, size_t count_>
 struct usage_sn<UnorderedList<table_size_,E,A>,size_,count_>

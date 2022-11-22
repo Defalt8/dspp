@@ -185,6 +185,14 @@ using const_nt_unordered_map_iterator = ConstUnorderedMapIterator<table_size_,K,
 template <size_t table_size_, typename K, typename V, class A = ds::default_nt_allocator>
 using nt_unordered_map = UnorderedMap<table_size_,K,V,A>;
 
+
+template <size_t table_size_, typename K, typename V, class A, size_t size_>
+struct usage_s<UnorderedMap<table_size_,K,V,A>,size_> : usage_s<UnorderedList<table_size_,Entry<K,V>,A>,size_> {};
+
+template <size_t table_size_, typename K, typename V, class A, size_t size_, size_t count_>
+struct usage_sn<UnorderedMap<table_size_,K,V,A>,size_,count_> : usage_sn<UnorderedList<table_size_,Entry<K,V>,A>,size_,count_> {};
+
+
 template <size_t table_size_, typename K, typename V, class A>
 struct inserter<UnorderedMap<table_size_,K,V,A>,Entry<K,V>>
 {

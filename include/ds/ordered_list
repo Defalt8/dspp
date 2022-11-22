@@ -355,10 +355,6 @@ class OrderedList
 	using iterator_t       = OrderedListIterator<table_size_,E,A>;
 	using const_iterator_t = ConstOrderedListIterator<table_size_,E,A>;
 
-	// static constexpr bool _ordered_hash_requirement = is_ordered_hashable<E>::value;
-	// static_assert(_ordered_hash_requirement, "ds::OrderedHasher<E> specialization required");
-
- private:
 	struct Storage
 	{
 		table_t   table = {};
@@ -368,6 +364,10 @@ class OrderedList
 	
 	using storage_t = Unique<Storage,A>; 
 
+	// static constexpr bool _ordered_hash_requirement = is_ordered_hashable<E>::value;
+	// static_assert(_ordered_hash_requirement, "ds::OrderedHasher<E> specialization required");
+
+ private:
 	storage_t m_data = {};
 	size_t    m_size   = 0;
 
@@ -999,7 +999,11 @@ using nt_ordered_list = OrderedList<table_size_,E,A>;
 
 
 template <size_t table_size_, typename E, class A, size_t size_>
-struct usage_s<OrderedList<table_size_,E,A>,size_> { static constexpr size_t value = (sizeof(OrderedListNode<table_size_,E>) + usage<E>::value) * size_; };
+struct usage_s<OrderedList<table_size_,E,A>,size_> 
+{ 
+	static constexpr size_t value = usage<typename OrderedList<table_size_,E,A>::storage_t>::value +
+		(sizeof(OrderedListNode<table_size_,E>) + usage<E>::value) * size_; 
+};
 
 template <size_t table_size_, typename E, class A, size_t size_, size_t count_>
 struct usage_sn<OrderedList<table_size_,E,A>,size_,count_>
@@ -1007,6 +1011,7 @@ struct usage_sn<OrderedList<table_size_,E,A>,size_,count_>
 	static constexpr size_t _single = usage_s<OrderedList<table_size_,E,A>,size_>::value;
 	static constexpr size_t value = (_single + (-_single & (alignof(OrderedListNode<table_size_,E>) - 1))) * count_;
 };
+
 
 template <size_t table_size_, typename E, class A>
 struct inserter<OrderedList<table_size_,E,A>,E>
