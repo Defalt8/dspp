@@ -938,32 +938,37 @@ struct Sequence
 };
 
 
-struct Flush
+struct FlushTo
 {
 	FILE * _file = nullptr;
 
-	Flush() = default;
-	Flush(FILE * file_)
+	FlushTo() = default;
+
+	FlushTo(FILE * file_)
 		: _file { file_ }
 	{}
 
 };
 
-static thread_local Flush flush { stdout };
+static thread_local FlushTo flush { stdout };
 
-struct Endl
+using flush_to = FlushTo; 
+
+struct EndLine
 {
 	FILE * _file = nullptr;
 
-	Endl() = default;
-	Endl(FILE * file_)
+	EndLine() = default;
+
+	EndLine(FILE * file_)
 		: _file { file_ }
 	{}
 
 };
 
-static thread_local Endl endl { stdout };
+static thread_local EndLine endl { stdout };
 
+using end_line = EndLine;
 
 static constexpr size_t 
 string_length(char const * pstring_) noexcept
