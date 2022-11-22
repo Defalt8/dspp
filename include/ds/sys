@@ -1,0 +1,420 @@
+#pragma once
+#ifndef DS_SYS
+#define DS_SYS
+
+#ifdef _WIN32
+#	include <direct.h>
+#	include <io.h>
+#	include <sys/types.h>
+#	include <sys/stat.h>
+#else
+#	include <sys/types.h>
+#	include <sys/stat.h>
+#	include <dirent.h>
+#	include <unistd.h>
+#	include <errno.h>
+#endif
+
+#include "common"
+
+namespace ds {
+namespace sys {
+
+  #ifdef _WIN32
+	static constexpr size_t max_path = 260;
+  #else
+	static constexpr size_t max_path = PATH_MAX;
+  #endif
+
+	static bool
+	exists(char const * path)
+	{
+		if(path != nullptr)
+		{
+		  #ifdef _WIN32
+			return _access(path, 0) == 0;
+		  #else
+			return access(path, 0) == 0;
+		  #endif
+		}
+		return false;
+	}
+
+	enum class type
+	{
+		does_not_exist = 0, // not available 
+		dir, 
+		regular_file, 
+		pipe, 
+		char_special, 
+		other_file,
+		other
+	};
+
+	static type
+	get_type(char const * path)
+	{
+		if(path != nullptr)
+		{
+		  #ifdef _WIN32
+			if(_access(path, 0) == 0)
+		 	{
+				struct _stat64i32 status {};
+				_stat(path, &status);
+				if((status.st_mode & _S_IFDIR) != 0)
+					return type::dir;
+				else if((status.st_mode & _S_IFREG) != 0)
+					return type::regular_file;
+				else if((status.st_mode & _S_IFIFO) != 0)
+					return type::pipe;
+				else if((status.st_mode & _S_IFCHR) != 0)
+					return type::char_special;
+				else if((status.st_mode & (_S_IFMT & ~_S_IFDIR)) != 0)
+					return type::other_file;
+				else
+					return type::other;
+			}
+		  #else
+			if(access(path, 0) == 0)
+		 	{
+				struct stat status;
+				stat(path, &status);
+				if((status.st_mode & S_IFDIR) != 0)
+					return type::dir;
+				else if((status.st_mode & S_IFREG) != 0)
+					return type::regular_file;
+				else if((status.st_mode & S_IFIFO) != 0)
+					return type::pipe;
+				else if((status.st_mode & S_IFCHR) != 0)
+					return type::char_special;
+				else if((status.st_mode & (S_IFMT & ~S_IFDIR)) != 0)
+					return type::other_file;
+				else
+					return type::other;
+			}
+		  #endif
+		}
+		return type::does_not_exist;
+	}
+
+	static bool 
+	is_dir(char const * abs_directory_path)
+	{
+		if(abs_directory_path != nullptr)
+		{
+		  #ifdef _WIN32
+			if(_access(abs_directory_path, 0) == 0)
+		 	{
+				struct _stat64i32 status {};
+				_stat(abs_directory_path, &status);
+				return (status.st_mode & _S_IFDIR) != 0;
+			}
+		  #else
+			if(access(abs_directory_path, 0) == 0)
+		 	{
+				struct stat status;
+				stat(abs_directory_path, &status);
+				return (status.st_mode & S_IFDIR) != 0;
+			}
+		  #endif
+		}
+		return false;
+	}
+
+	static bool
+	is_file(char const * file_path)
+	{
+		if(file_path != nullptr)
+		{
+		  #ifdef _WIN32
+			if(_access(file_path, 0) == 0)
+		 	{
+				struct _stat64i32 status {};
+				_stat(file_path, &status);
+				return (status.st_mode & (_S_IFMT & ~_S_IFDIR)) != 0;
+			}
+		  #else
+			if(access(file_path, 0) == 0)
+		 	{
+				struct stat status;
+				stat(file_path, &status);
+				return (status.st_mode & (S_IFMT & ~S_IFDIR)) != 0;
+			}
+		  #endif
+		}
+		return false;
+	}
+
+	static bool
+	is_regular_file(char const * file_path)
+	{
+		if(file_path != nullptr)
+		{
+		  #ifdef _WIN32
+			if(_access(file_path, 0) == 0)
+		 	{
+				struct _stat64i32 status {};
+				_stat(file_path, &status);
+				return (status.st_mode & (_S_IFMT & _S_IFREG)) != 0;
+			}
+		  #else
+			if(access(file_path, 0) == 0)
+		 	{
+				struct stat status;
+				stat(file_path, &status);
+				return (status.st_mode & (S_IFMT & S_IFREG)) != 0;
+			}
+		  #endif
+		}
+		return false;
+	}
+
+	enum class smkdir
+	{
+		ok = 0,
+		file_exists,
+		invalid_path,
+		name_too_long,
+		access_denied,
+		not_enough_space,
+		other
+	};
+
+	static smkdir
+	mkdir(char const * directory_path) noexcept
+	{
+		if(directory_path == nullptr)
+			return smkdir::invalid_path;
+		int _err;
+	  #if defined(_WIN32)
+		_err = _mkdir(directory_path);
+	  #else 
+		_err = ::mkdir(directory_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+	  #endif
+	  	if(_err == 0)
+			return smkdir::ok;
+		_err = int(errno);
+		if(_err == EEXIST && is_dir(directory_path))
+			return smkdir::ok;
+		else if(_err == ENOENT && ds::string_length(directory_path) > max_path)
+			return smkdir::name_too_long;
+		else if(_err == EEXIST && !is_dir(directory_path))
+			return smkdir::file_exists;
+	  	switch(_err)
+		{
+			case EEXIST:
+			case 0:             return smkdir::ok;
+			case ENOTDIR:       return smkdir::file_exists;
+			case EINVAL:
+			case ENOENT:       return smkdir::invalid_path;
+			case ENAMETOOLONG: return smkdir::name_too_long;
+			case EROFS:
+			case EACCES:       return smkdir::access_denied;
+			case ENOSPC:       return smkdir::not_enough_space;
+			default:           return smkdir::other;
+		}
+	}
+
+	static smkdir
+	mkdirs(char const * directory_path) noexcept
+	{
+		if(directory_path != nullptr)
+		{
+			bool _colon = false;
+			size_t sub_len_total = 0;
+			for(char const * it = directory_path; *it != '\0';)
+			{
+				size_t sub_len = 0;
+				bool terminate_ = false;
+				for(char const * sit = it;; ++sit)
+				{
+					char ch = *sit;
+					if(ch == ':')
+					{
+						if(_colon)
+							return smkdir::invalid_path;
+						_colon = true;
+						if(*(++sit) != '\0')
+							++sit;
+						continue;
+					}
+					terminate_ = ch == '\0';
+					if(ch == '\\' || ch == '/' || terminate_)
+					{
+						sub_len = size_t(sit - it);
+						if(sub_len > 0)
+						{
+							sub_len_total += sub_len;
+							break;
+						}
+					}
+				}
+				if(terminate_)
+					return mkdir(directory_path);
+				else
+				{
+					char subdirectory_path[max_path] {};
+					memcpy(&subdirectory_path[0], directory_path, sub_len_total);
+					auto _smkdir = mkdir(subdirectory_path);
+					if(_smkdir != smkdir::ok)
+						return _smkdir;
+				}
+				it += sub_len;
+			}
+		}
+		return smkdir::invalid_path;
+	}
+
+	enum class srmdir
+	{
+		ok = 0,
+		not_empty,
+		not_a_dir,
+		invalid_path,
+		name_too_long,
+		access_denied,
+		busy,
+		other
+	};
+
+	static srmdir
+	rmdir(char const * directory_path) noexcept
+	{
+		if(directory_path == nullptr)
+			return srmdir::invalid_path;
+		int _err;
+	  #if defined(_WIN32)
+		_err = _rmdir(directory_path);
+	  #else 
+		_err = ::rmdir(directory_path);
+	  #endif
+	  	if(_err == 0)
+			return srmdir::ok;
+		_err = int(errno);
+		if(_err == ENOENT && ds::string_length(directory_path) > max_path)
+			return srmdir::name_too_long;
+	  	switch(_err)
+		{
+			case 0:             return srmdir::ok;
+			case ENOTEMPTY:     return srmdir::not_empty;
+			case ENOTDIR:       return srmdir::not_a_dir;
+			case EINVAL:
+			case ENOENT:        return srmdir::invalid_path;
+			case ENAMETOOLONG:  return srmdir::name_too_long;
+			case EACCES:        return srmdir::access_denied;
+			case EBUSY:         return srmdir::busy;
+			default:            return srmdir::other;
+		}
+	}
+
+	enum class smkfile
+	{
+		ok = 0,
+		regular_file_exists,
+		irregular_file_exists,
+		dir_exists,
+		invalid_path,
+		name_too_long,
+		access_denied,
+		busy,
+		other
+	};
+
+	static smkfile
+	mkfile(char const * file_path) noexcept
+	{
+		if(file_path != nullptr)
+		{
+			auto _type = get_type(file_path);
+			if(_type == type::regular_file)
+				return smkfile::regular_file_exists;
+			else if(_type == type::dir)
+				return smkfile::dir_exists;
+			else if(_type != type::does_not_exist)
+				return smkfile::irregular_file_exists;
+			else
+			{
+				FILE * _handle= nullptr;
+			  #ifdef _MSC_VER
+			  	fopen_s(&_handle, file_path, "wb");
+			  #else
+			  	_handle = fopen(file_path, "wb");
+			  #endif
+				if(_handle != nullptr)
+				{
+					fclose(_handle);
+					return smkfile::ok;
+				}
+				else
+				{
+					int _err = int(errno);
+					if(_err == ENOENT && ds::string_length(file_path) > max_path)
+						return smkfile::name_too_long;
+					switch(_err)
+					{
+						case EINVAL:
+						case ENOENT:        return smkfile::invalid_path;
+						case ENAMETOOLONG:  return smkfile::name_too_long;
+						case EACCES:        return smkfile::access_denied;
+						case EBUSY:         return smkfile::busy;
+						default:            return smkfile::other;
+					}
+				}
+			}
+		}
+		return smkfile::invalid_path;
+	}
+
+	enum class srmfile
+	{
+		ok = 0,
+		not_a_file,
+		file_not_found,
+		invalid_path,
+		name_too_long,
+		access_denied,
+		busy,
+		other
+	};
+
+	static srmfile
+	rmfile(char const * file_path) noexcept
+	{
+		if(file_path != nullptr)
+		{
+			if(ds::string_length(file_path) > max_path)
+				return srmfile::name_too_long;
+			else
+			{
+				if(remove(file_path) == 0)
+					return srmfile::ok;
+				else
+				{
+					int _err = int(errno);
+					if(_err == ENOENT)
+					{
+						auto _type = get_type(file_path);
+						if(_type == type::does_not_exist)
+							return srmfile::file_not_found;
+						else if(_type != type::regular_file)
+							return srmfile::not_a_file;
+					}
+					switch(_err)
+					{
+						case EINVAL:
+						case ENOENT:        return srmfile::invalid_path;
+						case ENAMETOOLONG:  return srmfile::name_too_long;
+						case EACCES:        return srmfile::access_denied;
+						case EBUSY:         return srmfile::busy;
+						default:            return srmfile::other;
+					}
+				}
+			}
+		}
+		return srmfile::invalid_path;
+	}
+
+} // namespace sys
+} // namespace ds
+
+#endif // DS_SYS
