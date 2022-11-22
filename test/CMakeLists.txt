@@ -23,4 +23,8 @@ add_test( NAME fixed COMMAND fixed_test )
 add_executable( fixed_stack_test fixed_stack/fixed_stack.cpp ) 
 add_test( NAME fixed_stack COMMAND fixed_stack_test )
 
+add_executable( sys_test sys/sys.cpp ) 
+add_test( NAME sys COMMAND sys_test )
+target_compile_definitions( sys_test PRIVATE WORKING_DIR="${CMAKE_CURRENT_SOURCE_DIR}/_wdir/" )
+
 enable_testing()
