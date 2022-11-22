@@ -1,0 +1,140 @@
+#pragma once
+#ifndef DS_FILE
+#define DS_FILE
+
+#include "common"
+
+namespace ds {
+
+
+class File
+{
+ public:
+	using fsize_t = uint64_t;
+
+ private:
+	FILE * _handle = nullptr;
+
+	File(File const &) = delete;
+
+	inline bool
+	_seek(fsize_t offset_, int origin_ = SEEK_SET) const noexcept
+	{
+	  #ifdef __CYGWIN__
+		return fseek(_handle, offset_, origin_) == 0;
+	  #elif defined (_WIN32)
+		return _fseeki64(_handle, offset_, origin_) == 0;
+	  #else
+		return fseek(_handle, offset_, origin_) == 0;
+	  #endif
+	}
+
+	inline fsize_t
+	_tell() const noexcept
+	{
+	  #ifdef __CYGWIN__
+		fsize_t _size = fsize_t(ftell(_handle));
+	  #elif defined (_WIN32)
+		fsize_t _size = fsize_t(_ftelli64(_handle));
+	  #else
+		fsize_t _size = fsize_t(ftello(_handle));
+	  #endif
+		return _size;
+	}
+
+ public:
+	~File()
+	{
+		if(_handle)
+			fclose(_handle);
+	}
+
+  #ifdef _MSC_VER
+	File(char const * file_name, char const * open_mode)
+	{
+		fopen_s(&_handle, file_name, open_mode);
+	}
+  #else
+	File(char const * file_name, char const * open_mode)
+		: _handle { fopen(file_name, open_mode) }
+	{}
+  #endif
+	
+	File(File && rhs)
+		: _handle { rhs._handle }
+	{
+		rhs._handle = nullptr;
+	}
+	
+	bool
+	reopen(char const * file_name, char const * open_mode)
+	{
+		this->close();
+	  #ifdef _MSC_VER
+		fopen_s(&_handle, file_name, open_mode);
+	  #else
+		_handle = fopen(file_name, open_mode);
+	  #endif
+	  return _handle != nullptr;
+	}
+
+
+	void
+	close() noexcept
+	{
+		if(_handle)
+		{
+			fclose(_handle);
+			_handle = nullptr;
+		}
+	}
+
+	template <typename T = char>
+	size_t
+	write(T const * src_, size_t size_ = 1) noexcept
+	{
+		if(_handle)
+			return size_t(fwrite(src_, sizeof(T), size_, _handle));
+		return 0;
+	}
+
+	template <typename T = char>
+	size_t
+	read(T * dest_, size_t size_ = 1) noexcept
+	{
+		if(_handle)
+			return size_t(fread(dest_, sizeof(T), size_, _handle));
+		return 0;
+	}
+
+	fsize_t 
+	size() const noexcept 
+	{
+		if(_handle != nullptr)
+		{
+			fpos_t position {};
+			fgetpos(_handle, &position);
+			this->_seek(0, SEEK_END);
+			fsize_t _size = this->_tell();
+			fsetpos(_handle, &position);
+		  return _size;
+		}
+		return 0;
+	}
+
+	FILE * handle() const && noexcept = delete;
+	FILE * handle() const &  noexcept { return _handle; }
+
+	bool operator!() const noexcept { return _handle == nullptr; }
+
+	explicit inline operator bool()       noexcept { return _handle != nullptr; }
+	explicit inline operator bool() const noexcept { return _handle != nullptr; }
+
+};
+
+using file = File;
+
+
+} // namespace ds
+
+#endif // DS_FILE
