@@ -62,7 +62,8 @@ class StringStream
 		}
 		memcpy(&m_storage[m_position], pstring_, size_);
 		m_position += size_;
-		m_storage[m_position] = '\0';
+		if(m_position < m_storage.size())
+			m_storage[m_position] = '\0';
 		return size_;
 	}
 
@@ -87,7 +88,8 @@ class StringStream
 			m_storage[m_position + i++] = ch;
 		}
 		m_position += i;
-		m_storage[m_position] = '\0';
+		if(m_position < m_storage.size())
+			m_storage[m_position] = '\0';
 		return i;
 	}
 
