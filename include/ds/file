@@ -20,24 +20,24 @@ class File
 	inline bool
 	_seek(fsize_t offset_, int origin_ = SEEK_SET) const noexcept
 	{
-	  #ifdef __CYGWIN__
-		return fseek(_handle, offset_, origin_) == 0;
-	  #elif defined (_WIN32)
+	  #ifdef _MSC_VER
 		return _fseeki64(_handle, offset_, origin_) == 0;
-	  #else
+	  #elif defined(__CYGWIN__)
 		return fseek(_handle, offset_, origin_) == 0;
+	  #else
+		return fseeko64(_handle, offset_, origin_) == 0;
 	  #endif
 	}
 
 	inline fsize_t
 	_tell() const noexcept
 	{
-	  #ifdef __CYGWIN__
-		fsize_t _size = fsize_t(ftell(_handle));
-	  #elif defined (_WIN32)
+	  #ifdef _MSC_VER
 		fsize_t _size = fsize_t(_ftelli64(_handle));
+	  #elif defined(__CYGWIN__)
+		fsize_t _size = fsize_t(ftell(_handle));
 	  #else
-		fsize_t _size = fsize_t(ftello(_handle));
+		fsize_t _size = fsize_t(ftello64(_handle));
 	  #endif
 		return _size;
 	}
