@@ -285,6 +285,16 @@ class Array
 		rhs.m_size  = 0;
 	}
 
+	Array(Array && rhs, size_t truncated_size_) noexcept
+		: m_array { rhs.m_array }
+		, m_size  { ds::min(rhs.m_size, truncated_size_) }
+	{
+		if(m_array && rhs.m_size > m_size)
+			_::array_destructor<E>::destruct(&(*m_array)[m_size], rhs.m_size - m_size);
+		rhs.m_array = nullptr;
+		rhs.m_size  = 0;
+	}
+
 	Array(conditional_t<is_copy_constructible<E>::value,Array,impossible_t> const & rhs)
 		: m_array { _::array_copier<E,A>::_construct(_allocate(rhs.m_size), rhs.m_size, rhs) }
 		, m_size  { m_array ? rhs.m_size : 0 }
