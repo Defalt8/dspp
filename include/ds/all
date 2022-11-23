@@ -6,6 +6,8 @@
 #include "common"
 #include "traits/allocator"
 #include "traits/iterable"
+#include "sys"
+#include "file"
 #include "allocator"
 #include "unique"
 #include "shared"
