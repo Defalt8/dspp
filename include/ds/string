@@ -468,8 +468,10 @@ class String
 
 	String(String && rhs, size_t truncated_size_) noexcept
 		: m_array { rhs.m_array }
-		, m_size  { ds::min(rhs.m_size, truncated_size_) }
+		, m_size  { ds::min(rhs.m_size, truncated_size_ + 1) }
 	{
+		if(m_array)
+			(*m_array)[m_size - 1] = '\0';
 		rhs.m_array = nullptr;
 		rhs.m_size  = 0;
 	}
