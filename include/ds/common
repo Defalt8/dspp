@@ -108,6 +108,15 @@ template <typename T> struct remove_pointer<T * const volatile> : type_identity<
 template <typename T> using  remove_pointer_t = typename remove_pointer<T>::type;
 template <typename T> using  remove_ptr_t     = typename remove_pointer<T>::type;
 
+template <typename T> struct add_pointer       : type_identity<T *> {};
+template <typename T> struct add_pointer<T &>  : type_identity<T *> {};
+template <typename T> struct add_pointer<T &&> : type_identity<T *> {};
+template <typename T> using  add_pointer_t = typename add_pointer<T>::type;
+
+template <typename T> struct remove_pointer_cv : type_identity<add_pointer_t<remove_cv_t<remove_pointer_t<T>>>> {};
+template <typename T> using  remove_pointer_cv_t = typename remove_pointer_cv<T>::type;
+template <typename T> using  remove_ptr_cv_t     = typename remove_pointer_cv<T>::type;
+
 template <bool condition_, typename T> struct enable_if {};
 template <typename T>                  struct enable_if<true,T> : type_identity<T> {};
 template <bool condition_, typename T> using  enable_if_t = typename enable_if<condition_,T>::type;
@@ -236,7 +245,7 @@ namespace _ {
 	template <typename T
 			, typename = decltype(decl<T &>().~T())
 		> true_type  _test_destructible(int); 
-		
+
 	template <typename T> false_type _test_destructible(...); 
 } // namespace _
 
@@ -299,10 +308,22 @@ struct is_signed : bool_constant<bool(T(-1) < T(0))> {};
 template <typename T> 
 struct is_unsigned : bool_constant<bool(T(-1) > T(0))> {};
 
-template <typename T>   struct is_string              : false_type {};
-template <>             struct is_string<char *>      : true_type {};
-template <>             struct is_string<char[]>      : true_type {};
-template <size_t size_> struct is_string<char[size_]> : true_type {};
+namespace _ {
+	template <typename T>   struct _is_string                                 : false_type {};
+	template <>             struct _is_string<char[]>                         : true_type {};
+	template <size_t size_> struct _is_string<char[size_]>                    : true_type {};
+	template <>             struct _is_string<char *>                         : true_type {};
+	template <>             struct _is_string<char(*)[]>                      : true_type {};
+	template <size_t size_> struct _is_string<char(*)[size_]>                 : true_type {};
+} // namespace _
+
+template <typename T>   struct is_string : _::_is_string<
+		conditional_t<is_pointer<T>::value
+			, remove_pointer_cv_t<T>
+			, remove_cvref_t<T>
+		>
+	> 
+{};
 
 namespace _ {
 	template <class OST, typename T
