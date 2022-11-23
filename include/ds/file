@@ -122,7 +122,6 @@ class File
 		return 0;
 	}
 
-	FILE * handle() const && noexcept = delete;
 	FILE * handle() const &  noexcept { return _handle; }
 
 	bool operator!() const noexcept { return _handle == nullptr; }

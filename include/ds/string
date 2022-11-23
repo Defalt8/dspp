@@ -339,16 +339,16 @@ class StringView
 	constexpr char_t const * rbegin() const noexcept { return m_pstring == nullptr ? nullptr : m_pstring + min<size_t>(1, m_size) - 1; }
 	constexpr char_t const * rend  () const noexcept { return m_pstring == nullptr ? nullptr : m_pstring-1; }
 
-	constexpr StringView view() const noexcept { return { this->begin(), m_size }; }
+	constexpr StringView view() const & noexcept { return { this->begin(), m_size }; }
 
 	constexpr StringView 
-	view(size_t size_) const noexcept 
+	view(size_t size_) const & noexcept 
 	{
 		return { this->begin(), min(size_, m_size) };
 	}
 
 	constexpr StringView 
-	view(size_t start_, size_t size_) const noexcept 
+	view(size_t start_, size_t size_) const & noexcept 
 	{
 		return { this->begin() + start_, (min(start_ + size_, m_size) - start_) };
 	}
