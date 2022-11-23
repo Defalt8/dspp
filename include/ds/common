@@ -39,9 +39,9 @@ template <size_t size_, typename T> using fixed_cref_t = T const (&)[size_];
 template <size_t size_, typename T> using fixed_ptr_t  = T (*)[size_];
 template <size_t size_, typename T> using fixed_cptr_t = T const (*)[size_];
 
-template <typename E> using array_ref_t = E (&)[];
+template <typename E> using array_ref_t  = E (&)[];
 template <typename E> using array_cref_t = E const (&)[];
-template <typename E> using array_ptr_t = E (*)[];
+template <typename E> using array_ptr_t  = E (*)[];
 template <typename E> using array_cptr_t = E const (*)[];
 
 struct noinit_t {};
@@ -222,8 +222,22 @@ struct is_scalar : bool_constant<
 {};
 
 namespace _ {
-	template <typename T, typename = decltype(decl<T &>().~T())> true_type  _test_destructible(int); 
-	template <typename T>                                        false_type _test_destructible(...); 
+	template <typename T, typename... Args
+			, typename = decltype(T{decl<Args>()...})
+		> true_type  _test_aggregate_initializable(int);
+
+	template <typename T, typename... Args> false_type _test_aggregate_initializable(...);
+} // namespace _
+
+template <typename T, typename... Args>
+struct is_aggregate_initializable : decltype(_::_test_aggregate_initializable<T,Args...>(0)) {};
+
+namespace _ {
+	template <typename T
+			, typename = decltype(decl<T &>().~T())
+		> true_type  _test_destructible(int); 
+		
+	template <typename T> false_type _test_destructible(...); 
 } // namespace _
 
 template <typename T> struct is_destructible           : decltype(_::_test_destructible<T>(0)) {};
@@ -279,6 +293,17 @@ template <typename T> using is_move_assignable              = is_assignable<T,re
 template <typename T> using is_trivially_copy_assignable    = is_trivially_assignable<T,remove_cvref_t<T> const &>;
 template <typename T> using is_trivially_move_assignable    = is_trivially_assignable<T,remove_cvref_t<T> &&>;
 
+template <typename T> 
+struct is_signed : bool_constant<bool(T(-1) < T(0))> {};
+
+template <typename T> 
+struct is_unsigned : bool_constant<bool(T(-1) > T(0))> {};
+
+template <typename T>   struct is_string              : false_type {};
+template <>             struct is_string<char *>      : true_type {};
+template <>             struct is_string<char[]>      : true_type {};
+template <size_t size_> struct is_string<char[size_]> : true_type {};
+
 namespace _ {
 	template <class OST, typename T
 			, typename = decltype(decl<OST &>() >> decl<T const &>())
@@ -293,11 +318,6 @@ namespace _ {
 
 template <class OST, typename T> struct is_in_streamable  : decltype(_::is_in_streamable<OST,T>(0)) {};
 template <class OST, typename T> struct is_out_streamable : decltype(_::is_out_streamable<OST,T>(0)) {};
-
-template <typename T>   struct is_string              : false_type {};
-template <>             struct is_string<char *>      : true_type {};
-template <>             struct is_string<char[]>      : true_type {};
-template <size_t size_> struct is_string<char[size_]> : true_type {};
 
 
 template <typename T, typename U>
