@@ -86,6 +86,21 @@ using bool_constant = integral_constant<bool,value_>;
 using false_type = bool_constant<false>;
 using true_type  = bool_constant<true>;
 
+template <typename T> struct add_pointer       : type_identity<T *> {};
+template <typename T> struct add_pointer<T &>  : type_identity<T *> {};
+template <typename T> struct add_pointer<T &&> : type_identity<T *> {};
+template <typename T> using  add_pointer_t = typename add_pointer<T>::type;
+
+template <typename T> struct add_lvalue_reference       : type_identity<T &> {};
+template <typename T> struct add_lvalue_reference<T &>  : type_identity<T &> {};
+template <typename T> struct add_lvalue_reference<T &&> : type_identity<T &> {};
+template <typename T> using  add_lvalue_reference_t = typename add_lvalue_reference<T>::type;
+
+template <typename T> struct add_rvalue_reference       : type_identity<T &&> {};
+template <typename T> struct add_rvalue_reference<T &>  : type_identity<T &&> {};
+template <typename T> struct add_rvalue_reference<T &&> : type_identity<T &&> {};
+template <typename T> using  add_rvalue_reference_t = typename add_rvalue_reference<T>::type;
+
 template <typename T> struct remove_cv                   : type_identity<T> {};
 template <typename T> struct remove_cv<T const>          : type_identity<T> {};
 template <typename T> struct remove_cv<T volatile>       : type_identity<T> {};
@@ -96,7 +111,6 @@ template <typename T> struct remove_reference       : type_identity<T> {};
 template <typename T> struct remove_reference<T &>  : type_identity<T> {};
 template <typename T> struct remove_reference<T &&> : type_identity<T> {};
 template <typename T> using  remove_reference_t = typename remove_reference<T>::type;
-template <typename T> using  remove_ref_t       = typename remove_reference<T>::type;
 
 template <typename T> using  remove_cvref_t     = remove_cv_t<remove_reference_t<T>>;
 
@@ -106,16 +120,35 @@ template <typename T> struct remove_pointer<T * const>          : type_identity<
 template <typename T> struct remove_pointer<T * volatile>       : type_identity<T> {};
 template <typename T> struct remove_pointer<T * const volatile> : type_identity<T> {};
 template <typename T> using  remove_pointer_t = typename remove_pointer<T>::type;
-template <typename T> using  remove_ptr_t     = typename remove_pointer<T>::type;
-
-template <typename T> struct add_pointer       : type_identity<T *> {};
-template <typename T> struct add_pointer<T &>  : type_identity<T *> {};
-template <typename T> struct add_pointer<T &&> : type_identity<T *> {};
-template <typename T> using  add_pointer_t = typename add_pointer<T>::type;
 
 template <typename T> struct remove_pointer_cv : type_identity<add_pointer_t<remove_cv_t<remove_pointer_t<T>>>> {};
 template <typename T> using  remove_pointer_cv_t = typename remove_pointer_cv<T>::type;
-template <typename T> using  remove_ptr_cv_t     = typename remove_pointer_cv<T>::type;
+
+template <typename T> struct base_type : type_identity<remove_cv_t<remove_pointer_t<remove_cvref_t<T>>>> {}; 
+template <typename T> using  base_type_t = typename base_type<T>::type;
+
+namespace _ {
+	template <typename From, typename To> struct _copy_reference             : type_identity<To> {};
+	template <typename From, typename To> struct _copy_reference<From &,To>  : type_identity<To &> {};
+	template <typename From, typename To> struct _copy_reference<From &&,To> : type_identity<To &&> {};
+} // namespace _
+
+template <typename From, typename To> struct copy_reference : _::_copy_reference<From,remove_reference_t<To>> {};
+template <typename From, typename To> using  copy_reference_t = typename copy_reference<From,To>::type;
+template <typename From, typename To> using  copy_ref_t       = typename copy_reference<From,To>::type;
+
+namespace _ {
+	template <typename From, typename To> struct _copy_cv                         : type_identity<To> {};
+	template <typename From, typename To> struct _copy_cv<From const,To>          : type_identity<To const> {};
+	template <typename From, typename To> struct _copy_cv<From volatile,To>       : type_identity<To volatile> {};
+	template <typename From, typename To> struct _copy_cv<From const volatile,To> : type_identity<To const volatile> {};
+} // namespace _
+
+template <typename From, typename To> struct copy_cv : type_identity<
+		copy_reference_t<To,typename _::_copy_cv<remove_reference_t<From>,remove_reference_t<To>>::type>
+	> 
+{};
+template <typename From, typename To> using  copy_cv_t = typename copy_cv<From,To>::type;
 
 template <bool condition_, typename T> struct enable_if {};
 template <typename T>                  struct enable_if<true,T> : type_identity<T> {};
@@ -200,7 +233,18 @@ struct is_floating_point : bool_constant<
 {};
 
 template <typename T> struct is_arithmetic : bool_constant<is_integral<T>::value || is_floating_point<T>::value> {}; 
+
 template <typename T> struct is_enum       : bool_constant<__is_enum(T)>  {};
+
+template <typename T>
+struct is_scalar : bool_constant<
+		   is_arithmetic<T>::value 
+		|| is_enum<T>::value 
+		|| is_pointer<T>::value 
+		|| is_same<remove_cv_t<T>,nullptr_t>::value
+	> 
+{};
+
 template <typename T> struct is_union      : bool_constant<__is_union(T)> {};
 
 namespace _ {
@@ -220,15 +264,6 @@ template <typename T, class C> struct is_member_object_pointer<T C::*> : bool_co
 
 template <typename T>          struct is_member_function_pointer         : false_type {};
 template <typename T, class C> struct is_member_function_pointer<T C::*> : bool_constant<is_function<T>::value> {};
-
-template <typename T>
-struct is_scalar : bool_constant<
-		   is_arithmetic<T>::value 
-		|| is_enum<T>::value 
-		|| is_pointer<T>::value 
-		|| is_same<remove_cv_t<T>,nullptr_t>::value
-	> 
-{};
 
 namespace _ {
 	template <typename T, typename... Args
@@ -830,11 +865,11 @@ template <typename T> struct has_swap : decltype(_::_has_swap<T>(0)) {};
 
 namespace _ {
 	template <typename T
-			, bool = has_swap<remove_ref_t<T>>::value
-			, bool = is_array<remove_ref_t<T>>::value
-			, bool = is_pointer<remove_ref_t<T>>::value
-			, bool = (is_move_constructible<remove_ref_t<T>>::value && is_move_assignable<remove_ref_t<T>>::value)
-			, bool = (is_copy_constructible<remove_ref_t<T>>::value && is_copy_assignable<remove_ref_t<T>>::value)
+			, bool = has_swap<remove_reference_t<T>>::value
+			, bool = is_array<remove_reference_t<T>>::value
+			, bool = is_pointer<remove_reference_t<T>>::value
+			, bool = (is_move_constructible<remove_reference_t<T>>::value && is_move_assignable<remove_reference_t<T>>::value)
+			, bool = (is_copy_constructible<remove_reference_t<T>>::value && is_copy_assignable<remove_reference_t<T>>::value)
 		>
 	struct _swapper
 	{};
