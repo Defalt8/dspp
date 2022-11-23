@@ -65,6 +65,117 @@ static constexpr double   inff   = float(1e300 * 1e300);
 static constexpr double   inf    = double(1e300 * 1e300);
 #endif
 
+namespace _ {
+	static constexpr uint32_t _endian_test_u32  = uint32_t(0x01020304);
+	static constexpr uint8_t  _endian_test_byte = static_cast<uint8_t const &>(_endian_test_u32);
+} // namespace _
+
+static constexpr bool big_endian    = _::_endian_test_byte == 0x01;
+static constexpr bool little_endian = _::_endian_test_byte == 0x04;
+static constexpr bool middle_endian = _::_endian_test_byte == 0x02;
+static_assert(big_endian || little_endian || middle_endian,  "unknown endian");
+
+namespace _ {
+	template <typename T, size_t = sizeof(T)>
+	struct _to_bige
+	{};
+
+	template <typename T>
+	struct _to_bige<T,1>
+	{
+		static constexpr T
+		convert(T value)
+		{
+			return value;
+		}
+	};
+
+	template <typename T>
+	struct _to_bige<T,2>
+	{
+		static constexpr T
+		convert(T value)
+		{
+			return big_endian
+				? value
+				: (
+					  ((value & 0x00FF) << 8)
+					| ((value & 0xFF00) >> 8)
+				  );
+		}
+	};
+
+	template <typename T>
+	struct _to_bige<T,4>
+	{
+		static constexpr T
+		convert(T value)
+		{
+			return big_endian 
+				? value
+				: little_endian 
+					? (
+						  ((value & 0x000000FF) << 24)
+						| ((value & 0x0000FF00) << 8)
+						| ((value & 0x00FF0000) >> 8)
+						| ((value & 0xFF000000) >> 24)
+					  )
+					: (
+						  ((value & 0x00FF0000) << 8)
+						| ((value & 0xFF000000) >> 8)
+						| ((value & 0x000000FF) << 8)
+						| ((value & 0x0000FF00) >> 8)
+					  );
+		}
+	};
+
+	template <typename T>
+	struct _to_bige<T,8>
+	{
+		static constexpr T
+		convert(T value)
+		{
+			return big_endian 
+				? value
+				: little_endian 
+					? (
+						  ((value & 0x00000000000000FF) << 56)
+						| ((value & 0x000000000000FF00) << 40)
+						| ((value & 0x0000000000FF0000) << 24)
+						| ((value & 0x00000000FF000000) << 8)
+						| ((value & 0x000000FF00000000) >> 8)
+						| ((value & 0x0000FF0000000000) >> 24)
+						| ((value & 0x00FF000000000000) >> 40)
+						| ((value & 0xFF00000000000000) >> 56)
+					  )
+					: (
+						  ((value & 0x00FF000000000000) << 8)
+						| ((value & 0xFF00000000000000) >> 8)
+						| ((value & 0x000000FF00000000) << 8)
+						| ((value & 0x0000FF0000000000) >> 8)
+						| ((value & 0x0000000000FF0000) << 8)
+						| ((value & 0x00000000FF000000) >> 8)
+						| ((value & 0x00000000000000FF) << 8)
+						| ((value & 0x000000000000FF00) >> 8)
+					  );
+		}
+	};
+} // namespace _
+
+template <typename T>
+static constexpr T
+to_big_endian(T value)
+{
+	return _::_to_bige<T>::convert(value);
+}
+
+template <typename T>
+static constexpr T
+to_native_endian(T value)
+{
+	return _::_to_bige<T>::convert(value);
+}
+
 template <typename T> static constexpr T decl();
 
 template <typename T>
