@@ -466,6 +466,14 @@ class String
 		rhs.m_size  = 0;
 	}
 
+	String(String && rhs, size_t truncated_size_) noexcept
+		: m_array { rhs.m_array }
+		, m_size  { ds::min(rhs.m_size, truncated_size_) }
+	{
+		rhs.m_array = nullptr;
+		rhs.m_size  = 0;
+	}
+
 	String(String const & rhs)
 		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * rhs.m_size, _align_)) }
 		, m_size  { m_array != nullptr ? rhs.m_size : 0 }
