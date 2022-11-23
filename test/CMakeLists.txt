@@ -2,6 +2,9 @@
 
 link_libraries( dspp pptest )
 
+add_executable( meta_functions_test common/meta_functions.cpp ) 
+add_test( NAME meta_functions COMMAND meta_functions_test )
+
 add_executable( allocator_test allocator/allocator.cpp )
 add_test( NAME allocator COMMAND allocator_test )
 
