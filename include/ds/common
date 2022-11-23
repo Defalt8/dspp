@@ -120,6 +120,7 @@ template <typename... Ts> struct are_all_true : false_type {};
 
 namespace _ {
 	template <typename T, bool = T::value, typename... Ts> struct _are_all_true                : false_type {};
+	template <typename T>                                  struct _are_all_true<T,true>        : bool_constant<T::value> {};
 	template <typename T, typename... Ts>                  struct _are_all_true<T,true,Ts...>  : bool_constant<are_all_true<Ts...>::value> {};
 	template <typename T, typename... Ts>                  struct _are_all_true<T,false,Ts...> : false_type {};
 } // namespace _
@@ -130,18 +131,12 @@ template <typename... Ts> struct are_all_false : false_type {};
 
 namespace _ {
 	template <typename T, bool = T::value, typename... Ts> struct _are_all_false                : false_type {};
+	template <typename T>                                  struct _are_all_false<T,false>       : bool_constant<!T::value> {};
 	template <typename T, typename... Ts>                  struct _are_all_false<T,false,Ts...> : bool_constant<are_all_false<Ts...>::value> {};
 	template <typename T, typename... Ts>                  struct _are_all_false<T,true,Ts...>  : false_type {};
 } // namespace _
 
 template <typename T, typename... Ts> struct are_all_false<T,Ts...> : bool_constant<_::_are_all_false<T,T::value,Ts...>::value> {};
-
-template <typename T> struct is_const          : false_type {};
-template <typename T> struct is_const<T const> : true_type {};
-
-template <typename T> struct is_reference       : false_type {};
-template <typename T> struct is_reference<T &>  : true_type {};
-template <typename T> struct is_reference<T &&> : true_type {};
 
 template <typename T, typename U> struct is_same      : false_type {};
 template <typename T>             struct is_same<T,T> : true_type {};
@@ -150,6 +145,26 @@ template <typename T, typename... Ts>             struct is_type_in_pack        
 template <typename T>                             struct is_type_in_pack<T>         : false_type {};
 template <typename T, typename U, typename... Ts> struct is_type_in_pack<T,U,Ts...> : bool_constant<is_type_in_pack<T,Ts...>::value> {};
 template <typename T, typename... Ts>             struct is_type_in_pack<T,T,Ts...> : true_type {};
+
+template <typename T> struct is_const             : false_type {};
+template <typename T> struct is_const<T const>    : true_type {};
+template <typename T> struct is_const<T const &>  : true_type {};
+template <typename T> struct is_const<T const &&> : true_type {};
+
+template <typename T> struct is_reference       : false_type {};
+template <typename T> struct is_reference<T &>  : true_type {};
+template <typename T> struct is_reference<T &&> : true_type {};
+
+namespace _ {
+	template <typename T> struct _is_pointer      : false_type {};
+	template <typename T> struct _is_pointer<T *> : true_type {};
+} // namespace _
+
+template <typename T> struct is_pointer : _::_is_pointer<remove_cv_t<T>> {};
+
+template <typename T>               struct is_array           : false_type {};
+template <typename T>               struct is_array<T[]>      : true_type {};
+template <typename T, size_t size_> struct is_array<T[size_]> : true_type {};
 
 template <typename T>
 struct is_integral : bool_constant<
@@ -185,18 +200,8 @@ namespace _ {
 } // namespace _
 
 template <typename T> struct is_class    : decltype(_::_class_test<T>(nullptr)) {};
+
 template <typename T> struct is_function : bool_constant<!is_class<T>::value && !is_const<T const>::value && !is_reference<T>::value> {};
-
-template <typename T>               struct is_array           : false_type {};
-template <typename T>               struct is_array<T[]>      : true_type {};
-template <typename T, size_t size_> struct is_array<T[size_]> : true_type {};
-
-namespace _ {
-	template <typename T> struct _is_pointer      : false_type {};
-	template <typename T> struct _is_pointer<T *> : true_type {};
-} // namespace _
-
-template <typename T> struct is_pointer : bool_constant<_::_is_pointer<remove_cv_t<T>>::value> {};
 
 template <typename T>          struct is_member_pointer         : false_type {};
 template <typename T, class C> struct is_member_pointer<T C::*> : true_type {};
@@ -273,9 +278,6 @@ template <typename T> using is_copy_assignable              = is_assignable<T,re
 template <typename T> using is_move_assignable              = is_assignable<T,remove_cvref_t<T> &&>;
 template <typename T> using is_trivially_copy_assignable    = is_trivially_assignable<T,remove_cvref_t<T> const &>;
 template <typename T> using is_trivially_move_assignable    = is_trivially_assignable<T,remove_cvref_t<T> &&>;
-
-template <typename C, typename T, typename... Ts> struct is_constructible_by_all      : bool_constant<is_constructible<C,T>::value && is_constructible_by_all<C,Ts...>::value> {};
-template <typename C, typename T>                 struct is_constructible_by_all<C,T> : bool_constant<is_constructible<C,T>::value> {};
 
 namespace _ {
 	template <class OST, typename T
