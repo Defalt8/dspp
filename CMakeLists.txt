@@ -1,5 +1,5 @@
 cmake_minimum_required( VERSION 3.4 )
-project( dspp VERSION 0.23.96 LANGUAGES CXX )
+project( dspp VERSION 0.23.97 LANGUAGES CXX )
 
 set( DS_HEADER_FILES
 	include/ds/all

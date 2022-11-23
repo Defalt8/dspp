@@ -1,3 +1,3 @@
-# dspp v0.23.96
+# dspp v0.23.97
 
 A portable C++ library with good data-structures.
