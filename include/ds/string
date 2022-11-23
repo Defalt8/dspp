@@ -109,6 +109,11 @@ class StringView
 		, m_size    { size_ - 1 }
 	{}
 
+	constexpr StringView(char_t const * pstring_)
+		: m_pstring { pstring_ }
+		, m_size    { string_length(pstring_) }
+	{}
+
 	constexpr StringView(char_t const * pstring_, size_t length_)
 		: m_pstring { pstring_ }
 		, m_size    { length_ }
