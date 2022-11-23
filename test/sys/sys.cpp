@@ -8,6 +8,11 @@ Test(sys_test)
 
 	static constexpr char const * existing_dir_path  = WORKING_DIR"_test_dir";
 	static constexpr char const * existing_file_path = WORKING_DIR"_test_file.txt";
+  #ifdef _WIN32
+	static constexpr char const * invalid_path       = WORKING_DIR"?<|>";
+  #else
+	static constexpr char const * invalid_path       = "";
+  #endif
 
 	Testcase(test_exists)
 	{
@@ -108,7 +113,8 @@ Test(sys_test)
 			e = 'e';
 		_max_path[ds::sys::max_path+1] = '\0';
 		ExpectEQ(ds::sys::mkdir(nullptr), ds::sys::smkdir::invalid_path);
-		ExpectEQ(ds::sys::mkdir("89*()&(*&"), ds::sys::smkdir::invalid_path);
+		ExpectEQ(ds::sys::mkdir(invalid_path), ds::sys::smkdir::invalid_path);
+		ExpectEQ(ds::sys::mkdir(""), ds::sys::smkdir::invalid_path);
 		ExpectEQ(ds::sys::mkdir(_max_path), ds::sys::smkdir::name_too_long);
 
 	} TestcaseEnd(test_mkdir_invalid_path);
@@ -147,7 +153,8 @@ Test(sys_test)
 			e = 'e';
 		_max_path[ds::sys::max_path+1] = '\0';
 		ExpectEQ(ds::sys::mkdirs(nullptr), ds::sys::smkdir::invalid_path);
-		ExpectEQ(ds::sys::mkdirs("89*()&(*&"), ds::sys::smkdir::invalid_path);
+		ExpectEQ(ds::sys::mkdirs(invalid_path), ds::sys::smkdir::invalid_path);
+		ExpectEQ(ds::sys::mkdirs(""), ds::sys::smkdir::invalid_path);
 		ExpectEQ(ds::sys::mkdirs(_max_path), ds::sys::smkdir::name_too_long);
 
 	} TestcaseEnd(test_mkdirs_invalid_path);
@@ -177,7 +184,8 @@ Test(sys_test)
 			e = 'e';
 		_max_path[ds::sys::max_path+1] = '\0';
 		ExpectEQ(ds::sys::rmdir(nullptr), ds::sys::srmdir::invalid_path);
-		ExpectEQ(ds::sys::rmdir("89*()&(*&"), ds::sys::srmdir::invalid_path);
+		ExpectEQ(ds::sys::rmdir(invalid_path), ds::sys::srmdir::invalid_path);
+		ExpectEQ(ds::sys::rmdir(""), ds::sys::srmdir::invalid_path);
 		ExpectEQ(ds::sys::rmdir(_max_path), ds::sys::srmdir::name_too_long);
 
 	} TestcaseEnd(test_rmdir_invalid_path);
@@ -229,7 +237,8 @@ Test(sys_test)
 			e = 'e';
 		_max_path[ds::sys::max_path+1] = '\0';
 		ExpectEQ(ds::sys::mkfile(nullptr), ds::sys::smkfile::invalid_path);
-		ExpectEQ(ds::sys::mkfile("89*()&(*&"), ds::sys::smkfile::invalid_path);
+		ExpectEQ(ds::sys::mkfile(invalid_path), ds::sys::smkfile::invalid_path);
+		ExpectEQ(ds::sys::mkfile(""), ds::sys::smkfile::invalid_path);
 		ExpectEQ(ds::sys::mkfile(_max_path), ds::sys::smkfile::name_too_long);
 
 	} TestcaseEnd(test_mkfile_invalid_path);
@@ -267,7 +276,8 @@ Test(sys_test)
 			e = 'e';
 		_max_path[ds::sys::max_path+1] = '\0';
 		ExpectEQ(ds::sys::rmfile(nullptr), ds::sys::srmfile::invalid_path);
-		ExpectEQ(ds::sys::rmfile("89*()&(*&"), ds::sys::srmfile::invalid_path);
+		ExpectEQ(ds::sys::rmfile(invalid_path), ds::sys::srmfile::invalid_path);
+		ExpectEQ(ds::sys::rmfile(""), ds::sys::srmfile::invalid_path);
 		ExpectEQ(ds::sys::rmfile(_max_path), ds::sys::srmfile::name_too_long);
 
 	} TestcaseEnd(test_rmfile_invalid_path);

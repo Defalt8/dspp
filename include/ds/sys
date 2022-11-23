@@ -54,7 +54,7 @@ namespace sys {
 	static type
 	get_type(char const * path)
 	{
-		if(path != nullptr)
+		if(path != nullptr && *path != '\0')
 		{
 		  #ifdef _MSC_VER
 			if(_access(path, 0) == 0)
@@ -98,22 +98,22 @@ namespace sys {
 	}
 
 	static bool 
-	is_dir(char const * abs_directory_path)
+	is_dir(char const * directory_path)
 	{
-		if(abs_directory_path != nullptr)
+		if(directory_path != nullptr && *directory_path != '\0')
 		{
 		  #ifdef _MSC_VER
-			if(_access(abs_directory_path, 0) == 0)
+			if(_access(directory_path, 0) == 0)
 		 	{
 				struct _stat64i32 status {};
-				_stat(abs_directory_path, &status);
+				_stat(directory_path, &status);
 				return (status.st_mode & _S_IFDIR) != 0;
 			}
 		  #else
-			if(access(abs_directory_path, 0) == 0)
+			if(access(directory_path, 0) == 0)
 		 	{
 				struct stat status;
-				stat(abs_directory_path, &status);
+				stat(directory_path, &status);
 				return (status.st_mode & S_IFDIR) != 0;
 			}
 		  #endif
@@ -124,7 +124,7 @@ namespace sys {
 	static bool
 	is_file(char const * file_path)
 	{
-		if(file_path != nullptr)
+		if(file_path != nullptr && *file_path != '\0')
 		{
 		  #ifdef _MSC_VER
 			if(_access(file_path, 0) == 0)
@@ -148,7 +148,7 @@ namespace sys {
 	static bool
 	is_regular_file(char const * file_path)
 	{
-		if(file_path != nullptr)
+		if(file_path != nullptr && *file_path != '\0')
 		{
 		  #ifdef _MSC_VER
 			if(_access(file_path, 0) == 0)
@@ -183,7 +183,7 @@ namespace sys {
 	static smkdir
 	mkdir(char const * directory_path) noexcept
 	{
-		if(directory_path == nullptr)
+		if(directory_path == nullptr || *directory_path == '\0')
 			return smkdir::invalid_path;
 		int _err;
 	  #if defined(_WIN32)
@@ -218,7 +218,7 @@ namespace sys {
 	static smkdir
 	mkdirs(char const * directory_path) noexcept
 	{
-		if(directory_path != nullptr)
+		if(directory_path != nullptr && *directory_path != '\0')
 		{
 			bool _colon = false;
 			size_t sub_len_total = 0;
@@ -280,7 +280,7 @@ namespace sys {
 	static srmdir
 	rmdir(char const * directory_path) noexcept
 	{
-		if(directory_path == nullptr)
+		if(directory_path == nullptr || *directory_path == '\0')
 			return srmdir::invalid_path;
 		int _err;
 	  #if defined(_WIN32)
@@ -323,7 +323,7 @@ namespace sys {
 	static smkfile
 	mkfile(char const * file_path) noexcept
 	{
-		if(file_path != nullptr)
+		if(file_path != nullptr && *file_path != '\0')
 		{
 			auto _type = get_type(file_path);
 			if(_type == type::regular_file)
@@ -334,7 +334,7 @@ namespace sys {
 				return smkfile::irregular_file_exists;
 			else
 			{
-				FILE * _handle= nullptr;
+				FILE * _handle = nullptr;
 			  #ifdef _MSC_VER
 			  	fopen_s(&_handle, file_path, "wb");
 			  #else
@@ -380,7 +380,7 @@ namespace sys {
 	static srmfile
 	rmfile(char const * file_path) noexcept
 	{
-		if(file_path != nullptr)
+		if(file_path != nullptr && *file_path != '\0')
 		{
 			if(ds::string_length(file_path) > max_path)
 				return srmfile::name_too_long;
