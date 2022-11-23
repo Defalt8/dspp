@@ -762,8 +762,8 @@ class List<1,E,A>
 			, typename T_ = conditional_t<is_same<C,remove_cvref_t<C>>::value,E_,E_ const &>
 			, enable_if_t<
 				( !is_same<remove_cvref_t<C>,List>::value
-				&& iterable_has_element<remove_ref_t<C>>::value
-				&& iterable_has_forward_iterator<remove_ref_t<C>>::value
+				&& iterable_has_element<remove_reference_t<C>>::value
+				&& iterable_has_forward_iterator<remove_reference_t<C>>::value
 				&& is_constructible<E,T_>::value)
 			, int> = 0
 		>
@@ -1149,8 +1149,8 @@ class List<2,E,A>
 			, typename T_ = conditional_t<is_same<C,remove_cvref_t<C>>::value,E_,E_ const &>
 			, enable_if_t<
 				( !is_same<remove_cvref_t<C>,List>::value
-				&& iterable_has_element<remove_ref_t<C>>::value
-				&& iterable_has_forward_iterator<remove_ref_t<C>>::value
+				&& iterable_has_element<remove_reference_t<C>>::value
+				&& iterable_has_forward_iterator<remove_reference_t<C>>::value
 				&& is_constructible<E,T_>::value)
 			, int> = 0
 		>
@@ -1168,10 +1168,10 @@ class List<2,E,A>
 			, typename T1_ = conditional_t<is_same<C1,remove_cvref_t<C1>>::value,E1_,E1_ const &>
 			, typename T2_ = conditional_t<is_same<C2,remove_cvref_t<C2>>::value,E2_,E2_ const &>
 			, enable_if_t<
-				  (iterable_has_element<remove_ref_t<C1>>::value
-				&& iterable_has_element<remove_ref_t<C2>>::value
-				&& iterable_has_forward_iterator<remove_ref_t<C1>>::value
-				&& iterable_has_forward_iterator<remove_ref_t<C2>>::value
+				  (iterable_has_element<remove_reference_t<C1>>::value
+				&& iterable_has_element<remove_reference_t<C2>>::value
+				&& iterable_has_forward_iterator<remove_reference_t<C1>>::value
+				&& iterable_has_forward_iterator<remove_reference_t<C2>>::value
 				&& is_constructible<E,T1_>::value
 				&& is_constructible<E,T2_>::value)
 			,int> = 0
@@ -1238,8 +1238,8 @@ class List<2,E,A>
 			, typename T_ = conditional_t<is_same<C,remove_cvref_t<C>>::value,E_,E_ const &>
 			, enable_if_t<
 				( !is_same<remove_cvref_t<C>,List>::value
-				&& iterable_has_element<remove_ref_t<C>>::value
-				&& iterable_has_forward_iterator<remove_ref_t<C>>::value
+				&& iterable_has_element<remove_reference_t<C>>::value
+				&& iterable_has_forward_iterator<remove_reference_t<C>>::value
 				&& is_constructible<E,T_>::value)
 			, int> = 0
 		>
