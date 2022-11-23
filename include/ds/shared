@@ -85,16 +85,6 @@ class Shared
 		char const * what() const noexcept { return "null pointer"; }
 	};
 
-	static constexpr size_t usage() noexcept { return sizeof(Storage) + sizeof(T); }
-	// amount of dynamic memory required to continuously create 'count_' `Shared` objects  
-	static constexpr size_t 
-	usage(size_t count_) noexcept 
-	{
-		constexpr size_t single_ = usage();
-		constexpr size_t offset_ = -single_ & (alignof(Storage) - 1);
-		return (single_ + offset_) * count_;
-	}
-
 	~Shared() noexcept
 	{
 		this->destroy();
@@ -272,10 +262,19 @@ using nt_shared = Shared<T,A>;
 
 
 template <typename T, class A>
-struct usage<Shared<T,A>> { static constexpr size_t value = Shared<T,A>::usage(); };
+struct usage<Shared<T,A>> 
+{
+	static constexpr size_t value = sizeof(Shared<T,A>::Storage) + sizeof(T) + usage<T>::value;
+};
 
 template <typename T, class A, size_t count_>
-struct usage_n<Shared<T,A>,count_> { static constexpr size_t value = Shared<T,A>::usage(count_); };
+struct usage_n<Shared<T,A>,count_> 
+{
+	static constexpr size_t _single = usage<Shared<T,A>>::value;
+	static constexpr size_t _offset = (~_single+1) & (alignof(T) - 1);
+	static constexpr size_t value   = (_single + _offset) * count_; 
+};
+
 
 template <class OST, typename T, class A
 		, enable_if_t<is_out_streamable<OST,decltype(decl<Shared<T,A> const &>().ref())>::value,int> = 0

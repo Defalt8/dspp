@@ -309,15 +309,20 @@ template <size_t size_, typename E>
 using fixed = Fixed<size_,E>;
 
 
-template <size_t fsz_, typename E, size_t size_>
-struct usage_s<Fixed<fsz_,E>,size_> { static constexpr size_t value = sizeof(E) * size_ + usage_n<E,size_>::value; };
-
-template <size_t fsz_, typename E, size_t size_, size_t count_>
-struct usage_sn<Fixed<fsz_,E>,size_,count_>
+template <size_t size_, typename E>
+struct usage<Fixed<size_,E>> 
 {
-	static constexpr size_t _single = usage_s<Fixed<fsz_,E>,size_>::value;
-	static constexpr size_t value = (_single + (-_single & (alignof(E) - 1))) * count_;
+	static constexpr size_t value = sizeof(E) * size_ + usage_n<E,size_>::value; 
 };
+
+template <size_t size_, typename E, size_t count_>
+struct usage_n<Fixed<size_,E>,count_>
+{
+	static constexpr size_t _single = usage<Fixed<size_,E>>::value;
+	static constexpr size_t _offset = (~_single+1) & (alignof(E) - 1);
+	static constexpr size_t value   = (_single + _offset) * count_;
+};
+
 
 template <size_t size_, typename E>
 struct inserter<Fixed<size_,E>,E>

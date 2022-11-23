@@ -332,17 +332,10 @@ template <class A = ds::default_nt_allocator>
 using nt_string_stream = StringStream<A>;
 
 template <class A, size_t size_>
-struct usage_s<StringStream<A>,size_>
-{
-	static constexpr size_t value = usage_s<typename StringStream<A>::storage_t,size_>::value;
-};
+struct usage_s<StringStream<A>,size_> : usage_s<typename StringStream<A>::storage_t,size_> {};
 
 template <class A, size_t size_, size_t count_>
-struct usage_sn<StringStream<A>,size_,count_>
-{
-	static constexpr size_t _single = usage_s<StringStream<A>,size_>::value;
-	static constexpr size_t value = _single * count_;
-};
+struct usage_sn<StringStream<A>,size_,count_> : usage_sn<typename StringStream<A>::storage_t,size_,count_> {};
 
 
 } // namespace ds
