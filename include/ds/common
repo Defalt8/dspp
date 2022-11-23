@@ -20,6 +20,8 @@
 
 namespace ds {
 
+static constexpr struct Version { int major, minor, patch; } version { 0, 23, 96 };
+
 using std::exception;
 using std::bad_alloc;
 using std::nothrow_t;
