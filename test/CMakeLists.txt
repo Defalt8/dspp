@@ -5,8 +5,8 @@ link_libraries( dspp pptest )
 add_executable( allocator_test allocator/allocator.cpp )
 add_test( NAME allocator COMMAND allocator_test )
 
-add_executable( allocator_nt_test allocator/allocator_nt.cpp )
-add_test( NAME allocator_nt COMMAND allocator_nt_test )
+add_executable( nt_allocator_test allocator/nt_allocator.cpp )
+add_test( NAME nt_allocator COMMAND nt_allocator_test )
 
 add_executable( unique_test unique/unique.cpp ) 
 add_test( NAME unique COMMAND unique_test )

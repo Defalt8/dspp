@@ -31,7 +31,7 @@ Test(new_delete_allocator_test)
 		ExpectThrow(ds::new_delete_allocator::allocation_failure const &, block_ = ds::new_delete_allocator::allocate(size_));
 		ExpectNull(block_);
 		ds::new_delete_allocator::deallocate(block_);
-		ExpectThrow(std::bad_alloc const &, block_ = ds::new_delete_allocator::allocate(size_));
+		ExpectThrow(ds::bad_alloc const &, block_ = ds::new_delete_allocator::allocate(size_));
 		ExpectNull(block_);
 		ds::new_delete_allocator::deallocate(block_);
 	} TestcaseEnd(test_failing_allocation);

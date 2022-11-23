@@ -54,7 +54,7 @@ class NewDeleteNTAllocator
 
 };
 
-using new_delete_allocator_nt = NewDeleteNTAllocator;
+using new_delete_nt_allocator = NewDeleteNTAllocator;
 
 
 // throwing base allocator
@@ -99,7 +99,7 @@ class AllocatorNTBase
 
 };
 
-using allocator_nt_base = AllocatorNTBase;
+using nt_allocator_base = AllocatorNTBase;
 
 // a throwing static interface to non-static allocator types
 template <class UID_, class A>
@@ -245,7 +245,7 @@ template <class UID, class A>
 thread_local AllocatorNTInterface<UID,A> * AllocatorNTInterface<UID,A>::_owner = nullptr;
 
 template <class UID, class A>
-using allocator_nt_interface = AllocatorNTInterface<UID,A>;
+using nt_allocator_interface = AllocatorNTInterface<UID,A>;
 
 
 // a throwing helper class to store and manage non-static allocators and their interface
@@ -295,7 +295,7 @@ class AllocatorNTWrapper
 };
 
 template <class UID, class A>
-using allocator_nt_wrapper = AllocatorNTWrapper<UID,A>;
+using nt_allocator_wrapper = AllocatorNTWrapper<UID,A>;
 
 
 template <size_t size_, size_t align_ = alignof(max_align_t)>
