@@ -1812,6 +1812,46 @@ contians(char const (& lhs)[lsize_], char const (& rhs)[rsize_]) noexcept
 	return false;
 }
 
+template <typename T>
+static constexpr T
+factorial(T n)
+{
+	return n <= 1 ? 1 : n * factorial(n - 1);
+} 
+
+template <typename E
+		, typename = decltype(decl<E>() + decl<size_t>())
+		, typename = decltype(*decl<E>())
+		, typename = decltype(decl<E>() - decl<E>())
+		, typename = decltype(ds::swap(*decl<E>(), *decl<E>()))
+	>
+static void
+permutate(uint64_t seq_n_, E begin_, E end_)
+{
+	size_t size_ = size_t(end_ - begin_);
+	if(size_ <= 1)
+		return;
+	uint64_t N          = factorial<uint64_t>(size_ - 1);
+	size_t   i          = size_t(seq_n_ / N);
+	size_t   next_perm_ = size_t(seq_n_ % N);
+	if(i > 0)
+		ds::swap(*begin_, *(begin_ + i));
+	if(next_perm_ > 0)
+		permutate(next_perm_, begin_ + 1, end_);
+}
+
+template <class C
+		, typename Begin = decltype(begin(decl<C>()))
+		, typename End   = decltype(end(decl<C>()))
+		, typename       = decltype(decl<End &>() - decl<Begin &>())
+	>
+static C &&
+permutate(uint64_t seq_n_, C && iterable)
+{
+	permutate(seq_n_, ds::begin(iterable), ds::end(iterable));
+	return ds::forward<C>(iterable);
+}
+
 } // namespace ds
 
 #endif // DS_COMMON
