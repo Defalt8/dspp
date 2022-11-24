@@ -529,6 +529,14 @@ next_prime(T value) noexcept
 	return value;
 }
 
+template <typename T>
+static constexpr T 
+previous_prime(T value) noexcept
+{
+	while(!is_prime(--value));
+	return value;
+}
+
 template <typename T, size_t size_>
 static fixed_cref_t<size_,T>
 gen_prime_squares() noexcept
