@@ -533,7 +533,7 @@ template <typename T, size_t size_>
 static fixed_cref_t<size_,T>
 gen_prime_squares() noexcept
 {
-	static size_t prime_squares[size_];
+	static T prime_squares[size_];
 	size_t prime_ = 1;
 	for(auto & e : prime_squares)
 	{
@@ -632,7 +632,8 @@ template <> struct floating_point_index<float>       : integral_constant<size_t,
 template <> struct floating_point_index<double>      : integral_constant<size_t,1> {};
 template <> struct floating_point_index<long double> : integral_constant<size_t,2> {};
 
-static constexpr char const * integral_format[]
+static constexpr char const * 
+integral_format[]
 {
 	"%hhd", "%hhu", "%hd", "%hu", "%ld", "%lu", "%lld", "%llu"
 };

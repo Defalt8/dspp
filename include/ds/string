@@ -441,6 +441,14 @@ class String
 		dest[i] = '\0';
 	}
 
+	static constexpr size_t
+	_get_size(char_t const * pstring_, size_t & length_)
+	{
+		if(length_ == size_t(-1))
+			length_ = string_length(pstring_);
+		return _size_ * (length_ + 1);
+	}
+
  public:
 	struct null_pointer : public exception
 	{
@@ -539,10 +547,16 @@ class String
 			_copy(&(*m_array)[0], &cstring[0], size_);
 	}
 
-	String(char_t const * pstring, size_t length_ = size_t(-1))
-		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (
-				(length_ == size_t(-1) ? (length_ = string_length(pstring)) : length_) + 1
-			), _align_)) }
+	String(char_t const * pstring)
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (string_length(pstring) + 1), _align_)) }
+		, m_size  { m_array != nullptr ? (string_length(pstring) + 1) : 0 }
+	{
+		if(m_array != nullptr)
+			_copy_s(&(*m_array)[0], &pstring[0], m_size - 1);
+	}
+
+	String(char_t const * pstring, size_t length_)
+		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_get_size(pstring, length_), _align_)) }
 		, m_size  { m_array != nullptr ? (length_ + 1) : 0 }
 	{
 		if(m_array != nullptr)

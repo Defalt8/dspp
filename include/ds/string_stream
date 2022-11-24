@@ -7,6 +7,14 @@
 
 namespace ds {
 
+namespace _ {
+	template <size_t> struct _ptr_fmt   { static constexpr char const * value = "%zx"; };
+	template <>       struct _ptr_fmt<1>{ static constexpr char const * value = "%02zx"; };
+	template <>       struct _ptr_fmt<2>{ static constexpr char const * value = "%04zx"; };
+	template <>       struct _ptr_fmt<4>{ static constexpr char const * value = "%08zx"; };
+	template <>       struct _ptr_fmt<8>{ static constexpr char const * value = "%016zx"; };
+} // namespace _
+
 template <class A = ds::default_allocator>
 class StringStream
 {
@@ -159,13 +167,14 @@ class StringStream
 		return *this;
 	}
 
+
 	template <typename T>
 	StringStream &
 	operator<<(T * ptr_)
 	{
 		constexpr size_t buff_size = 30;
-		char_t buffer[buff_size+2] { '0','x' };
-		int n = snprintf(&buffer[2], buff_size, "%p", ptr_);
+		char_t buffer[buff_size+2] { '0', 'x' };
+		int n = snprintf(&buffer[2], buff_size, _::_ptr_fmt<sizeof(size_t)>::value, size_t(ptr_));
 		if(n > 0) 
 			this->write(buffer, n+2);
 		return *this;
