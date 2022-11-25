@@ -196,10 +196,10 @@ class StringStream
 	{
 		constexpr size_t buff_size = 32;
 		char_t buffer[buff_size];
-		constexpr auto & format = integral_format[integral_index<T_>::value];
-		int n = snprintf(buffer, buff_size, format, int_);
+		constexpr auto format = integral_format[integral_index<T_>::value];
+		int n = snprintf(&buffer[0], buff_size, format, int_);
 		if(n > 0) 
-			this->write(buffer, n);
+			this->write(&buffer[0], n);
 		return *this;
 	}
 
@@ -209,7 +209,7 @@ class StringStream
 	{
 		constexpr size_t buff_size = 32;
 		char_t buffer[buff_size+2];
-		constexpr auto & format = floating_point_generic_format[floating_point_index<T_>::value];
+		constexpr auto format = floating_point_generic_format[floating_point_index<T_>::value];
 		int n = snprintf(buffer, buff_size, format, float_);
 		if(n > 0)
 		{
