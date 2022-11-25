@@ -192,6 +192,7 @@ struct integral_constant
 	constexpr T operator()() const noexcept { return value; };
 	constexpr operator T() const noexcept { return value; };
 };
+template <typename T, T value_> constexpr T integral_constant<T,value_>::value;
 
 template <bool value_>
 using bool_constant = integral_constant<bool,value_>;
@@ -640,11 +641,19 @@ template <> struct floating_point_index<float>       : integral_constant<size_t,
 template <> struct floating_point_index<double>      : integral_constant<size_t,1> {};
 template <> struct floating_point_index<long double> : integral_constant<size_t,2> {};
 
+#ifdef _WIN32
 static constexpr char const * 
 integral_format[]
 {
-	"%hhd", "%hhu", "%hd", "%hu", "%ld", "%lu", "%lld", "%llu"
+	"%hhd", "%hhu", "%hd", "%hu", "%d", "%u", "%I64i", "%I64u"
 };
+#else
+static constexpr char const * 
+integral_format[]
+{
+	"%hhd", "%hhu", "%hd", "%hu", "%d", "%u", "%li", "%lu"
+};
+#endif
 
 static constexpr char const * 
 floating_point_format[]
@@ -1137,6 +1146,7 @@ struct Sequence
 
 };
 
+template <typename T> using sequence = Sequence<T>;
 
 struct FlushTo
 {
@@ -1325,6 +1335,11 @@ using inserter_t = conditional_t<has_inserter<remove_reference_t<C>,E>::value
 		, void
 	>;
 
+template <class C, typename E = typename traits::iterable<C>::element_t>
+using enabled_inserter_t = enable_if_t<has_inserter<remove_reference_t<C>,E>::value
+		, ds::inserter<C,E>
+	>;
+
 
 template <typename K, typename V>
 struct Entry
@@ -1419,9 +1434,10 @@ operator<<(OST && ost, ds::Entry<K,V> const & rhs)
 
 
 template <class OST, typename C
-		, typename IT = decltype(decl<C const &>().begin())
+		, typename SZ = decltype(size(decl<C const &>()))
+		, typename IT = decltype(begin(decl<C const &>()))
 		, typename ET = decltype(*decl<IT &>())
-		, typename    = decltype(decl<C const &>().end())
+		, typename    = decltype(end(decl<C const &>()))
 		, typename    = decltype(++decl<IT &>())
 		, enable_if_t<is_out_streamable<OST,ET>::value,int> = 0
 		, enable_if_t<is_out_streamable<OST,char const *>::value,int> = 0
@@ -1429,8 +1445,10 @@ template <class OST, typename C
 static OST & 
 operator<<(OST && ost, C const & rhs)
 {
-	auto end_ = rhs.end();
-	for(auto it = rhs.begin();;)
+	if(size(rhs) == 0)
+		return ost;
+	auto end_ = end(rhs);
+	for(auto it = begin(rhs);;)
 	{
 		ost << *it;
 		if(++it != end_)
@@ -1702,10 +1720,24 @@ template <typename T, class C = less<decltype(*decl<T &>().begin())>
 		, typename = decltype(begin(decl<T>()))
 		, typename = decltype(rbegin(decl<T>()))
 	>
-static constexpr void
+static constexpr T &&
 sort(T && fr_iterable, C && compare = {})
 {
 	ds::sort(begin(fr_iterable), end(fr_iterable), ds::forward<C>(compare));
+	return ds::forward<T>(fr_iterable);
+}
+
+// a very quick quick-sort.
+template <typename T, class C = less<decltype(*decl<T &>().begin())>
+		, typename = decltype(size(decl<T>()))
+		, typename = decltype(begin(decl<T>()))
+		, typename = decltype(rbegin(decl<T>()))
+	>
+static constexpr T
+sorted(T const & fr_iterable, C && compare = {})
+{
+	auto _sorted = fr_iterable;
+	return ds::move(ds::sort(_sorted, ds::forward<C>(compare)));
 }
 
 
@@ -1820,6 +1852,152 @@ contians(char const (& lhs)[lsize_], char const (& rhs)[rsize_]) noexcept
 	return false;
 }
 
+template <typename E, class It, class Ite
+		, typename    = decltype(*decl<It &>())
+		, typename    = decltype(++decl<It &>())
+		, typename    = decltype(*decl<It &>() == decl<E &>())
+		, typename    = decltype(decl<It &>() != decl<Ite &>())
+	>
+static constexpr size_t 
+find(E && object, It && begin_it, Ite && end_, size_t skip_ = 0)
+{
+	size_t i = 0;
+	for(; begin_it != end_; ++begin_it)
+	{
+		if(*begin_it == object && skip_-- == 0)
+			return i;
+		++i;
+	}
+	return -1;
+}
+
+template <typename E, class C>
+static constexpr size_t 
+find(E && object, C && in_iterable, size_t skip_ = 0)
+{
+	size_t i = 0;
+	for(auto const & e : in_iterable)
+	{
+		if(e == object && skip_-- == 0)
+			return i;
+		++i;
+	}
+	return -1;
+}
+
+template <typename E, class C
+		, typename It = decltype(begin(decl<C &>()))
+	>
+static constexpr It
+binary_search(E && object, C && iterable, size_t skip_ = 0)
+{
+	auto _size  = size(iterable);
+	if(_size == 0)
+		return {};
+	else if(_size < 3)
+	{
+		auto it = begin(iterable);
+		if(ds::find(object, it, end(iterable), skip_) == size_t(-1))
+			return {};
+		return it;
+	}
+	else
+	{
+		auto _left  = begin(iterable);
+		auto _right = end(iterable); --_right;
+		auto _mid   = _left + _size / 2;
+		auto _left_most_of = [](It it_, It begin_)
+		{
+			auto const & _object = *it_;
+			for(auto it = it_; ; --it)
+			{
+				if(*it != _object)
+					return ++it;
+				if(it == begin_)
+					return it;
+			}
+		};
+		auto _skip = [&](It it_, size_t skip_)
+		{
+			auto const & _object = *it_;
+			bool _equal = false;
+			while((_equal = (*it_ == _object)) && skip_-- > 0)
+				++it_;
+			return _equal ? it_ : It{};
+		};
+		while(_size > 0)
+		{
+			if(*_left == object)
+				return _skip(_left, skip_);
+			else if(*_mid == object)
+				return _skip(_left_most_of(_mid, _left), skip_);
+			else if(*_right == object)
+				return _skip(_left_most_of(_right, _left), skip_);
+			else if(object < *_mid)
+			{
+				++_left;
+				_right = --_mid;
+				_size = size_t(_right - _left);
+			}
+			else
+			{
+				--_right;
+				_left = ++_mid;
+				_size = size_t(_right - _left);
+			}
+			_mid = _left + _size / 2;
+		}
+	}
+	return {};
+}
+
+template <typename E, class It, class Ite
+		, typename    = decltype(*decl<It &>())
+		, typename    = decltype(++decl<It &>())
+		, typename    = decltype(*decl<It &>() == decl<E &>())
+		, typename    = decltype(decl<It &>() != decl<Ite &>())
+	>
+static constexpr size_t 
+count(E && object, It && begin_, Ite && end_, size_t skip_ = 0)
+{
+	size_t _count = 0;
+	for(auto it = begin_; it != end_; ++it)
+	{
+		if(*it == object)
+		{
+			if(skip_ == 0)
+				++_count;
+			else
+				--skip_;
+		}
+	}
+	return _count;
+}
+
+template <typename E, class C
+		, typename It  = decltype(begin(decl<C &>()))
+		, typename Ite = decltype(end(decl<C &>()))
+		, typename    = decltype(++decl<It &>())
+		, typename    = decltype(*decl<It &>() == decl<E &>())
+		, typename    = decltype(decl<It &>() != decl<Ite &>())
+	>
+static constexpr size_t 
+count(E && object, C && in_iterable, size_t skip_ = 0)
+{
+	size_t _count = 0;
+	for(auto const & e : in_iterable)
+	{
+		if(e == object)
+		{
+			if(skip_ == 0)
+				++_count;
+			else
+				--skip_;
+		}
+	}
+	return _count;
+}
+
 template <typename T>
 static constexpr T
 factorial(T n)
@@ -1833,17 +2011,24 @@ template <typename E
 		, typename = decltype(decl<E>() - decl<E>())
 		, typename = decltype(ds::swap(*decl<E>(), *decl<E>()))
 	>
-static void
+static constexpr void
 permutate(uint64_t seq_n_, E begin_, E end_)
 {
 	size_t size_ = size_t(end_ - begin_);
 	if(size_ <= 1)
 		return;
 	uint64_t N          = factorial<uint64_t>(size_ - 1);
+	seq_n_ %= N * size_;
 	size_t   i          = size_t(seq_n_ / N);
 	size_t   next_perm_ = size_t(seq_n_ % N);
 	if(i > 0)
-		ds::swap(*begin_, *(begin_ + i));
+	{
+		for(auto it = begin_ + i; it != begin_;)
+		{
+			auto cit = it--;
+			ds::swap(*it, *cit);
+		}
+	}
 	if(next_perm_ > 0)
 		permutate(next_perm_, begin_ + 1, end_);
 }
@@ -1853,11 +2038,51 @@ template <class C
 		, typename End   = decltype(end(decl<C>()))
 		, typename       = decltype(decl<End &>() - decl<Begin &>())
 	>
-static C &&
+static constexpr C &&
 permutate(uint64_t seq_n_, C && iterable)
 {
 	permutate(seq_n_, ds::begin(iterable), ds::end(iterable));
 	return ds::forward<C>(iterable);
+}
+
+template <class C
+		, typename = decltype(permutate(decl<uint64_t>(), decl<C>()))
+	>
+static constexpr C
+permutated(uint64_t seq_n_, C const & iterable)
+{
+	C _permutated(iterable);
+	permutate(seq_n_, _permutated);
+	return ds::move(_permutated);
+}
+
+template <class C>
+static constexpr uint64_t
+permutation_seq_n(C const & permutated_)
+{
+	auto size_ = ds::size(permutated_);
+	if(size_ <= 1)
+		return 0;
+	auto _sorted = permutated_;
+	ds::sort(_sorted);
+	uint64_t _seq_n = 0;
+	auto size_1 = size_ - 1;
+	for(size_t i = 0; i < size_1; ++i)
+	{
+		auto _n_      = factorial<uint64_t>(size_ - i - 1);
+		auto _count   = count(permutated_[i], &_sorted[0], &_sorted[i]);
+		auto sorted_i = find(permutated_[i], _sorted, _count);
+		if(i != sorted_i) 
+		{
+			for(auto it = &_sorted[sorted_i]; it != &_sorted[i];)
+			{
+				auto cit = it--;
+				ds::swap(*it, *cit);
+			}
+		}
+		_seq_n += (sorted_i - i) * _n_;
+	}
+	return _seq_n;
 }
 
 } // namespace ds
