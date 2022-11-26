@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdio>
+#include <cmath>
 #include <cassert>
 #include <exception>
 #include <new>
@@ -967,6 +968,13 @@ DS_nodiscard static constexpr remove_reference_t<T> const &&
 cmove(T && rhs) noexcept
 {
 	return static_cast<remove_reference_t<T> const &&>(rhs);
+}
+
+template <typename T>
+static constexpr T
+clone(T const & object)
+{
+	return object;
 }
 
 // cast to T & -- non-const reference
@@ -2018,10 +2026,9 @@ permutate(uint64_t seq_n_, E begin_, E end_)
 	if(size_ <= 1)
 		return;
 	uint64_t N          = factorial<uint64_t>(size_ - 1);
-	seq_n_ %= N * size_;
 	size_t   i          = size_t(seq_n_ / N);
 	size_t   next_perm_ = size_t(seq_n_ % N);
-	if(i > 0)
+	if(i > 0 && i < size_)
 	{
 		for(auto it = begin_ + i; it != begin_;)
 		{
@@ -2084,6 +2091,119 @@ permutation_seq_n(C const & permutated_)
 	}
 	return _seq_n;
 }
+
+
+template <typename T = float, class C>
+static constexpr T
+mean(C && iterable)
+{
+	auto _count = size(iterable);
+	if(_count == 0)
+		return 0;
+	auto _begin = begin(iterable);
+	auto _end   = end(iterable);
+	auto _mean  = *(_begin++);
+	for(; _begin != _end; ++_begin)
+		_mean += *_begin;
+	return _mean / _count;
+}
+
+
+template <typename T = float, class C>
+static constexpr T
+variance(C && iterable)
+{
+	auto _count = size(iterable);
+	if(_count < 2)
+		return 0;
+	auto _begin    = begin(iterable);
+	auto _end      = end(iterable);
+	auto _mean     = mean<T>(iterable);
+	auto _variance = T(0);
+	for(; _begin != _end; ++_begin)
+	{
+		auto _val   = T(*_begin);
+		auto _delta = abs(_val - _mean);
+		_variance += _delta * _delta;
+	}
+	_variance /= (_count - 1);
+	return _variance;
+}
+
+
+template <typename T = float, class C>
+static constexpr T
+standard_deviation(C && iterable)
+{
+	return std::sqrt(variance<T>(ds::forward<C>(iterable)));
+}
+
+
+template <class C, class P
+		, typename It = decltype(begin(decl<C>()))
+	>
+static constexpr It
+find_best(C && iterable, P && test_)
+{
+	auto _size  = size(iterable);
+	if(_size == 0)
+		return {};
+	auto _begin = begin(iterable);
+	auto _end   = end(iterable);
+	auto _candidate = It{};
+	for(; _begin != _end; ++_begin)
+	{
+		if(!_candidate)
+		{
+			if(test_(*_begin, *_begin))
+				_candidate = _begin;
+		}
+		else if(test_(*_begin, *_candidate))
+			_candidate = _begin;
+	}
+	return _candidate;
+}
+
+template <class C, class P = less<remove_cvref_t<decltype(*begin(decl<C>()))>>
+		, typename It = decltype(begin(decl<C>()))
+	>
+static constexpr It
+find_min(C && iterable, P && compare = {})
+{
+	auto _size  = size(iterable);
+	if(_size == 0)
+		return {};
+	auto _begin = begin(iterable);
+	auto _end   = end(iterable);
+	auto _candidate = _begin;
+	for(++_begin; _begin != _end; ++_begin)
+	{
+		if(compare(*_begin, *_candidate))
+			_candidate = _begin;
+	}
+	return _candidate;
+}
+
+template <class C, class P = greater<remove_cvref_t<decltype(*begin(decl<C>()))>>
+		, typename It = decltype(begin(decl<C>()))
+	>
+static constexpr It
+find_max(C && iterable, P && compare = {})
+{
+	auto _size  = size(iterable);
+	if(_size == 0)
+		return {};
+	auto _begin = begin(iterable);
+	auto _end   = end(iterable);
+	auto _candidate = _begin;
+	for(++_begin; _begin != _end; ++_begin)
+	{
+		if(compare(*_begin, *_candidate))
+			_candidate = _begin;
+	}
+	return _candidate;
+}
+
 
 } // namespace ds
 
