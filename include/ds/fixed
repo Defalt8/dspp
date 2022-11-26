@@ -77,17 +77,36 @@ class Fixed
 	array_t m_array {};
 
  public:
+	struct index_out_of_bounds : public exception
+	{
+		char const * 
+		what() const noexcept override
+		{
+			return "fixed array index out of bounds";
+		}
+	};
+
 	constexpr Fixed() = default;
 	constexpr Fixed(Fixed &&) = default;
 	constexpr Fixed(Fixed const &) = default;
 
 	template <typename T, typename... Ts
-			, enable_if_t<((sizeof...(Ts)+1 <= size_) 
-				&& are_all_true<is_constructible<E,T>
-				              , is_constructible<E,Ts>...>::value),int> = 0
+			, enable_if_t<((sizeof...(Ts)+1 < size_) 
+				&& are_all_true<is_constructible<E>
+				              , is_aggregate_initializable<E,T>
+				              , is_aggregate_initializable<E,Ts>...>::value),int> = 0
 		>
 	constexpr Fixed(T && value, Ts &&... values)
-		: m_array { static_cast<E>(ds::forward<T>(value)), static_cast<E>(ds::forward<Ts>(values))... }
+		: m_array { { ds::forward<T>(value) }, { ds::forward<Ts>(values) }... }
+	{}
+
+	template <typename T, typename... Ts
+			, enable_if_t<((sizeof...(Ts)+1 == size_) 
+				&& are_all_true<is_aggregate_initializable<E,T>
+				              , is_aggregate_initializable<E,Ts>...>::value),int> = 0
+		>
+	constexpr Fixed(T && value, Ts &&... values)
+		: m_array { { ds::forward<T>(value) }, { ds::forward<Ts>(values) }... }
 	{}
 
 	Fixed & operator=(Fixed &&) = default;
@@ -126,15 +145,6 @@ class Fixed
 	inline E       * rend  ()       noexcept { return &m_array[0]-1; }
 	inline E const * rend  () const noexcept { return &m_array[0]-1; }
 	
-	struct index_out_of_bounds : public exception
-	{
-		char const * 
-		what() const noexcept override
-		{
-			return "fixed array index out of bounds";
-		}
-	};
-
 };
 
 
