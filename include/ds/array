@@ -147,7 +147,7 @@ namespace _ {
 		_assign(Array<E,A> * this_, Array<E,A> const & rhs)
 		{
 			if(&rhs != this_)
-				array_copier<E,A>::reconstruct_at(this_, rhs);
+				array_copier<E,A>::_reconstruct_at(this_, rhs);
 			return this_;
 		}
 	};
@@ -469,11 +469,10 @@ class Array
 		return *this;
 	}
 
-	template <typename C = conditional_t<is_copy_constructible<E>::value,Array,impossible_t>>
 	Array &
-	operator=(C const & rhs)
+	operator=(conditional_t<is_copy_constructible<E>::value,Array,impossible_t> const & rhs)
 	{
-		return _::array_copier<E,A>::_assign(this, rhs);
+		return *_::array_copier<E,A>::_assign(this, rhs);
 	}
 
 	inline bool operator!() const noexcept { return m_array == nullptr; }
