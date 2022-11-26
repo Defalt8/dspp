@@ -7,6 +7,7 @@ set( DS_HEADER_FILES
 	include/ds/common
 	include/ds/sys
 	include/ds/file
+	include/ds/random
 	include/ds/traits/allocator
 	include/ds/traits/iterator
 	include/ds/allocator

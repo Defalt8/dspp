@@ -8,6 +8,7 @@
 #include "traits/iterable"
 #include "sys"
 #include "file"
+#include "random"
 #include "allocator"
 #include "unique"
 #include "shared"

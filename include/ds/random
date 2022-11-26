@@ -1,0 +1,150 @@
+#pragma once
+#ifndef DS_RANDOM
+#define DS_RANDOM
+
+#include "common"
+
+namespace ds {
+
+namespace _ {
+	template <size_t> struct _random_coefficient    : ds::integral_constant<uint32_t,4294967293LU> {};
+	template <>       struct _random_coefficient<1> : ds::integral_constant<uint8_t ,253> {};
+	template <>       struct _random_coefficient<2> : ds::integral_constant<uint16_t,65533U> {};
+	template <>       struct _random_coefficient<4> : ds::integral_constant<uint32_t,4294967293LU> {};
+	template <>       struct _random_coefficient<8> : ds::integral_constant<uint64_t,18446744073709551601LLU> {};
+
+	template <size_t> struct _random_coefficient_type    { using type = uint32_t; };
+	template <>       struct _random_coefficient_type<1> { using type = uint8_t;  };
+	template <>       struct _random_coefficient_type<2> { using type = uint16_t; };
+	template <>       struct _random_coefficient_type<4> { using type = uint32_t; };
+	template <>       struct _random_coefficient_type<8> { using type = uint64_t; };
+} // namespace _
+
+template <typename T>
+class Random
+{
+ public:
+	using value_t = T;
+	using coeff_t = typename _::_random_coefficient_type<sizeof(T)>::type;
+
+ private:
+	coeff_t _seed = 0;
+	coeff_t _prev = -1;
+
+	static constexpr coeff_t _coef = _::_random_coefficient<sizeof(T)>::value;
+
+	struct impossible_t {};
+
+	static constexpr value_t const &
+	_cast(conditional_t<is_integral<value_t>::value,coeff_t,impossible_t> const & rnval_) 
+	{ 
+		return reinterpret_cast<value_t const &>(rnval_); 
+	}
+
+	static constexpr value_t 
+	_cast(conditional_t<!is_integral<value_t>::value,coeff_t,impossible_t> const & rnval_) 
+	{
+		return static_cast<value_t>(rnval_); 
+	}
+
+	static constexpr coeff_t 
+	_adjust(conditional_t<is_same<value_t,bool>::value,coeff_t,impossible_t> next_)
+	{
+		return (next_ % 3 + next_ % 5 + 1) % 2;
+	} 
+
+	static constexpr coeff_t const &
+	_adjust(conditional_t<!is_same<value_t,bool>::value,coeff_t,impossible_t> const & next_)
+	{
+		return next_;
+	} 
+
+	constexpr coeff_t
+	_get_next()
+	{
+		auto _offs = _seed % 2 != 0 ? 0 : 1;
+		_prev = _coef * ((_coef * _prev) + _seed) + _offs;
+		return this->_adjust(_prev);
+	} 
+
+ public:
+	constexpr Random() = default;
+	
+	constexpr Random(coeff_t seed_)
+		: _seed { seed_ }
+	{}
+	
+	constexpr value_t
+	next()
+	{
+		coeff_t _next = this->_get_next();
+		return _cast(_next);
+	}
+
+	constexpr value_t
+	next_range(value_t min_, value_t max_)
+	{
+		coeff_t _next = this->_get_next();
+		auto _rnval = _next % coeff_t(max_ - min_);
+		return _cast(_rnval) + min_;
+	}
+
+};
+
+template <typename T> using random = Random<T>;
+
+template <typename T>
+struct RandomSequence
+{
+	using coeff_t = typename Random<T>::coeff_t;
+	using value_t = typename Random<T>::value_t;
+
+	Random<T> _random;
+
+	constexpr RandomSequence() = default;
+
+	constexpr RandomSequence(coeff_t seed_)
+		: _random(seed_)
+	{}
+	
+	constexpr value_t
+	operator()()
+	{
+		return _random.next();
+	}
+
+};
+
+template <typename T> using random_sequence = RandomSequence<T>;
+
+template <typename T>
+struct RandomRangeSequence
+{
+	using coeff_t = typename Random<T>::coeff_t;
+	using value_t = typename Random<T>::value_t;
+
+	Random<T> _random;
+	value_t   _min = 0;
+	value_t   _max = ds::max_limit<value_t>::value;
+
+	constexpr RandomRangeSequence() = default;
+
+	constexpr RandomRangeSequence(value_t min_, value_t max_, coeff_t seed_)
+		: _random(seed_)
+		, _min { min_ }
+		, _max { max_ }
+	{}
+	
+	constexpr value_t
+	operator()()
+	{
+		return _random.next_range(_min, _max);
+	}
+
+};
+
+template <typename T> using random_range_sequence = RandomRangeSequence<T>;
+
+} // namespace ds
+
+#endif // DS_RANDOM
