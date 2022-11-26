@@ -58,13 +58,6 @@ Test(fixed_test)
 		AssertTrue(compare_eq(fixed_.array(), {1,2,3,4,5}));
 	} TestcaseEnd(test_constexpr_initializer_list_constructor);
 
-	Testcase(test_constexpr_diverse_initializer_list_constructor)
-	{
-		constexpr size_t size_ = 5;
-		constexpr ds::Fixed<size_,int> fixed_ = { true,2.3,3.4f,4UL,5.L };
-		AssertTrue(compare_eq(fixed_.array(), {1,2,3,4,5}));
-	} TestcaseEnd(test_constexpr_diverse_initializer_list_constructor);
-
 	Testcase(test_constexpr_array_constructor)
 	{
 		constexpr size_t size_ = 5;
@@ -572,7 +565,6 @@ TestRegistry(fixed_test)
 {
 	Register(test_constexpr_default_constructor)
 	Register(test_constexpr_initializer_list_constructor)
-	Register(test_constexpr_diverse_initializer_list_constructor)
 	Register(test_constexpr_array_constructor)
 	Register(test_constexpr_move_constructor)
 	Register(test_constexpr_copy_constructor)
