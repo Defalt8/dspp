@@ -51,7 +51,7 @@ class Random
 	static constexpr coeff_t 
 	_adjust(conditional_t<is_same<value_t,bool>::value,coeff_t,impossible_t> next_)
 	{
-		return (_next % 2 + _next % 3) % 2;
+		return (next_ % 2 + next_ % 3) % 2;
 	} 
 
 	static constexpr coeff_t const &
@@ -113,6 +113,8 @@ class Random
 	}
 
 };
+
+template <typename T> constexpr typename Random<T>::coeff_t Random<T>::_coef;
 
 template <typename T> using random = Random<T>;
 

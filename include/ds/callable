@@ -369,12 +369,12 @@ class Callable<R(Args...),A>
 		return *this;
 	}
 
-	template <typename... Args, enable_if_t<is_constructible<Callable,Args...>::value,int> = 0>
+	template <typename... Args_, enable_if_t<is_constructible<Callable,Args_...>::value,int> = 0>
 	Callable & 
-	operator=(Args &&... args) noexcept
+	operator=(Args_ &&... args) noexcept
 	{
 		this->~Callable();
-		construct_at<Callable>(this, ds::forward<Args>(args)...);
+		construct_at<Callable>(this, ds::forward<Args_>(args)...);
 		return *this;
 	}
 
