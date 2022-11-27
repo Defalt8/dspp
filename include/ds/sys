@@ -25,6 +25,8 @@ namespace sys {
 
   #ifdef _WIN32
 	static constexpr size_t max_path = 260;
+  #elif defined(__APPLE__ )
+	static constexpr size_t max_path = 1024;
   #else
 	static constexpr size_t max_path = PATH_MAX;
   #endif
