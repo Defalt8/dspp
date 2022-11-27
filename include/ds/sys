@@ -6,6 +6,10 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef _WIN32
+#	ifndef WIN32_LEAN_AND_MEAN
+#		define WIN32_LEAN_AND_MEAN
+#	endif
+#	include <Windows.h>
 #	include <direct.h>
 #	include <io.h>
 #else
@@ -15,6 +19,7 @@
 
 #include "common"
 #include "string"
+#include "list"
 
 namespace ds {
 namespace sys {
@@ -461,6 +466,116 @@ namespace sys {
 			}
 		}
 		return srmfile::invalid_path;
+	}
+
+	enum class sls
+	{
+		ok = 0,
+		invalid_path,
+		name_too_long,
+		dir_not_found,
+		not_a_dir,
+		access_denied,
+		busy,
+		other
+	};
+
+	template <class A = default_allocator>
+	static sls
+	ls(string_view const & path_, List<2,String<A>,A> & entries)
+	{
+		if(path_.size() > 0)
+		{
+			if(path_.size() > max_path - 2)
+				return sls::name_too_long;
+			else
+			{
+				// check if path points to a directory
+				{
+					auto _type = get_type(path_);
+					if(_type == type::does_not_exist)
+						return sls::dir_not_found;
+					else if(_type != type::dir)
+						return sls::not_a_dir;
+				}
+			  #ifdef _WIN32
+				char find_info[max_path+1];
+				{
+					memcpy(&find_info[0], path_.begin(), path_.size());
+					char * ch = &find_info[path_.size()-1];
+					if(*ch == '/' || *ch == '\\')
+					{
+						*(++ch) = '*';
+						*(++ch) = '\0';
+					}
+					else
+					{
+						*(++ch) = '/';
+						*(++ch) = '*';
+						*(++ch) = '\0';
+					}
+				}
+				WIN32_FIND_DATAA fdata {}; 
+				HANDLE _handle = FindFirstFileA(&find_info[0], &fdata);
+				if(_handle != INVALID_HANDLE_VALUE)
+				{
+					entries = {};
+					do
+					{
+						auto entry_name = StringView((char const *)fdata.cFileName);
+						if(entry_name.size() > 0 && entry_name != "." && entry_name != "..")
+							entries.insert_last(entry_name);
+					}
+					while(FindNextFileA(_handle, &fdata) != 0);
+					FindClose(_handle);
+					return sls::ok;
+				}
+				else
+				{
+					auto err = GetLastError();
+					switch(err)
+					{
+						case ERROR_INVALID_DRIVE: 
+						case ERROR_FILE_NOT_FOUND: return sls::dir_not_found;
+						case ERROR_DIRECTORY:      return sls::not_a_dir;
+						case ERROR_ACCESS_DENIED:  return sls::access_denied;
+						case ERROR_PATH_BUSY:      return sls::busy;
+						default:                   return sls::other;
+					}
+				}
+			  #else
+				char _path_buffer[ds::sys::max_path+1];
+				auto path = ds::sys::_::_terminate_path(path_, _path_buffer);
+				auto dir = ::opendir(path.begin());
+				if(dir != nullptr)
+				{
+					entries = {};
+					::dirent * entry = nullptr; 
+					while((entry = ::readdir(dir)) != nullptr)
+					{
+						auto entry_name = StringView((char const *)entry->d_name);
+						if(entry_name.size() > 0 && entry_name != "." && entry_name != "..")
+							entries.insert_last(entry_name);
+					}
+					::closedir(dir);
+					return sls::ok;
+				}
+				else
+				{
+					int err = int(errno);
+					switch(err)
+					{
+						case EACCES:  return sls::access_denied;
+						case ENOENT:  return sls::dir_not_found;
+						case ENOTDIR: return sls::not_a_dir;
+						case EBUSY:   return sls::busy;
+						default:      return sls::other;
+					}
+				}
+			  #endif
+			}
+		}
+		return sls::invalid_path;
 	}
 
 } // namespace sys
