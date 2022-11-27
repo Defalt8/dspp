@@ -1027,7 +1027,7 @@ namespace _ {
 	template <typename T, bool b1, bool b2>
 	struct _swapper<T,true,false,false,b1,b2>
 	{
-		static constexpr void
+		static DS_constexpr14 void
 		swap(T & lhs, T & rhs)
 		{
 			lhs.swap(rhs);
@@ -1037,7 +1037,7 @@ namespace _ {
 	template <typename T, bool b1, bool b2>
 	struct _swapper<T,false,false,true,b1,b2>
 	{
-		static constexpr void
+		static DS_constexpr14 void
 		swap(T & lhs, T & rhs)
 		{
 			T tmp = lhs;
@@ -1049,7 +1049,7 @@ namespace _ {
 	template <typename T, bool b2>
 	struct _swapper<T,false,false,false,true,b2>
 	{
-		static constexpr void
+		static DS_constexpr14 void
 		swap(T & lhs, T & rhs)
 		{
 			T tmp = ds::move(lhs);
@@ -1061,7 +1061,7 @@ namespace _ {
 	template <typename T>
 	struct _swapper<T,false,false,false,false,true>
 	{
-		static constexpr void
+		static DS_constexpr14 void
 		swap(T & lhs, T & rhs)
 		{
 			T tmp = lhs;
@@ -1076,14 +1076,14 @@ template <typename T
 		, enable_if_t<!is_const<T>::value,int> = 0
 		, typename = decltype(_::_swapper<T>::swap(decl<T &>(), decl<T &>()))
 	>
-static constexpr void
+static DS_constexpr14 void
 swap(T & lhs, T & rhs) noexcept
 {
 	_::_swapper<T>::swap(lhs, rhs);
 }
 
 template <typename T, enable_if_t<is_const<T>::value,int> = 0>
-static constexpr void
+static DS_constexpr14 void
 swap(T & lhs, T & rhs) noexcept = delete;
 
 namespace _ {
@@ -1106,17 +1106,17 @@ aligned_offset(void * block_, align_t align_)
 template <typename T, bool = is_destructible<T>::value && !is_trivially_destructible<T>::value>
 struct safe_destructor
 {
-	static constexpr void destruct(T & object) { object.~T(); }
+	static DS_constexpr14 void destruct(T & object) { object.~T(); }
 };
 
 template <typename T>
 struct safe_destructor<T,false>
 {
-	static constexpr void destruct(T & object) {}
+	static DS_constexpr14 void destruct(T & object) {}
 };
 
 template <typename T>
-static constexpr void
+static DS_constexpr14 void
 destruct(T & object)
 {
 	return safe_destructor<T>::destruct(object);
@@ -1156,7 +1156,7 @@ struct Sequence
 		, step  { ds::move(step_)  }
 	{}
 
-	constexpr operator T () noexcept 
+	DS_constexpr14 operator T () noexcept 
 	{
 		auto next_ = value;
 		value += step;
@@ -1507,17 +1507,16 @@ hex_char_lower(uint8_t value)
 
 // returns the base-10 value of 'hex_char' which is expected to be a hexadecimal ([0-F]|[0-f])
 // returns 0 on invalid input
-static DS_constexpr14 uint8_t  
+static constexpr uint8_t  
 hex_value(char hex_char) 
 {
-	if(hex_char >= '0' && hex_char <= '9')
-		return uint8_t(hex_char - '0');
-	else if(hex_char >= 'a' && hex_char <= 'f')
-		return 10 + uint8_t(hex_char - 'a');
-	else if(hex_char >= 'A' && hex_char <= 'F')
-		return 10 + uint8_t(hex_char - 'A');
-	else
-		return 0;
+	return (hex_char >= '0' && hex_char <= '9')
+		? uint8_t(hex_char - '0')
+		: (hex_char >= 'a' && hex_char <= 'f')
+			? 10 + uint8_t(hex_char - 'a')
+			: (hex_char >= 'A' && hex_char <= 'F')
+				? 10 + uint8_t(hex_char - 'A')
+				: 0;
 }
 
 // efficient reverse.
