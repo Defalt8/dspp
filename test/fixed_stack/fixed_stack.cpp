@@ -265,7 +265,7 @@ Test(fixed_stack_test)
 				Counter * it = nullptr;
 				AssertNotNull(it = fstack.push(i));
 				ExpectEQ(*it, i);
-				ExpectEQ(fstack.size(), i);
+				ExpectEQ(fstack.size(), size_t(i));
 				ExpectEQ(Counter::count(), i);
 				ExpectEQ(Counter::active(), i);
 				ExpectEQ(Counter::copies(), 0);
