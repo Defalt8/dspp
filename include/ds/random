@@ -30,6 +30,7 @@ class Random
  private:
 	coeff_t _seed = 0;
 	coeff_t _prev = -1;
+	coeff_t _offs = 1;
 
 	static constexpr coeff_t _coef = _::_random_coefficient<sizeof(T)>::value;
 
@@ -62,23 +63,37 @@ class Random
 	constexpr coeff_t
 	_get_next()
 	{
-		auto _offs = _seed % 2 != 0 ? 0 : 1;
 		_prev = _coef * ((_coef * _prev) + _seed) + _offs;
 		return this->_adjust(_prev);
 	} 
+
+	constexpr void
+	_update_offset()
+	{
+		_offs = _seed % 2 == 0 ? 1 : 0;
+	}
 
  public:
 	constexpr Random() = default;
 	
 	constexpr Random(coeff_t seed_)
 		: _seed { seed_ }
-	{}
+	{
+		this->_update_offset();
+	}
+	
+	void
+	set_seed(coeff_t seed_)
+	{
+		_seed = seed_;
+		this->_update_offset();
+	}
 	
 	constexpr value_t
 	next()
 	{
 		coeff_t _next = this->_get_next();
-		return _cast(_next);
+		return this->_cast(_next);
 	}
 
 	constexpr value_t
@@ -86,7 +101,7 @@ class Random
 	{
 		coeff_t _next = this->_get_next();
 		auto _rnval = _next % coeff_t(max_ - min_);
-		return _cast(_rnval) + min_;
+		return this->_cast(_rnval) + min_;
 	}
 
 };
