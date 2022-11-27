@@ -109,6 +109,16 @@ class Fixed
 		: m_array { { ds::forward<T>(value) }, { ds::forward<Ts>(values) }... }
 	{}
 
+	template <class F
+			, typename = decltype(decl<E &>() = decl<F>()())
+		>
+	constexpr Fixed(F && func)
+		: m_array {}
+	{
+		for(auto & e : m_array)
+			e = func();
+	}
+
 	Fixed & operator=(Fixed &&) = default;
 	Fixed & operator=(Fixed const &) = default;
 
