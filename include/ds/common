@@ -6,6 +6,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cstdio>
+#include <ctime>
 #include <cmath>
 #include <cassert>
 #include <exception>
@@ -369,7 +370,8 @@ namespace _ {
 
 template <typename T> struct is_class    : decltype(_::_class_test<T>(nullptr)) {};
 
-template <typename T> struct is_function : bool_constant<!is_class<T>::value && !is_const<T const>::value && !is_reference<T>::value> {};
+template <typename T>                   struct is_function             : false_type {};
+template <typename R, typename... Args> struct is_function<R(Args...)> : true_type {};
 
 template <typename T>          struct is_member_pointer         : false_type {};
 template <typename T, class C> struct is_member_pointer<T C::*> : true_type {};
