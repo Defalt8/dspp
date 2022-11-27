@@ -380,12 +380,16 @@ class String
 	using char_t = char;
 
  private:
+  #ifndef NDEBUG
 	union {
 		array_ptr_t<char_t> m_array  = nullptr;
 		// for debugging only
-		char_t                    const * m_ptrv;
-		fixed_cptr_t<4096,char_t> const   m_fixedv;
+		char_t                  * m_ptrv;
+		fixed_cptr_t<4096,char_t> m_fixedv;
 	};
+  #else
+	array_ptr_t<char_t> m_array  = nullptr;
+  #endif
 	size_t      m_size   = 0;
 
 	static constexpr size_t _size_  = sizeof(char_t);
