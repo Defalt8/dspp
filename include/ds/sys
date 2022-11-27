@@ -47,7 +47,7 @@ namespace sys {
 
 	// get current working dir
 	template <class A = default_allocator>
-	static String<A>
+	static inline String<A>
 	get_cwd()
 	{
 		char path[max_path+1];
@@ -60,7 +60,7 @@ namespace sys {
 	}
 
 	// set current working dir
-	static bool
+	static inline bool
 	set_cwd(StringView const & path_)
 	{
 		if(path_.size() > 0 && path_.size() <= max_path)
@@ -76,7 +76,7 @@ namespace sys {
 		return false;
 	}
 
-	static bool
+	static inline bool
 	exists(StringView const & path)
 	{
 		if(path.size() > 0 && path.size() <= max_path)
@@ -101,7 +101,7 @@ namespace sys {
 		other
 	};
 
-	static type
+	static inline type
 	get_type(StringView const & path_)
 	{
 		if(path_.size() > 0 && path_.size() <= max_path)
@@ -149,7 +149,7 @@ namespace sys {
 		return type::unavailable;
 	}
 
-	static bool 
+	static inline bool 
 	is_dir(StringView const & path_)
 	{
 		if(path_.size() > 0 && path_.size() <= max_path)
@@ -175,7 +175,7 @@ namespace sys {
 		return false;
 	}
 
-	static bool
+	static inline bool
 	is_file(StringView const & path_)
 	{
 		if(path_.size() > 0 && path_.size() <= max_path)
@@ -201,7 +201,7 @@ namespace sys {
 		return false;
 	}
 
-	static bool
+	static inline bool
 	is_regular_file(StringView const & path_)
 	{
 		if(path_.size() > 0 && path_.size() <= max_path)
@@ -248,7 +248,7 @@ namespace sys {
 	template <class En
 			, enable_if_t<is_same<decltype(decl<En>()(decl<StringView const &>(), decl<StringView const &>())),bool>::value,int> = 0
 		>
-	static sls
+	static inline sls
 	ls(StringView const & path_, En && enumerator)
 	{
 		if(path_.size() > 0)
@@ -381,7 +381,7 @@ namespace sys {
 		other
 	};
 
-	static smkdir
+	static inline smkdir
 	mkdir(StringView const & path_) noexcept
 	{
 		if(path_.size() > 0)
@@ -425,7 +425,7 @@ namespace sys {
 		return smkdir::invalid_path;
 	}
 
-	static smkdir
+	static inline smkdir
 	mkdirs(StringView const & path) noexcept
 	{
 		if(path.size() > 0)
@@ -490,7 +490,7 @@ namespace sys {
 		other
 	};
 
-	static srmdir
+	static inline srmdir
 	rmdir(StringView const & path_) noexcept
 	{
 		if(path_.size() > 0)
@@ -528,7 +528,7 @@ namespace sys {
 	}
 
 	namespace _ {
-		static bool 
+		static inline bool 
 		_recursive_rmdir(StringView const & current, StringView const & entry) noexcept
 		{
 			auto _size = current.size() + entry.size(); 
@@ -554,7 +554,7 @@ namespace sys {
 	
 	// only remove the directory and its sub-directories if they are empty
 	// does not remove files
-	static srmdir
+	static inline srmdir
 	rmdirs(StringView const & path_) noexcept
 	{
 		auto _sls = ls(path_, _::_recursive_rmdir);
@@ -586,7 +586,7 @@ namespace sys {
 		other
 	};
 
-	static smkfile
+	static inline smkfile
 	mkfile(StringView const & path_) noexcept
 	{
 		if(path_.size() > 0)
@@ -648,7 +648,7 @@ namespace sys {
 		other
 	};
 
-	static srmfile
+	static inline srmfile
 	rmfile(StringView const & path_) noexcept
 	{
 		if(path_.size() > 0)
@@ -701,7 +701,7 @@ namespace sys {
 	};
 
 	namespace _ {
-		static bool 
+		static inline bool 
 		_recursive_remove(StringView const & current, StringView const & entry) noexcept
 		{
 			auto _size = current.size() + entry.size(); 
@@ -727,7 +727,7 @@ namespace sys {
 	} // namespace _
 	
 	// removes both files and directories along with all sub-directories
-	static sremove
+	static inline sremove
 	remove(StringView const & path_) noexcept
 	{
 		if(path_.size() > 0)
