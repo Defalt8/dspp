@@ -173,11 +173,15 @@ class Array
 	using array_t = E[];
 
  protected:
+   #ifndef NDEBUG
 	union {
 		array_t * m_array = nullptr;
 		// for debugging only
 		fixed_cptr_t<4096,E> m_fixedv;
 	};
+  #else
+	array_t * m_array = nullptr;
+  #endif
 	size_t    m_size  = 0;
 
 	struct impossible_t { size_t m_size = 0; };
@@ -565,11 +569,15 @@ class Array<E &,A>
 	using array_t = E * [];
 
  protected:
+   #ifndef NDEBUG
 	union {
 		array_t * m_array = nullptr;
 		// for debugging only
 		fixed_cptr_t<4096,E *> m_fixedv;
 	};
+  #else
+	array_t * m_array = nullptr;
+  #endif
 	size_t    m_size  = 0;
 
 	struct impossible_t { size_t m_size = 0; };
