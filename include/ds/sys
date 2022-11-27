@@ -16,6 +16,7 @@
 #endif
 
 #include "common"
+#include "string"
 
 namespace ds {
 namespace sys {
@@ -26,15 +27,31 @@ namespace sys {
 	static constexpr size_t max_path = PATH_MAX;
   #endif
 
+	namespace _ {
+		static inline
+		StringView
+		_terminate_path(StringView const & path_, char (& buffer)[max_path+1])
+		{
+			auto path_size = path_.size();
+			if(path_size > 0 && path_size <= max_path && path_[path_size] != '\0')
+			{
+				memcpy(&buffer[0], path_.begin(), path_size);
+				buffer[path_size] = '\0';
+				return { &buffer[0], path_size };
+			}
+			return path_;
+		}
+	} // namespace _
+
 	static bool
-	exists(char const * path)
+	exists(StringView const & path)
 	{
-		if(path != nullptr)
+		if(path.size() > 0 && path.size() <= max_path)
 		{
 		  #ifdef _WIN32
-			return _access(path, 0) == 0;
+			return _access(path.begin(), 0) == 0;
 		  #else
-			return access(path, 0) == 0;
+			return access(path.begin(), 0) == 0;
 		  #endif
 		}
 		return false;
@@ -52,15 +69,17 @@ namespace sys {
 	};
 
 	static type
-	get_type(char const * path)
+	get_type(StringView const & path_)
 	{
-		if(path != nullptr && *path != '\0')
+		if(path_.size() > 0 && path_.size() <= max_path)
 		{
+			char _path_buffer[max_path+1];
+			auto path = _::_terminate_path(path_, _path_buffer);
 		  #ifdef _MSC_VER
-			if(_access(path, 0) == 0)
+			if(_access(path.begin(), 0) == 0)
 		 	{
 				struct _stat64i32 status {};
-				_stat(path, &status);
+				_stat(path.begin(), &status);
 				if((status.st_mode & _S_IFDIR) != 0)
 					return type::dir;
 				else if((status.st_mode & _S_IFREG) != 0)
@@ -75,10 +94,10 @@ namespace sys {
 					return type::other;
 			}
 		  #else
-			if(access(path, 0) == 0)
+			if(access(path.begin(), 0) == 0)
 		 	{
 				struct stat status;
-				stat(path, &status);
+				stat(path.begin(), &status);
 				if((status.st_mode & S_IFDIR) != 0)
 					return type::dir;
 				else if((status.st_mode & S_IFREG) != 0)
@@ -98,22 +117,24 @@ namespace sys {
 	}
 
 	static bool 
-	is_dir(char const * directory_path)
+	is_dir(StringView const & path_)
 	{
-		if(directory_path != nullptr && *directory_path != '\0')
+		if(path_.size() > 0 && path_.size() <= max_path)
 		{
+			char _path_buffer[max_path+1];
+			auto path = _::_terminate_path(path_, _path_buffer);
 		  #ifdef _MSC_VER
-			if(_access(directory_path, 0) == 0)
+			if(_access(path.begin(), 0) == 0)
 		 	{
 				struct _stat64i32 status {};
-				_stat(directory_path, &status);
+				_stat(path.begin(), &status);
 				return (status.st_mode & _S_IFDIR) != 0;
 			}
 		  #else
-			if(access(directory_path, 0) == 0)
+			if(access(path.begin(), 0) == 0)
 		 	{
 				struct stat status;
-				stat(directory_path, &status);
+				stat(path.begin(), &status);
 				return (status.st_mode & S_IFDIR) != 0;
 			}
 		  #endif
@@ -122,22 +143,24 @@ namespace sys {
 	}
 
 	static bool
-	is_file(char const * file_path)
+	is_file(StringView const & path_)
 	{
-		if(file_path != nullptr && *file_path != '\0')
+		if(path_.size() > 0 && path_.size() <= max_path)
 		{
+			char _path_buffer[max_path+1];
+			auto path = _::_terminate_path(path_, _path_buffer);
 		  #ifdef _MSC_VER
-			if(_access(file_path, 0) == 0)
+			if(_access(path.begin(), 0) == 0)
 		 	{
 				struct _stat64i32 status {};
-				_stat(file_path, &status);
+				_stat(path.begin(), &status);
 				return (status.st_mode & (_S_IFMT & ~_S_IFDIR)) != 0;
 			}
 		  #else
-			if(access(file_path, 0) == 0)
+			if(access(path.begin(), 0) == 0)
 		 	{
 				struct stat status;
-				stat(file_path, &status);
+				stat(path.begin(), &status);
 				return (status.st_mode & (S_IFMT & ~S_IFDIR)) != 0;
 			}
 		  #endif
@@ -146,22 +169,24 @@ namespace sys {
 	}
 
 	static bool
-	is_regular_file(char const * file_path)
+	is_regular_file(StringView const & path_)
 	{
-		if(file_path != nullptr && *file_path != '\0')
+		if(path_.size() > 0 && path_.size() <= max_path)
 		{
+			char _path_buffer[max_path+1];
+			auto path = _::_terminate_path(path_, _path_buffer);
 		  #ifdef _MSC_VER
-			if(_access(file_path, 0) == 0)
+			if(_access(path.begin(), 0) == 0)
 		 	{
 				struct _stat64i32 status {};
-				_stat(file_path, &status);
+				_stat(path.begin(), &status);
 				return (status.st_mode & (_S_IFMT & _S_IFREG)) != 0;
 			}
 		  #else
-			if(access(file_path, 0) == 0)
+			if(access(path.begin(), 0) == 0)
 		 	{
 				struct stat status;
-				stat(file_path, &status);
+				stat(path.begin(), &status);
 				return (status.st_mode & (S_IFMT & S_IFREG)) != 0;
 			}
 		  #endif
@@ -181,85 +206,97 @@ namespace sys {
 	};
 
 	static smkdir
-	mkdir(char const * directory_path) noexcept
+	mkdir(StringView const & path_) noexcept
 	{
-		if(directory_path == nullptr || *directory_path == '\0')
-			return smkdir::invalid_path;
-		int _err;
-	  #if defined(_WIN32)
-		_err = _mkdir(directory_path);
-	  #else 
-		_err = ::mkdir(directory_path, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
-	  #endif
-	  	if(_err == 0)
-			return smkdir::ok;
-		_err = int(errno);
-		if(_err == EEXIST && is_dir(directory_path))
-			return smkdir::ok;
-		else if(_err == ENOENT && ds::string_length(directory_path) > max_path)
-			return smkdir::name_too_long;
-		else if(_err == EEXIST && !is_dir(directory_path))
-			return smkdir::file_exists;
-	  	switch(_err)
+		if(path_.size() > 0)
 		{
-			case EEXIST:
-			case 0:             return smkdir::ok;
-			case ENOTDIR:       return smkdir::file_exists;
-			case EINVAL:
-			case ENOENT:       return smkdir::invalid_path;
-			case ENAMETOOLONG: return smkdir::name_too_long;
-			case EROFS:
-			case EACCES:       return smkdir::access_denied;
-			case ENOSPC:       return smkdir::not_enough_space;
-			default:           return smkdir::other;
+			if(path_.size() > max_path)
+				return smkdir::name_too_long;
+			else
+			{
+				char _path_buffer[max_path+1];
+				auto path = _::_terminate_path(path_, _path_buffer);
+				int _err;
+			  #if defined(_WIN32)
+				_err = ::_mkdir(path.begin());
+			  #else 
+				_err = ::mkdir(path.begin(), S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
+			  #endif
+			  	if(_err == 0)
+					return smkdir::ok;
+				_err = int(errno);
+				if(_err == EEXIST && is_dir(path.begin()))
+					return smkdir::ok;
+				else if(_err == ENOENT && path.size() > max_path)
+					return smkdir::name_too_long;
+				else if(_err == EEXIST && !is_dir(path.begin()))
+					return smkdir::file_exists;
+			  	switch(_err)
+				{
+					case EEXIST:
+					case 0:             return smkdir::ok;
+					case ENOTDIR:       return smkdir::file_exists;
+					case EINVAL:
+					case ENOENT:       return smkdir::invalid_path;
+					case ENAMETOOLONG: return smkdir::name_too_long;
+					case EROFS:
+					case EACCES:       return smkdir::access_denied;
+					case ENOSPC:       return smkdir::not_enough_space;
+					default:           return smkdir::other;
+				}
+			}
 		}
+		return smkdir::invalid_path;
 	}
 
 	static smkdir
-	mkdirs(char const * directory_path) noexcept
+	mkdirs(StringView const & path) noexcept
 	{
-		if(directory_path != nullptr && *directory_path != '\0')
-		{
-			bool _colon = false;
-			size_t sub_len_total = 0;
-			for(char const * it = directory_path; *it != '\0';)
+		if(path.size() > 0)
+		{	
+			if(path.size() > max_path)
+				return smkdir::name_too_long;
+			else
 			{
-				size_t sub_len = 0;
-				bool terminate_ = false;
-				for(char const * sit = it;; ++sit)
+				bool _colon = false;
+				size_t sub_len_total = 0;
+				for(char const * it = path.begin(); *it != '\0';)
 				{
-					char ch = *sit;
-					if(ch == ':')
+					size_t sub_len = 0;
+					bool terminate_ = false;
+					for(char const * sit = it;; ++sit)
 					{
-						if(_colon)
-							return smkdir::invalid_path;
-						_colon = true;
-						if(*(++sit) != '\0')
-							++sit;
-						continue;
-					}
-					terminate_ = ch == '\0';
-					if(ch == '\\' || ch == '/' || terminate_)
-					{
-						sub_len = size_t(sit - it);
-						if(sub_len > 0)
+						char ch = *sit;
+						if(ch == ':')
 						{
-							sub_len_total += sub_len;
-							break;
+							if(_colon)
+								return smkdir::invalid_path;
+							_colon = true;
+							if(*(++sit) != '\0')
+								++sit;
+							continue;
+						}
+						terminate_ = ch == '\0';
+						if(ch == '\\' || ch == '/' || terminate_)
+						{
+							sub_len = size_t(sit - it);
+							if(sub_len > 0)
+							{
+								sub_len_total += sub_len;
+								break;
+							}
 						}
 					}
+					if(terminate_)
+						return mkdir(path);
+					else
+					{
+						auto _smkdir = mkdir(path.view(sub_len_total));
+						if(_smkdir != smkdir::ok)
+							return _smkdir;
+					}
+					it += sub_len;
 				}
-				if(terminate_)
-					return mkdir(directory_path);
-				else
-				{
-					char subdirectory_path[max_path] {};
-					memcpy(&subdirectory_path[0], directory_path, sub_len_total);
-					auto _smkdir = mkdir(subdirectory_path);
-					if(_smkdir != smkdir::ok)
-						return _smkdir;
-				}
-				it += sub_len;
 			}
 		}
 		return smkdir::invalid_path;
@@ -278,33 +315,40 @@ namespace sys {
 	};
 
 	static srmdir
-	rmdir(char const * directory_path) noexcept
+	rmdir(StringView const & path_) noexcept
 	{
-		if(directory_path == nullptr || *directory_path == '\0')
-			return srmdir::invalid_path;
-		int _err;
-	  #if defined(_WIN32)
-		_err = _rmdir(directory_path);
-	  #else 
-		_err = ::rmdir(directory_path);
-	  #endif
-	  	if(_err == 0)
-			return srmdir::ok;
-		_err = int(errno);
-		if(_err == ENOENT && ds::string_length(directory_path) > max_path)
-			return srmdir::name_too_long;
-	  	switch(_err)
+		if(path_.size() > 0)
 		{
-			case 0:             return srmdir::ok;
-			case ENOTEMPTY:     return srmdir::not_empty;
-			case ENOTDIR:       return srmdir::not_a_dir;
-			case EINVAL:
-			case ENOENT:        return srmdir::invalid_path;
-			case ENAMETOOLONG:  return srmdir::name_too_long;
-			case EACCES:        return srmdir::access_denied;
-			case EBUSY:         return srmdir::busy;
-			default:            return srmdir::other;
+			if(path_.size() > max_path)
+				return srmdir::name_too_long;
+			else
+			{
+				char _path_buffer[max_path+1];
+				auto path = _::_terminate_path(path_, _path_buffer);
+				int _err;
+			  #if defined(_WIN32)
+				_err = ::_rmdir(path.begin());
+			  #else 
+				_err = ::rmdir(path.begin());
+			  #endif
+			  	if(_err == 0)
+					return srmdir::ok;
+				_err = int(errno);
+			  	switch(_err)
+				{
+					case 0:             return srmdir::ok;
+					case ENOTEMPTY:     return srmdir::not_empty;
+					case ENOTDIR:       return srmdir::not_a_dir;
+					case EINVAL:
+					case ENOENT:        return srmdir::invalid_path;
+					case ENAMETOOLONG:  return srmdir::name_too_long;
+					case EACCES:        return srmdir::access_denied;
+					case EBUSY:         return srmdir::busy;
+					default:            return srmdir::other;
+				}
+			}
 		}
+		return srmdir::invalid_path;
 	}
 
 	enum class smkfile
@@ -321,43 +365,48 @@ namespace sys {
 	};
 
 	static smkfile
-	mkfile(char const * file_path) noexcept
+	mkfile(StringView const & path_) noexcept
 	{
-		if(file_path != nullptr && *file_path != '\0')
+		if(path_.size() > 0)
 		{
-			auto _type = get_type(file_path);
-			if(_type == type::regular_file)
-				return smkfile::regular_file_exists;
-			else if(_type == type::dir)
-				return smkfile::dir_exists;
-			else if(_type != type::does_not_exist)
-				return smkfile::irregular_file_exists;
+			if(path_.size() > max_path)
+				return smkfile::name_too_long;
 			else
 			{
-				FILE * _handle = nullptr;
-			  #ifdef _MSC_VER
-			  	fopen_s(&_handle, file_path, "wb");
-			  #else
-			  	_handle = fopen(file_path, "wb");
-			  #endif
-				if(_handle != nullptr)
-				{
-					fclose(_handle);
-					return smkfile::ok;
-				}
+				char _path_buffer[max_path+1];
+				auto path = _::_terminate_path(path_, _path_buffer);
+				auto _type = get_type(path);
+				if(_type == type::regular_file)
+					return smkfile::regular_file_exists;
+				else if(_type == type::dir)
+					return smkfile::dir_exists;
+				else if(_type != type::does_not_exist)
+					return smkfile::irregular_file_exists;
 				else
 				{
-					int _err = int(errno);
-					if(_err == ENOENT && ds::string_length(file_path) > max_path)
-						return smkfile::name_too_long;
-					switch(_err)
+					FILE * _handle = nullptr;
+				#ifdef _MSC_VER
+					fopen_s(&_handle, path.begin(), "wb");
+				#else
+					_handle = fopen(path.begin(), "wb");
+				#endif
+					if(_handle != nullptr)
 					{
-						case EINVAL:
-						case ENOENT:        return smkfile::invalid_path;
-						case ENAMETOOLONG:  return smkfile::name_too_long;
-						case EACCES:        return smkfile::access_denied;
-						case EBUSY:         return smkfile::busy;
-						default:            return smkfile::other;
+						fclose(_handle);
+						return smkfile::ok;
+					}
+					else
+					{
+						int _err = int(errno);
+						switch(_err)
+						{
+							case EINVAL:
+							case ENOENT:        return smkfile::invalid_path;
+							case ENAMETOOLONG:  return smkfile::name_too_long;
+							case EACCES:        return smkfile::access_denied;
+							case EBUSY:         return smkfile::busy;
+							default:            return smkfile::other;
+						}
 					}
 				}
 			}
@@ -378,22 +427,24 @@ namespace sys {
 	};
 
 	static srmfile
-	rmfile(char const * file_path) noexcept
+	rmfile(StringView const & path_) noexcept
 	{
-		if(file_path != nullptr && *file_path != '\0')
+		if(path_.size() > 0)
 		{
-			if(ds::string_length(file_path) > max_path)
+			if(path_.size() > max_path)
 				return srmfile::name_too_long;
 			else
 			{
-				if(remove(file_path) == 0)
+				char _path_buffer[max_path+1];
+				auto path = _::_terminate_path(path_, _path_buffer);
+				if(remove(path.begin()) == 0)
 					return srmfile::ok;
 				else
 				{
 					int _err = int(errno);
 					if(_err == ENOENT)
 					{
-						auto _type = get_type(file_path);
+						auto _type = get_type(path);
 						if(_type == type::does_not_exist)
 							return srmfile::file_not_found;
 						else if(_type != type::regular_file)
