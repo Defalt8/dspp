@@ -51,7 +51,7 @@ class Random
 	static constexpr coeff_t 
 	_adjust(conditional_t<is_same<value_t,bool>::value,coeff_t,impossible_t> next_)
 	{
-		return (next_ % 3 + next_ % 5 + 1) % 2;
+		return (_next % 2 + _next % 3) % 2;
 	} 
 
 	static constexpr coeff_t const &
@@ -70,7 +70,7 @@ class Random
 	constexpr void
 	_update_offset()
 	{
-		_offs = _seed % 2 == 0 ? 1 : 0;
+		_offs = (_seed / 2) + 1;
 	}
 
  public:
@@ -92,16 +92,24 @@ class Random
 	constexpr value_t
 	next()
 	{
-		coeff_t _next = this->_get_next();
+		auto _next = this->_get_next();
 		return this->_cast(_next);
 	}
 
 	constexpr value_t
 	next_range(value_t min_, value_t max_)
 	{
-		coeff_t _next = this->_get_next();
+		auto _next  = this->_get_next();
 		auto _rnval = _next % coeff_t(max_ - min_);
 		return this->_cast(_rnval) + min_;
+	}
+
+	constexpr value_t
+	next_binary()
+	{
+		auto _next  = this->_get_next();
+		auto _rnval = (_next % 2 + _next % 3) % 2;
+		return this->_cast(_rnval);
 	}
 
 };
@@ -159,6 +167,30 @@ struct RandomRangeSequence
 };
 
 template <typename T> using random_range_sequence = RandomRangeSequence<T>;
+
+template <typename T>
+struct RandomBinarySequence
+{
+	using coeff_t = typename Random<T>::coeff_t;
+	using value_t = typename Random<T>::value_t;
+
+	Random<T> _random;
+
+	constexpr RandomBinarySequence() = default;
+
+	constexpr RandomBinarySequence(coeff_t seed_)
+		: _random(seed_)
+	{}
+	
+	constexpr value_t
+	operator()()
+	{
+		return _random.next_binary();
+	}
+
+};
+
+template <typename T> using random_binary_sequence = RandomBinarySequence<T>;
 
 } // namespace ds
 
