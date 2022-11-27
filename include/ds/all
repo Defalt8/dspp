@@ -13,6 +13,7 @@
 #include "unique"
 #include "shared"
 #include "persistent"
+#include "callable"
 #include "fixed"
 #include "fixed_stack"
 #include "string"

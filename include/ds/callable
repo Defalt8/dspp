@@ -1,0 +1,412 @@
+#pragma once
+#ifndef DS_CALLABLE
+#define DS_CALLABLE
+
+#include "common"
+#include "unique"
+
+namespace ds {
+
+
+namespace _ {
+
+	template <typename>
+	class _icallable;
+
+	template <typename R, typename... Args>
+	class _icallable<R(Args...)>
+	{
+	 public:
+		virtual ~_icallable() = default;
+		virtual R operator()(Args ... args) = 0;
+
+	};
+
+	template <typename...>
+	class _callable_s;
+
+	template <typename R, typename... Args>
+	class _callable_s<R(Args...),R(*)(Args...)> : public _icallable<R(Args...)>
+	{
+		using callable_t = R (*)(Args...);
+
+		callable_t _callable = nullptr;
+
+	 public:
+		_callable_s(callable_t callable_)
+			: _callable { callable_ }
+		{}
+		
+		R 
+		operator()(Args ... args) override 
+		{
+			return _callable(args...); 
+		}
+
+	};
+
+	template <class C, typename R, typename... Args>
+	class _callable_s<R(Args...),C> : public _icallable<R(Args...)>
+	{
+		using callable_t = C;
+
+		callable_t _callable;
+
+	 public:
+		_callable_s() = default;
+
+		template <typename... Args_
+				, ds::enable_if_t<is_aggregate_initializable<callable_t,Args_...>::value,int> = 0
+			>
+		_callable_s(Args_ &&... args)
+			: _callable { ds::forward<Args_>(args)... }
+		{}
+
+		_callable_s(callable_t && callable_)
+			: _callable { ds::move(callable_) }
+		{}
+
+		R 
+		operator()(Args ... args) override 
+		{ 
+			return _callable(args...); 
+		}
+	
+	};
+
+	template <class C, typename R, typename... Args>
+	class _callable_s<R(Args...),C &> : public _icallable<R(Args...)>
+	{
+		using callable_t = C;
+
+		callable_t * _callable = nullptr;
+
+	 public:
+		_callable_s(callable_t & callable_)
+			: _callable { &callable_ }
+		{}
+
+		R 
+		operator()(Args ... args) override 
+		{ 
+			return (*_callable)(args...); 
+		}
+	
+	};
+
+	template <class C, typename R, typename... Args>
+	class _callable_s<R (C::*)(Args...)> : public _icallable<R(Args...)>
+	{
+		using object_t   = C;
+		using callable_t = R (C::*)(Args...);
+
+		object_t * _object   = nullptr;
+		callable_t _callable = nullptr;
+
+	 public:
+		_callable_s(object_t & object_, callable_t callable_)
+			: _object   { &object_ }
+			, _callable { callable_ }
+		{}
+
+		R 
+		operator()(Args ... args) override 
+		{ 
+			return ((*_object).*_callable)(args...); 
+		}
+
+	};
+
+	template <class C, typename R, typename... Args>
+	class _callable_s<R (C::*)(Args...) const> : public _icallable<R(Args...)>
+	{
+		using object_t   = C const;
+		using callable_t = R (C::*)(Args...) const;
+
+		object_t * _object   = nullptr;
+		callable_t _callable = nullptr;
+
+	 public:
+		_callable_s(object_t & object_, callable_t callable_)
+			: _object   { &object_ }
+			, _callable { callable_ }
+		{}
+
+		R 
+		operator()(Args ... args) override 
+		{ 
+			return ((*_object).*_callable)(args...); 
+		}
+
+	};
+
+	template <class C, typename R, typename... Args>
+	class _callable_s<R (C::* const)(Args...) const> : public _icallable<R(Args...)>
+	{
+		using object_t   = C const;
+		using callable_t = R (C::* const)(Args...) const;
+
+		object_t * _object   = nullptr;
+		callable_t _callable = nullptr;
+
+	 public:
+		_callable_s(object_t & object_, callable_t callable_)
+			: _object   { &object_ }
+			, _callable { callable_ }
+		{}
+
+		R 
+		operator()(Args ... args) override 
+		{ 
+			return ((*_object).*_callable)(args...); 
+		}
+
+
+	};
+
+	template <class C, typename R, typename... Args>
+	class _callable_s<R (C::*)(Args...),C> : public _icallable<R(Args...)>
+	{
+		using object_t   = C;
+		using callable_t = R (C::*)(Args...);
+
+		object_t   _object;
+		callable_t _callable = nullptr;
+
+	 public:
+		template <typename... Args_
+				, enable_if_t<is_aggregate_initializable<object_t,Args_...>::value,int> = 0
+			>
+		_callable_s(callable_t callable_, Args_ &&... args_)
+			: _object   { ds::forward<Args_>(args_)... }
+			, _callable { callable_ }
+		{}
+
+		_callable_s(object_t && object_, callable_t callable_)
+			: _object   { ds::move(object_) }
+			, _callable { callable_ }
+		{}
+
+		R 
+		operator()(Args ... args) override 
+		{ 
+			return (_object.*_callable)(args...); 
+		}
+
+	};
+
+	template <class C, typename R, typename... Args>
+	class _callable_s<R (C::* const)(Args...) const,C> : public _icallable<R(Args...)>
+	{
+		using object_t   = C;
+		using callable_t = R (C::* const)(Args...) const;
+
+		object_t   _object;
+		callable_t _callable = nullptr;
+
+	 public:
+		template <typename... Args_
+				, enable_if_t<is_aggregate_initializable<object_t,Args_...>::value,int> = 0
+			>
+		_callable_s(callable_t callable_, Args_ &&... args_)
+			: _object   { ds::forward<Args_>(args_)... }
+			, _callable { callable_ }
+		{}
+
+		_callable_s(object_t && object_, callable_t callable_)
+			: _object   { ds::move(object_) }
+			, _callable { callable_ }
+		{}
+
+		R 
+		operator()(Args ... args) override 
+		{ 
+			return (cref(_object).*_callable)(args...); 
+		}
+
+	};
+
+	template <class C, typename R, typename... Args>
+	class _callable_s<R (C::* const)(Args...) const,C const> : public _icallable<R(Args...)>
+	{
+		using object_t   = C;
+		using callable_t = R (C::* const)(Args...) const;
+
+		object_t const  _object;
+		callable_t      _callable = nullptr;
+
+	 public:
+		template <typename... Args_
+				, enable_if_t<is_aggregate_initializable<object_t,Args_...>::value,int> = 0
+			>
+		_callable_s(callable_t callable_, Args_ &&... args_)
+			: _object   { ds::forward<Args_>(args_)... }
+			, _callable { callable_ }
+		{}
+
+		_callable_s(object_t && object_, callable_t callable_)
+			: _object   { ds::move(object_) }
+			, _callable { callable_ }
+		{}
+
+		R 
+		operator()(Args ... args) override 
+		{ 
+			return (_object.*_callable)(args...); 
+		}
+
+	};
+
+} // namespace _
+
+template <typename F, class A = default_allocator>
+class Callable;
+
+template <class A, typename R, typename... Args>
+class Callable<R(Args...),A>
+{
+ public:
+	using storage_t = unique<_::_icallable<R(Args...)>,A>;
+
+ private:
+	storage_t _icallable;
+
+	Callable(Callable const &) = delete;
+
+ public:
+	Callable()
+		: _icallable(noinit)
+	{}
+
+	Callable(Callable && rhs)
+		: _icallable { ds::move(rhs._icallable) }
+	{}
+
+	template <class C, typename... Args_
+			, typename CS = _::_callable_s<R(Args...),C>
+			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, enable_if_t<is_constructible<storage_t,make<CS>,Args_...>::value,int> = 0
+		>
+	Callable(make<C>, Args_ &&... args)
+		: _icallable { make<CS>(), ds::forward<Args_>(args)... }
+	{}
+	
+	template <typename T, typename T_ = remove_cvref_t<T>
+			, typename CS = conditional_t<is_function<T>::value
+					, _::_callable_s<R(Args...),R(*)(Args...)>
+					, _::_callable_s<R(Args...),T>
+				>
+			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, enable_if_t<is_constructible<storage_t,make<CS>,T>::value,int> = 0
+		>
+	explicit Callable(T && callable_)
+		: _icallable { make<CS>(), ds::forward<T>(callable_) }
+	{}
+	
+	template <class C
+			, typename CS = _::_callable_s<R(C::*)(Args...)>
+			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, enable_if_t<is_constructible<storage_t,make<CS>,C &,R(C::*)(Args...)>::value,int> = 0
+		>
+	Callable(C & object_, R (C::* callable_)(Args...))
+		: _icallable { make<CS>(), object_, callable_ }
+	{}
+	
+	template <class C
+			, typename CS = _::_callable_s<R(C::* const)(Args...) const>
+			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, enable_if_t<is_constructible<storage_t,make<CS>,C &,R(C::* const)(Args...) const>::value,int> = 0
+		>
+	Callable(C const & object_, R (C::* const callable_)(Args...) const)
+		: _icallable { make<CS>(), object_, callable_ }
+	{}
+	
+	template <class C
+			, typename CS = _::_callable_s<R(C::*)(Args...),C>
+			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, enable_if_t<is_constructible<storage_t,make<CS>,C,R(C::*)(Args...)>::value,int> = 0
+		>
+	Callable(C && object_, R (C::* callable_)(Args...))
+		: _icallable { make<CS>(), ds::forward<C>(object_), callable_ }
+	{}
+	
+	template <class C
+			, typename CS = _::_callable_s<R(C::*)(Args...) const,C>
+			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, enable_if_t<is_constructible<storage_t,make<CS>,C,R(C::*)(Args...) const>::value,int> = 0
+		>
+	Callable(C && object_, R (C::* callable_)(Args...) const)
+		: _icallable { make<CS>(), ds::forward<C>(object_), callable_ }
+	{}
+		
+	template <class C, typename... Args_
+			, typename CS = _::_callable_s<R(C::*)(Args...),C>
+			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, enable_if_t<is_constructible<storage_t,make<CS>,R(C::*)(Args...),Args_...>::value,int> = 0
+		>
+	Callable(make<C>, R (C::* callable_)(Args...), Args_ &&... args)
+		: _icallable { make<CS>(), callable_, ds::forward<Args_>(args)... }
+	{}
+	
+	
+	template <class C, typename... Args_
+			, typename CS = _::_callable_s<R(C::* const)(Args...) const,C const>
+			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, enable_if_t<is_constructible<storage_t,make<CS>,R(C::* const)(Args...) const,Args_...>::value,int> = 0
+		>
+	Callable(make<C const>, R (C::* const callable_)(Args...) const, Args_ &&... args)
+		: _icallable { make<CS>(), callable_, ds::forward<Args_>(args)... }
+	{}
+	
+	Callable & 
+	operator=(Callable && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	template <typename... Args, enable_if_t<is_constructible<Callable,Args...>::value,int> = 0>
+	Callable & 
+	operator=(Args &&... args) noexcept
+	{
+		this->~Callable();
+		construct_at<Callable>(this, ds::forward<Args>(args)...);
+		return *this;
+	}
+
+	inline R 
+	operator()(Args ... args)
+	{
+		return (*_icallable)(args...); 
+	}
+
+	inline bool operator!() const noexcept { return !_icallable; }
+
+	explicit inline operator bool()       noexcept { return bool(_icallable); }
+	explicit inline operator bool() const noexcept { return bool(_icallable); }
+
+	inline void 
+	destroy() noexcept
+	{
+		_icallable.destroy();
+	}
+
+	inline void 
+	swap(Callable & rhs) noexcept
+	{
+		_icallable.swap(rhs._icallable);
+	}
+
+};
+
+template <typename F, class A = default_allocator>    using callable    = Callable<F,A>;
+template <typename F, class A = default_nt_allocator> using nt_callable = Callable<F,A>;
+
+
+} // namespace ds
+
+#endif // DS_CALLABLE

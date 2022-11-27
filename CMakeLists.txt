@@ -16,6 +16,7 @@ set( DS_HEADER_FILES
 	include/ds/unique
 	include/ds/persistent
 	include/ds/shared
+	include/ds/callable
 	include/ds/tuple
 	include/ds/variant
 	include/ds/string
