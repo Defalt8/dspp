@@ -181,11 +181,11 @@ class Fixed<size_,E &>
 	{
 		E ** current = nullptr;
 		
-		inline    Iterator & operator++()    { ++current; return *this; }
-		constexpr Iterator   operator++(int) { return { current++ }; }
+		inline    Iterator & operator++()          { ++current; return *this; }
+		constexpr Iterator   operator++(int) const { return { current++ }; }
 		
-		inline    Iterator & operator--()    { --current; return *this; }
-		constexpr Iterator   operator--(int) { return { current-- }; }
+		inline    Iterator & operator--()          { --current; return *this; }
+		constexpr Iterator   operator--(int) const { return { current-- }; }
 
 		inline    E       & operator*()       { return **current; }
 		constexpr E const & operator*() const { return **current; }
@@ -232,11 +232,11 @@ class Fixed<size_,E &>
 	{
 		E * const * current = nullptr;
 		
-		inline    ConstIterator & operator++()    { ++current; return *this; }
-		constexpr ConstIterator   operator++(int) { return { current++ }; }
+		inline    ConstIterator & operator++()          { ++current; return *this; }
+		constexpr ConstIterator   operator++(int) const { return { current++ }; }
 		
-		inline    ConstIterator & operator--()    { --current; return *this; }
-		constexpr ConstIterator   operator--(int) { return { current-- }; }
+		inline    ConstIterator & operator--()          { --current; return *this; }
+		constexpr ConstIterator   operator--(int) const { return { current-- }; }
 
 		constexpr E const & operator*() const { return **current; }
 
