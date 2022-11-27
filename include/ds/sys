@@ -659,7 +659,7 @@ namespace sys {
 			{
 				char _path_buffer[max_path+1];
 				auto path = _::_terminate_path(path_, _path_buffer);
-				if(remove(path.begin()) == 0)
+				if(::remove(path.begin()) == 0)
 					return srmfile::ok;
 				else
 				{
