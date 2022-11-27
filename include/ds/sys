@@ -46,6 +46,37 @@ namespace sys {
 		}
 	} // namespace _
 
+	// get current working dir
+	template <class A = default_allocator>
+	static String<A>
+	get_cwd()
+	{
+		char path[max_path+1];
+	  #ifdef _WIN32
+		::_getcwd(&path[0], max_path);
+	  #else
+		::getcwd(&path[0], max_path);
+	  #endif
+		return { &path[0] };
+	}
+
+	// set current working dir
+	static bool
+	set_cwd(StringView const & path_)
+	{
+		if(path_.size() > 0 && path_.size() <= max_path)
+		{
+			char _path_buffer[max_path+1];
+			auto path = _::_terminate_path(path_, _path_buffer);
+		  #ifdef _WIN32
+			return ::_chdir(path.begin()) == 0;
+		  #else
+			return ::chdir(path.begin()) == 0;
+		  #endif
+		}
+		return false;
+	}
+
 	static bool
 	exists(StringView const & path)
 	{
