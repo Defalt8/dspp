@@ -125,7 +125,7 @@ namespace _ {
 			return construct_at<Array<E,A>>(this_, rhs);
 		}
 		
-		static constexpr array_t * 
+		static array_t * 
 		_construct(void * block_, size_t size_, Array<E,A> const & rhs)
 		{
 			auto array_ = static_cast<array_t *>(block_);
@@ -158,10 +158,10 @@ namespace _ {
 		using array_t      = typename Array<E,A>::array_t;
 		using impossible_t = typename Array<E,A>::impossible_t;
 
-		static inline    E            * _construct_at(void * block_, E const & rhs) noexcept { return nullptr; }
-		static inline    Array<E,A>   * _construct_at(void * block_, Array<E,A> const & rhs) noexcept { return nullptr; }
-		static constexpr array_t      * _construct(void * block_, size_t size_, impossible_t const & rhs) { return nullptr; }
-		static inline    Array<E,A>   * _assign(Array<E,A> * this_, impossible_t const & rhs) { return this_; }
+		static inline E            * _construct_at(void * block_, E const & rhs) noexcept { return nullptr; }
+		static inline Array<E,A>   * _construct_at(void * block_, Array<E,A> const & rhs) noexcept { return nullptr; }
+		static inline array_t      * _construct(void * block_, size_t size_, impossible_t const & rhs) { return nullptr; }
+		static inline Array<E,A>   * _assign(Array<E,A> * this_, impossible_t const & rhs) { return this_; }
 	};
 
 } // namespace _

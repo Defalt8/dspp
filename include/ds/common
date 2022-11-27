@@ -530,7 +530,7 @@ abs(T const & rhs) noexcept
 }
 
 template <typename T>
-static constexpr bool 
+static DS_constexpr14 bool 
 is_prime(T value) noexcept
 {
 	T N = value;
@@ -541,7 +541,7 @@ is_prime(T value) noexcept
 }
 
 template <typename T>
-static constexpr T 
+static DS_constexpr14 T 
 next_prime(T value) noexcept
 {
 	while(!is_prime(++value));
@@ -549,7 +549,7 @@ next_prime(T value) noexcept
 }
 
 template <typename T>
-static constexpr T 
+static DS_constexpr14 T 
 previous_prime(T value) noexcept
 {
 	while(!is_prime(--value));
@@ -1199,7 +1199,7 @@ static thread_local EndLine endl { stdout };
 
 using end_line = EndLine;
 
-static constexpr size_t 
+static DS_constexpr14 size_t 
 string_length(char const * pstring_) noexcept
 {
 	if(pstring_ == nullptr)
@@ -1209,7 +1209,7 @@ string_length(char const * pstring_) noexcept
 	return length_;
 }
 
-static constexpr size_t 
+static DS_constexpr14 size_t 
 string_length(char const * pstring_, size_t max_) noexcept
 {
 	if(pstring_ == nullptr)
@@ -1220,7 +1220,7 @@ string_length(char const * pstring_, size_t max_) noexcept
 }
 
 
-static constexpr int
+static DS_constexpr14 int
 string_compare(char const * lhs, char const * rhs) noexcept
 {
 	size_t i = 0;
@@ -1238,7 +1238,7 @@ string_compare(char const * lhs, char const * rhs) noexcept
 				: lhs[i] != '\0';
 }
 
-static constexpr int
+static DS_constexpr14 int
 string_compare(char const * lhs, char const * rhs, size_t size_) noexcept
 {
 	size_t i = 0;
@@ -1256,7 +1256,7 @@ string_compare(char const * lhs, char const * rhs, size_t size_) noexcept
 			: i != size_;
 }
 
-static constexpr int
+static DS_constexpr14 int
 string_compare(char const * lhs, char const * rhs, size_t lsize, size_t rsize) noexcept
 {
 	size_t i = 0;
@@ -1274,7 +1274,7 @@ string_compare(char const * lhs, char const * rhs, size_t lsize, size_t rsize) n
 			: i == rsize;
 }
 
-static constexpr int
+static DS_constexpr14 int
 string_partial_compare(char const * lhs, char const * rhs) noexcept
 {
 	size_t i = 0;
@@ -1288,7 +1288,7 @@ string_partial_compare(char const * lhs, char const * rhs) noexcept
 	return 0;
 }
 
-static constexpr int
+static DS_constexpr14 int
 string_partial_compare(char const * lhs, char const * rhs, size_t size_) noexcept
 {
 	size_t i = 0;
@@ -1302,7 +1302,7 @@ string_partial_compare(char const * lhs, char const * rhs, size_t size_) noexcep
 	return 0;
 }
 
-static constexpr int
+static DS_constexpr14 int
 string_partial_compare(char const * lhs, char const * rhs, size_t lsize, size_t rsize) noexcept
 {
 	return string_partial_compare(lhs, rhs, min(lsize, rsize));
@@ -1507,7 +1507,7 @@ hex_char_lower(uint8_t value)
 
 // returns the base-10 value of 'hex_char' which is expected to be a hexadecimal ([0-F]|[0-f])
 // returns 0 on invalid input
-static constexpr uint8_t  
+static DS_constexpr14 uint8_t  
 hex_value(char hex_char) 
 {
 	if(hex_char >= '0' && hex_char <= '9')
@@ -1522,7 +1522,7 @@ hex_value(char hex_char)
 
 // efficient reverse.
 template<typename It> 
-static constexpr void
+static DS_constexpr14 void
 reverse(It begin_, It end_)
 {
 	if(begin_ == end_)
@@ -1540,7 +1540,7 @@ template <typename T
 		, typename = decltype(begin(decl<T>()))
 		, typename = decltype(end(decl<T>()))
 	>
-static constexpr void
+static DS_constexpr14 void
 reverse(T && f_iterable)
 {
 	ds::reverse(ds::begin(f_iterable), ds::end(f_iterable));
@@ -1548,7 +1548,7 @@ reverse(T && f_iterable)
 
 namespace _ {
 	template <typename E, class C>
-	static constexpr void
+	static DS_constexpr14 void
 	_sort2(E & a, E & b, C && compare)
 	{
 		if(compare(b, a))
@@ -1556,7 +1556,7 @@ namespace _ {
 	}
 
 	template <typename E, class C>
-	static constexpr void
+	static DS_constexpr14 void
 	_sort3(E & a, E & b, E & c, C && compare)
 	{
 		if(compare(a, b))
@@ -1588,7 +1588,7 @@ namespace _ {
 	}
 
 	template <typename E, class C>
-	static constexpr void
+	static DS_constexpr14 void
 	_sort4(E & a, E & b, E & c, E & d, C && compare)
 	{
 		if(compare(a, b))
@@ -1658,7 +1658,7 @@ template<typename It, class C = less<decltype(*decl<It &>())>
 		, enable_if_t<is_same<decltype(decl<It &>() - size_t(1)),It>::value,int> = 0
 		, enable_if_t<is_same<decltype(decl<It &>() + size_t(1)),It>::value,int> = 0
 	> 
-static constexpr void 
+static DS_constexpr14 void 
 sort(It begin_, It end_, C && compare = {}) noexcept
 {
 	if(begin_ + 1 < end_)
@@ -1742,7 +1742,7 @@ template <typename T, class C = less<decltype(*decl<T &>().begin())>
 		, typename = decltype(begin(decl<T>()))
 		, typename = decltype(rbegin(decl<T>()))
 	>
-static constexpr T &&
+static DS_constexpr14 T &&
 sort(T && fr_iterable, C && compare = {})
 {
 	ds::sort(begin(fr_iterable), end(fr_iterable), ds::forward<C>(compare));
@@ -1755,7 +1755,7 @@ template <typename T, class C = less<decltype(*decl<T &>().begin())>
 		, typename = decltype(begin(decl<T>()))
 		, typename = decltype(rbegin(decl<T>()))
 	>
-static constexpr T
+static DS_constexpr14 T
 sorted(T const & fr_iterable, C && compare = {})
 {
 	auto _sorted = fr_iterable;
@@ -1775,7 +1775,7 @@ template <typename T, typename U
 		, typename    = decltype(++decl<TB &>())
 		, typename    = decltype(++decl<UB &>())
 	>
-static constexpr bool
+static DS_constexpr14 bool
 begins_with(T const & lhs, U const & rhs) noexcept
 {
 	size_t lsize = size(lhs);
@@ -1802,7 +1802,7 @@ template <typename T, typename U
 		, typename    = decltype(--decl<TB &>())
 		, typename    = decltype(--decl<UB &>())
 	>
-static constexpr bool
+static DS_constexpr14 bool
 ends_with(T const & lhs, U const & rhs) noexcept
 {
 	size_t lsize = size(lhs);
@@ -1829,7 +1829,7 @@ template <typename T, typename U
 		, typename    = decltype(++decl<TB &>())
 		, typename    = decltype(++decl<UB &>())
 	>
-static constexpr bool
+static DS_constexpr14 bool
 contians(T const & lhs, U const & rhs) noexcept
 {
 	size_t lsize = size(lhs);
@@ -1852,7 +1852,7 @@ contians(T const & lhs, U const & rhs) noexcept
 }
 
 template <size_t lsize_, size_t rsize_>
-static constexpr bool
+static DS_constexpr14 bool
 contians(char const (& lhs)[lsize_], char const (& rhs)[rsize_]) noexcept
 {
 	size_t lsize = lsize_ - 1;
@@ -1880,7 +1880,7 @@ template <typename E, class It, class Ite
 		, typename    = decltype(*decl<It &>() == decl<E &>())
 		, typename    = decltype(decl<It &>() != decl<Ite &>())
 	>
-static constexpr size_t 
+static DS_constexpr14 size_t 
 find(E && object, It && begin_it, Ite && end_, size_t skip_ = 0)
 {
 	size_t i = 0;
@@ -1894,7 +1894,7 @@ find(E && object, It && begin_it, Ite && end_, size_t skip_ = 0)
 }
 
 template <typename E, class C>
-static constexpr size_t 
+static DS_constexpr14 size_t 
 find(E && object, C && in_iterable, size_t skip_ = 0)
 {
 	size_t i = 0;
@@ -1910,7 +1910,7 @@ find(E && object, C && in_iterable, size_t skip_ = 0)
 template <typename E, class C
 		, typename It = decltype(begin(decl<C &>()))
 	>
-static constexpr It
+static DS_constexpr14 It
 binary_search(E && object, C && iterable, size_t skip_ = 0)
 {
 	auto _size  = size(iterable);
@@ -1979,7 +1979,7 @@ template <typename E, class It, class Ite
 		, typename    = decltype(*decl<It &>() == decl<E &>())
 		, typename    = decltype(decl<It &>() != decl<Ite &>())
 	>
-static constexpr size_t 
+static DS_constexpr14 size_t 
 count(E && object, It && begin_, Ite && end_, size_t skip_ = 0)
 {
 	size_t _count = 0;
@@ -2003,7 +2003,7 @@ template <typename E, class C
 		, typename    = decltype(*decl<It &>() == decl<E &>())
 		, typename    = decltype(decl<It &>() != decl<Ite &>())
 	>
-static constexpr size_t 
+static DS_constexpr14 size_t 
 count(E && object, C && in_iterable, size_t skip_ = 0)
 {
 	size_t _count = 0;
@@ -2033,7 +2033,7 @@ template <typename E
 		, typename = decltype(decl<E>() - decl<E>())
 		, typename = decltype(ds::swap(*decl<E>(), *decl<E>()))
 	>
-static constexpr void
+static DS_constexpr14 void
 permutate(uint64_t seq_n_, E begin_, E end_)
 {
 	size_t size_ = size_t(end_ - begin_);
@@ -2059,7 +2059,7 @@ template <class C
 		, typename End   = decltype(end(decl<C>()))
 		, typename       = decltype(decl<End &>() - decl<Begin &>())
 	>
-static constexpr C &&
+static DS_constexpr14 C &&
 permutate(uint64_t seq_n_, C && iterable)
 {
 	permutate(seq_n_, ds::begin(iterable), ds::end(iterable));
@@ -2069,7 +2069,7 @@ permutate(uint64_t seq_n_, C && iterable)
 template <class C
 		, typename = decltype(permutate(decl<uint64_t>(), decl<C>()))
 	>
-static constexpr C
+static DS_constexpr14 C
 permutated(uint64_t seq_n_, C const & iterable)
 {
 	C _permutated(iterable);
@@ -2078,7 +2078,7 @@ permutated(uint64_t seq_n_, C const & iterable)
 }
 
 template <class C>
-static constexpr uint64_t
+static DS_constexpr14 uint64_t
 permutation_seq_n(C const & permutated_)
 {
 	auto size_ = ds::size(permutated_);
@@ -2108,7 +2108,7 @@ permutation_seq_n(C const & permutated_)
 
 
 template <typename T = float, class C>
-static constexpr T
+static DS_constexpr14 T
 mean(C && iterable)
 {
 	auto _count = size(iterable);
@@ -2124,7 +2124,7 @@ mean(C && iterable)
 
 
 template <typename T = float, class C>
-static constexpr T
+static DS_constexpr14 T
 variance(C && iterable)
 {
 	auto _count = size(iterable);
@@ -2146,7 +2146,7 @@ variance(C && iterable)
 
 
 template <typename T = float, class C>
-static constexpr T
+static DS_constexpr14 T
 standard_deviation(C && iterable)
 {
 	return std::sqrt(variance<T>(ds::forward<C>(iterable)));
@@ -2156,7 +2156,7 @@ standard_deviation(C && iterable)
 template <class C, class P
 		, typename It = decltype(begin(decl<C>()))
 	>
-static constexpr It
+static DS_constexpr14 It
 find_best(C && iterable, P && test_)
 {
 	auto _size  = size(iterable);
@@ -2181,7 +2181,7 @@ find_best(C && iterable, P && test_)
 template <class C, class P = less<remove_cvref_t<decltype(*begin(decl<C>()))>>
 		, typename It = decltype(begin(decl<C>()))
 	>
-static constexpr It
+static DS_constexpr14 It
 find_min(C && iterable, P && compare = {})
 {
 	auto _size  = size(iterable);
@@ -2201,7 +2201,7 @@ find_min(C && iterable, P && compare = {})
 template <class C, class P = greater<remove_cvref_t<decltype(*begin(decl<C>()))>>
 		, typename It = decltype(begin(decl<C>()))
 	>
-static constexpr It
+static DS_constexpr14 It
 find_max(C && iterable, P && compare = {})
 {
 	auto _size  = size(iterable);

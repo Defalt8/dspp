@@ -60,14 +60,14 @@ class Random
 		return next_;
 	} 
 
-	constexpr coeff_t
+	DS_constexpr14 coeff_t
 	_get_next()
 	{
 		_prev = _coef * ((_coef * _prev) + _seed) + _offs;
 		return this->_adjust(_prev);
 	} 
 
-	constexpr void
+	DS_constexpr14 void
 	_init()
 	{
 		_offs = _seed % 2 == 0 ? 1 : 0;
@@ -78,7 +78,7 @@ class Random
  public:
 	constexpr Random() = default;
 	
-	constexpr Random(coeff_t seed_)
+	DS_constexpr14 Random(coeff_t seed_)
 		: _seed { seed_ }
 	{
 		this->_init();
@@ -87,18 +87,17 @@ class Random
 	void
 	set_seed(coeff_t seed_)
 	{
-		_seed = seed_;
-		this->_init();
+		_seed = this->_init(seed_);
 	}
 	
-	constexpr value_t
+	DS_constexpr14 value_t
 	next()
 	{
 		auto _next = this->_get_next();
 		return this->_cast(_next);
 	}
 
-	constexpr value_t
+	DS_constexpr14 value_t
 	next_range(value_t min_, value_t max_)
 	{
 		auto _next  = this->_get_next();
@@ -107,7 +106,7 @@ class Random
 		return this->_cast(_rnval) + min_;
 	}
 
-	constexpr value_t
+	DS_constexpr14 value_t
 	next_binary()
 	{
 		auto _next  = this->_get_next();

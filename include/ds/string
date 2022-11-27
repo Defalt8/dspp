@@ -109,7 +109,7 @@ class StringView
 		, m_size    { size_ - 1 }
 	{}
 
-	constexpr StringView(char_t const * pstring_)
+	DS_constexpr14 StringView(char_t const * pstring_)
 		: m_pstring { pstring_ }
 		, m_size    { string_length(pstring_) }
 	{}
@@ -124,7 +124,7 @@ class StringView
 
 	constexpr bool operator!() const noexcept { return m_pstring == nullptr; }
 
-	explicit constexpr operator bool()       noexcept { return m_pstring != nullptr; }
+	explicit inline    operator bool()       noexcept { return m_pstring != nullptr; }
 	explicit constexpr operator bool() const noexcept { return m_pstring != nullptr; }
 
 	constexpr bool
@@ -328,7 +328,7 @@ class StringView
 		return m_pstring[index];
 	}
 
-	constexpr size_t size()       noexcept { return m_size; }
+	inline    size_t size()       noexcept { return m_size; }
 	constexpr size_t size() const noexcept { return m_size; }
 	
 	constexpr char_t const & operator[](size_t index) const noexcept { return m_pstring[index]; }
@@ -441,7 +441,7 @@ class String
 		dest[i] = '\0';
 	}
 
-	static constexpr size_t
+	static DS_constexpr14 size_t
 	_get_size(char_t const * pstring_, size_t & length_)
 	{
 		if(length_ == size_t(-1))

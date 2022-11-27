@@ -54,7 +54,7 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 	friend class Tuple;
 
 	template <size_t i_, typename Func>
-	constexpr int
+	DS_constexpr14 int
 	_func_wrapper(Func && do_) 
 	{
 		do_(i_, this->at<i_>());
@@ -62,7 +62,7 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 	}
 
 	template <size_t i_, typename Func>
-	constexpr int
+	DS_constexpr14 int
 	_func_wrapper(Func && do_) const
 	{
 		do_(i_, this->at<i_>());
@@ -70,14 +70,14 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 	}
 
 	template <typename Func, size_t... indices_>
-	constexpr void
+	DS_constexpr14 void
 	_for_each_impl(Func && do_, index_sequence<indices_...>)
 	{
 		int _r[] { _func_wrapper<indices_>(do_)... };
 	}
 
 	template <typename Func, size_t... indices_>
-	constexpr void
+	DS_constexpr14 void
 	_for_each_impl(Func && do_, index_sequence<indices_...>) const
 	{
 		int _r[] { _func_wrapper<indices_>(do_)... };
@@ -132,7 +132,7 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
 			, typename = Tuple<decltype(decl<Func>()(size_t(0),decl<T>())),decltype(decl<Func>()(size_t(0),decl<Ts>()))...>
 		>
-	constexpr void
+	DS_constexpr14 void
 	for_each(Func && do_)
 	{
 		_for_each_impl(do_, make_index_sequence_t<start_,end_>());
@@ -142,7 +142,7 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
 			, typename = Tuple<decltype(decl<Func>()(size_t(0),decl<T>())),decltype(decl<Func>()(size_t(0),decl<Ts>()))...>
 		>
-	constexpr void
+	DS_constexpr14 void
 	for_each(Func && do_) const
 	{
 		_for_each_impl(do_, make_index_sequence_t<start_,end_>());
@@ -152,7 +152,7 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
 			, typename = Tuple<decltype(decl<Func>()(size_t(0),decl<T>())),decltype(decl<Func>()(size_t(0),decl<Ts>()))...>
 		>
-	constexpr void
+	DS_constexpr14 void
 	reverse_for_each(Func && do_)
 	{
 		_for_each_impl(do_, make_reverse_index_sequence_t<start_,end_>());
@@ -162,7 +162,7 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 			, enable_if_t<(start_ < end_ && end_ <= size()), int> = 0
 			, typename = Tuple<decltype(decl<Func>()(size_t(0),decl<T>())),decltype(decl<Func>()(size_t(0),decl<Ts>()))...>
 		>
-	constexpr void
+	DS_constexpr14 void
 	reverse_for_each(Func && do_) const
 	{
 		_for_each_impl(do_, make_reverse_index_sequence_t<start_,end_>());

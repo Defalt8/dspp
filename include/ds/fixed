@@ -112,7 +112,7 @@ class Fixed
 	template <class F
 			, typename = decltype(decl<E &>() = decl<F>()())
 		>
-	constexpr Fixed(F && func)
+	DS_constexpr14 Fixed(F && func)
 		: m_array {}
 	{
 		for(auto & e : m_array)
@@ -122,38 +122,38 @@ class Fixed
 	Fixed & operator=(Fixed &&) = default;
 	Fixed & operator=(Fixed const &) = default;
 
-	constexpr E       & operator[](size_t index)       noexcept { return m_array[index]; }
+	inline    E       & operator[](size_t index)       noexcept { return m_array[index]; }
 	constexpr E const & operator[](size_t index) const noexcept { return m_array[index]; }
 	
-	constexpr E & 
+	E & 
 	at(size_t index) noexcept(false)
 	{
 		ds_throw_if(index >= size_, index_out_of_bounds());
 		return m_array[index];
 	}
 
-	constexpr E const & 
+	DS_constexpr14 E const & 
 	at(size_t index) const noexcept(false)
 	{
 		ds_throw_if(index >= size_, index_out_of_bounds());
 		return m_array[index];
 	}
 
-	constexpr array_t       & array()       noexcept { return m_array; }
+	inline    array_t       & array()       noexcept { return m_array; }
 	constexpr array_t const & array() const noexcept { return m_array; }
 
-	constexpr size_t size()       noexcept { return size_; }
+	inline    size_t size()       noexcept { return size_; }
 	constexpr size_t size() const noexcept { return size_; }
 	
-	constexpr E       * begin()       noexcept { return &m_array[0]; }
+	inline    E       * begin()       noexcept { return &m_array[0]; }
 	constexpr E const * begin() const noexcept { return &m_array[0]; }
-	constexpr E       * end  ()       noexcept { return &m_array[size_]; }
+	inline    E       * end  ()       noexcept { return &m_array[size_]; }
 	constexpr E const * end  () const noexcept { return &m_array[size_]; }
 	
-	inline E       * rbegin()       noexcept { return &m_array[size_-1]; }
-	inline E const * rbegin() const noexcept { return &m_array[size_-1]; }
-	inline E       * rend  ()       noexcept { return &m_array[0]-1; }
-	inline E const * rend  () const noexcept { return &m_array[0]-1; }
+	inline    E       * rbegin()       noexcept { return &m_array[size_-1]; }
+	constexpr E const * rbegin() const noexcept { return &m_array[size_-1]; }
+	inline    E       * rend  ()       noexcept { return &m_array[0]-1; }
+	constexpr E const * rend  () const noexcept { return &m_array[0]-1; }
 	
 };
 
@@ -181,49 +181,49 @@ class Fixed<size_,E &>
 	{
 		E ** current = nullptr;
 		
-		constexpr Iterator & operator++()    { ++current; return *this; }
+		inline    Iterator & operator++()    { ++current; return *this; }
 		constexpr Iterator   operator++(int) { return { current++ }; }
 		
-		constexpr Iterator & operator--()    { --current; return *this; }
+		inline    Iterator & operator--()    { --current; return *this; }
 		constexpr Iterator   operator--(int) { return { current-- }; }
 
-		constexpr E       & operator*()       { return **current; }
+		inline    E       & operator*()       { return **current; }
 		constexpr E const & operator*() const { return **current; }
 
-		constexpr E       & operator[](size_t index_)       { return *current[index_]; }
+		inline    E       & operator[](size_t index_)       { return *current[index_]; }
 		constexpr E const & operator[](size_t index_) const { return *current[index_]; }
 
-		constexpr ptrdiff_t operator-(Iterator const & rhs)       { return ptrdiff_t(current - rhs.current); }
+		inline    ptrdiff_t operator-(Iterator const & rhs)       { return ptrdiff_t(current - rhs.current); }
 		constexpr ptrdiff_t operator-(Iterator const & rhs) const { return ptrdiff_t(current - rhs.current); }
 
-		constexpr Iterator operator-(size_t rhs)       { return { current - rhs }; }
+		inline    Iterator operator-(size_t rhs)       { return { current - rhs }; }
 		constexpr Iterator operator-(size_t rhs) const { return { current - rhs }; }
 
-		constexpr Iterator operator+(size_t rhs)       { return { current + rhs }; }
+		inline    Iterator operator+(size_t rhs)       { return { current + rhs }; }
 		constexpr Iterator operator+(size_t rhs) const { return { current + rhs }; }
 
-		constexpr bool operator<(Iterator const & rhs)       { return current < rhs.current; }
+		inline    bool operator<(Iterator const & rhs)       { return current < rhs.current; }
 		constexpr bool operator<(Iterator const & rhs) const { return current < rhs.current; }
 
-		constexpr bool operator>(Iterator const & rhs)       { return current > rhs.current; }
+		inline    bool operator>(Iterator const & rhs)       { return current > rhs.current; }
 		constexpr bool operator>(Iterator const & rhs) const { return current > rhs.current; }
 
-		constexpr bool operator<=(Iterator const & rhs)       { return current <= rhs.current; }
+		inline    bool operator<=(Iterator const & rhs)       { return current <= rhs.current; }
 		constexpr bool operator<=(Iterator const & rhs) const { return current <= rhs.current; }
 
-		constexpr bool operator>=(Iterator const & rhs)       { return current >= rhs.current; }
+		inline    bool operator>=(Iterator const & rhs)       { return current >= rhs.current; }
 		constexpr bool operator>=(Iterator const & rhs) const { return current >= rhs.current; }
 
-		constexpr bool operator==(Iterator const & rhs)       { return current == rhs.current; }
+		inline    bool operator==(Iterator const & rhs)       { return current == rhs.current; }
 		constexpr bool operator==(Iterator const & rhs) const { return current == rhs.current; }
 
-		constexpr bool operator!=(Iterator const & rhs)       { return current != rhs.current; }
+		inline    bool operator!=(Iterator const & rhs)       { return current != rhs.current; }
 		constexpr bool operator!=(Iterator const & rhs) const { return current != rhs.current; }
 
-		constexpr bool operator!()       { return current == nullptr; }
+		inline    bool operator!()       { return current == nullptr; }
 		constexpr bool operator!() const { return current == nullptr; }
 
-		constexpr explicit operator bool()       { return current != nullptr; }
+		inline    explicit operator bool()       { return current != nullptr; }
 		constexpr explicit operator bool() const { return current != nullptr; }
 
 	};
@@ -232,47 +232,47 @@ class Fixed<size_,E &>
 	{
 		E * const * current = nullptr;
 		
-		constexpr ConstIterator & operator++()    { ++current; return *this; }
+		inline    ConstIterator & operator++()    { ++current; return *this; }
 		constexpr ConstIterator   operator++(int) { return { current++ }; }
 		
-		constexpr ConstIterator & operator--()    { --current; return *this; }
+		inline    ConstIterator & operator--()    { --current; return *this; }
 		constexpr ConstIterator   operator--(int) { return { current-- }; }
 
 		constexpr E const & operator*() const { return **current; }
 
 		constexpr E const & operator[](size_t index_) const { return *current[index_]; }
 
-		constexpr ptrdiff_t operator-(ConstIterator const & rhs)       { return ptrdiff_t(current - rhs.current); }
+		inline    ptrdiff_t operator-(ConstIterator const & rhs)       { return ptrdiff_t(current - rhs.current); }
 		constexpr ptrdiff_t operator-(ConstIterator const & rhs) const { return ptrdiff_t(current - rhs.current); }
 
-		constexpr ConstIterator operator-(size_t rhs)       { return { current - rhs }; }
+		inline    ConstIterator operator-(size_t rhs)       { return { current - rhs }; }
 		constexpr ConstIterator operator-(size_t rhs) const { return { current - rhs }; }
 
-		constexpr ConstIterator operator+(size_t rhs)       { return { current + rhs }; }
+		inline    ConstIterator operator+(size_t rhs)       { return { current + rhs }; }
 		constexpr ConstIterator operator+(size_t rhs) const { return { current + rhs }; }
 
-		constexpr bool operator<(ConstIterator const & rhs)       { return current < rhs.current; }
+		inline    bool operator<(ConstIterator const & rhs)       { return current < rhs.current; }
 		constexpr bool operator<(ConstIterator const & rhs) const { return current < rhs.current; }
 
-		constexpr bool operator>(ConstIterator const & rhs)       { return current > rhs.current; }
+		inline    bool operator>(ConstIterator const & rhs)       { return current > rhs.current; }
 		constexpr bool operator>(ConstIterator const & rhs) const { return current > rhs.current; }
 
-		constexpr bool operator<=(ConstIterator const & rhs)       { return current <= rhs.current; }
+		inline    bool operator<=(ConstIterator const & rhs)       { return current <= rhs.current; }
 		constexpr bool operator<=(ConstIterator const & rhs) const { return current <= rhs.current; }
 
-		constexpr bool operator>=(ConstIterator const & rhs)       { return current >= rhs.current; }
+		inline    bool operator>=(ConstIterator const & rhs)       { return current >= rhs.current; }
 		constexpr bool operator>=(ConstIterator const & rhs) const { return current >= rhs.current; }
 
-		constexpr bool operator==(ConstIterator const & rhs)       { return current == rhs.current; }
+		inline    bool operator==(ConstIterator const & rhs)       { return current == rhs.current; }
 		constexpr bool operator==(ConstIterator const & rhs) const { return current == rhs.current; }
 
-		constexpr bool operator!=(ConstIterator const & rhs)       { return current != rhs.current; }
+		inline    bool operator!=(ConstIterator const & rhs)       { return current != rhs.current; }
 		constexpr bool operator!=(ConstIterator const & rhs) const { return current != rhs.current; }
 
-		constexpr bool operator!()       { return current == nullptr; }
+		inline    bool operator!()       { return current == nullptr; }
 		constexpr bool operator!() const { return current == nullptr; }
 
-		constexpr explicit operator bool()       { return current != nullptr; }
+		inline    explicit operator bool()       { return current != nullptr; }
 		constexpr explicit operator bool() const { return current != nullptr; }
 
 	};
@@ -283,8 +283,8 @@ class Fixed<size_,E &>
 
 	template <typename T, typename... Ts
 			, enable_if_t<((sizeof...(Ts)+1 <= size_) 
-				&& are_all_true<is_constructible<E,decltype(&decl<T>())>
-				              , is_constructible<E,decltype(&decl<Ts>())>...>::value)
+				&& are_all_true<is_constructible<E *, decltype(&decl<T>())>
+				              , is_constructible<E *, decltype(&decl<Ts>())>...>::value)
 			,int> = 0
 		>
 	constexpr Fixed(T && value, Ts &&... values)
@@ -294,38 +294,38 @@ class Fixed<size_,E &>
 	Fixed & operator=(Fixed &&) = default;
 	Fixed & operator=(Fixed const &) = default;
 
-	constexpr E       & operator[](size_t index)       noexcept { return *m_array[index]; }
+	inline    E       & operator[](size_t index)       noexcept { return *m_array[index]; }
 	constexpr E const & operator[](size_t index) const noexcept { return *m_array[index]; }
 	
-	constexpr E & 
+	E & 
 	at(size_t index) noexcept(false)
 	{
 		ds_throw_if(index >= size_, index_out_of_bounds());
 		return *m_array[index];
 	}
 
-	constexpr E const & 
+	DS_constexpr14 E const & 
 	at(size_t index) const noexcept(false)
 	{
 		ds_throw_if(index >= size_, index_out_of_bounds());
 		return *m_array[index];
 	}
 
-	constexpr array_t       & array()       noexcept { return m_array; }
+	inline    array_t       & array()       noexcept { return m_array; }
 	constexpr array_t const & array() const noexcept { return m_array; }
 
-	constexpr size_t size()       noexcept { return size_; }
+	inline    size_t size()       noexcept { return size_; }
 	constexpr size_t size() const noexcept { return size_; }
 	
-	constexpr Iterator       begin()       noexcept { return { &m_array[0] }; }
+	inline    Iterator       begin()       noexcept { return { &m_array[0] }; }
 	constexpr ConstIterator  begin() const noexcept { return { &m_array[0] }; }
-	constexpr Iterator       end  ()       noexcept { return { &m_array[size_] }; }
+	inline    Iterator       end  ()       noexcept { return { &m_array[size_] }; }
 	constexpr ConstIterator  end  () const noexcept { return { &m_array[size_] }; }
 	
-	inline Iterator       rbegin()       noexcept { return { &m_array[size_-1] }; }
-	inline ConstIterator  rbegin() const noexcept { return { &m_array[size_-1] }; }
-	inline Iterator       rend  ()       noexcept { return { &m_array[0]-1 }; }
-	inline ConstIterator  rend  () const noexcept { return { &m_array[0]-1 }; }
+	inline    Iterator       rbegin()       noexcept { return { &m_array[size_-1] }; }
+	constexpr ConstIterator  rbegin() const noexcept { return { &m_array[size_-1] }; }
+	inline    Iterator       rend  ()       noexcept { return { &m_array[0]-1 }; }
+	constexpr ConstIterator  rend  () const noexcept { return { &m_array[0]-1 }; }
 	
 };
 
@@ -355,7 +355,7 @@ struct inserter<Fixed<size_,E>,E>
 	Fixed<size_,E> & _fixed;
 	size_t i = 0;
 	
-	constexpr bool
+	DS_constexpr14 bool
 	init(size_t required_size)
 	{
 		if(required_size > size_)
@@ -365,7 +365,7 @@ struct inserter<Fixed<size_,E>,E>
 	}
 
 	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
-	constexpr bool 
+	DS_constexpr14 bool 
 	insert(T && object)
 	{
 		if(i >= size_)

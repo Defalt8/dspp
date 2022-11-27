@@ -2,7 +2,7 @@
 #include <colored_printer>
 #include <ds/common>
 
-auto _lambda = [i=0]() mutable {};
+auto _lambda = []() {};
 using _lambda_t = decltype(_lambda);
 
 Test(meta_functions_test)

@@ -81,8 +81,13 @@
 
 // C++14 attributes and helper macros
 #if DS_Cxx_Version >= DS_Cxx_Version_14
+#   define DS_constexpr14 constexpr
+#   define DS_inline14 inline
 #	define DS_deprecated [[deprecated]]
 #	define DS_deprecated_x(...) [[deprecated(__VA_ARGS__)]]
+#else
+#   define DS_constexpr14
+#   define DS_inline14
 #endif
 
 
