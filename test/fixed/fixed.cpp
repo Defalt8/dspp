@@ -319,9 +319,9 @@ Test(fixed_test)
 		constexpr size_t size_ = 5;
 		auto fixed_ = ds::Fixed<size_,int>({ 1,2,3,4,5 });
 		AssertTrue(compare_eq(fixed_.array(), {1,2,3,4,5}));
-		for(int i = 0; i < size_; ++i)
+		for(int i = 0; size_t(i) < size_; ++i)
 			AssertEQ(fixed_[i], i+1);
-		AssertThrowNone(auto value = fixed_[size_]);
+		AssertThrowNone(fixed_[size_]);
 	} TestcaseEnd(test_indexing_operator);
 
 	Testcase(test_const_indexing_operator)
@@ -329,9 +329,9 @@ Test(fixed_test)
 		constexpr size_t size_ = 5;
 		auto const fixed_ = ds::Fixed<size_,int>({ 1,2,3,4,5 });
 		AssertTrue(compare_eq(fixed_.array(), {1,2,3,4,5}));
-		for(int i = 0; i < size_; ++i)
+		for(int i = 0; size_t(i) < size_; ++i)
 			AssertEQ(fixed_[i], i+1);
-		AssertThrowNone(auto value = fixed_[size_]);
+		AssertThrowNone(fixed_[size_]);
 	} TestcaseEnd(test_const_indexing_operator);
 
 	Testcase(test_at_function)
@@ -339,11 +339,11 @@ Test(fixed_test)
 		constexpr size_t size_ = 5;
 		auto fixed_ = ds::Fixed<size_,int>({ 1,2,3,4,5 });
 		AssertTrue(compare_eq(fixed_.array(), {1,2,3,4,5}));
-		for(int i = 0; i < size_; ++i)
+		for(int i = 0; size_t(i) < size_; ++i)
 			AssertEQ(fixed_.at(i), i+1);
-		AssertThrowAny(auto value = fixed_.at(size_));
+		AssertThrowAny(fixed_.at(size_));
 		using index_out_of_bounds_t = ds::Fixed<size_,int>::index_out_of_bounds;
-		AssertThrow(index_out_of_bounds_t const &, auto value = fixed_.at(size_););
+		AssertThrow(index_out_of_bounds_t const &, fixed_.at(size_););
 	} TestcaseEnd(test_at_function);
 
 	Testcase(test_const_at_function)
@@ -351,11 +351,11 @@ Test(fixed_test)
 		constexpr size_t size_ = 5;
 		auto const fixed_ = ds::Fixed<size_,int>({ 1,2,3,4,5 });
 		AssertTrue(compare_eq(fixed_.array(), {1,2,3,4,5}));
-		for(int i = 0; i < size_; ++i)
+		for(int i = 0; size_t(i) < size_; ++i)
 			AssertEQ(fixed_.at(i), i+1);
-		AssertThrowAny(auto value = fixed_.at(size_));
+		AssertThrowAny(fixed_.at(size_));
 		using index_out_of_bounds_t = ds::Fixed<size_,int>::index_out_of_bounds;
-		AssertThrow(index_out_of_bounds_t const &, auto value = fixed_.at(size_););
+		AssertThrow(index_out_of_bounds_t const &, fixed_.at(size_););
 	} TestcaseEnd(test_const_at_function);
 
 	Testcase(test_array_function)

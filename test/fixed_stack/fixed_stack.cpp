@@ -260,7 +260,7 @@ Test(fixed_stack_test)
 			ExpectEQ(Counter::active(), 0);
 			ExpectEQ(Counter::copies(), 0);
 			ExpectEQ(Counter::moves(), 0);
-			for(int i = 1; i <= capacity_; ++i)
+			for(int i = 1; size_t(i) <= capacity_; ++i)
 			{
 				Counter * it = nullptr;
 				AssertNotNull(it = fstack.push(i));
@@ -290,7 +290,7 @@ Test(fixed_stack_test)
 			ExpectEQ(Counter::active(), 0);
 			ExpectEQ(Counter::copies(), 0);
 			ExpectEQ(Counter::moves(), 0);
-			for(int i = 1; i <= capacity_; ++i)
+			for(int i = 1; size_t(i) <= capacity_; ++i)
 				AssertNotNull(fstack.push(i));
 			AssertNull(fstack.push(int(capacity_ + 1)));
 			ExpectEQ(fstack.size(), fstack.capacity());
