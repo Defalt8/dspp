@@ -1208,6 +1208,8 @@ using end_line = EndLine;
 static constexpr size_t 
 string_length(char const * pstring_) noexcept
 {
+	if(pstring_ == nullptr)
+		return 0;
 	size_t length_ = 0;
 	for(; pstring_[length_] != '\0'; ++length_);
 	return length_;
@@ -1216,6 +1218,8 @@ string_length(char const * pstring_) noexcept
 static constexpr size_t 
 string_length(char const * pstring_, size_t max_) noexcept
 {
+	if(pstring_ == nullptr)
+		return 0;
 	size_t length_ = 0;
 	for(; length_ < max_ && pstring_[length_++] != '\0'; ++length_);
 	return length_;
