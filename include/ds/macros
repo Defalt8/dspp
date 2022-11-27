@@ -86,7 +86,7 @@
 #	define DS_deprecated [[deprecated]]
 #	define DS_deprecated_x(...) [[deprecated(__VA_ARGS__)]]
 #else
-#   define DS_constexpr14
+#   define DS_constexpr14 inline
 #   define DS_inline14
 #endif
 
