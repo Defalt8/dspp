@@ -349,7 +349,7 @@ struct usage_sn<StringStream<A>,size_,count_> : usage_sn<typename StringStream<A
 
 } // namespace ds
 
-static ds::StringStream<>
+static inline ds::StringStream<>
 operator"" _dsstrm(ds::StringStream<>::char_t const * pstring_, size_t size_)
 {
 	return { pstring_, size_ };
