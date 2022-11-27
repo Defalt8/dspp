@@ -227,6 +227,149 @@ namespace sys {
 		return false;
 	}
 
+	enum class sls
+	{
+		ok = 0,
+		invalid_path,
+		name_too_long,
+		dir_not_found,
+		not_a_dir,
+		access_denied,
+		busy,
+		other
+	};
+
+	// enumerate a directory
+	// enumerator must return true to continue enumeration
+	// enumerator must be able to accept two string_view arguments
+	//    the first argument being for the path, guaranteed
+	//      to end with '\' or '/'
+	//    and the second argument being for the current entry name.
+	template <class En
+			, enable_if_t<is_same<decltype(decl<En>()(decl<StringView const &>(), decl<StringView const &>())),bool>::value,int> = 0
+		>
+	static sls
+	ls(StringView const & path_, En && enumerator)
+	{
+		if(path_.size() > 0)
+		{
+			if(path_.size() > max_path - 2)
+				return sls::name_too_long;
+			else
+			{
+				// check if path points to a directory
+				{
+					auto _type = get_type(path_);
+					if(_type == type::does_not_exist)
+						return sls::dir_not_found;
+					else if(_type != type::dir)
+						return sls::not_a_dir;
+				}
+			  #ifdef _WIN32
+				char _path_buffer[max_path+1];
+				size_t _new_size = path_.size();
+				{
+					memcpy(&_path_buffer[0], path_.begin(), path_.size());
+					char * ch = &_path_buffer[path_.size()-1];
+					if(*ch == '/' || *ch == '\\')
+					{
+						*(++ch) = '*';
+						*(++ch) = '\0';
+						_new_size += 1;
+					}
+					else
+					{
+						*(++ch) = '/';
+						*(++ch) = '*';
+						*(++ch) = '\0';
+						_new_size += 2;
+					}
+				}
+				WIN32_FIND_DATAA fdata {}; 
+				HANDLE _handle = FindFirstFileA(&_path_buffer[0], &fdata);
+				if(_handle != INVALID_HANDLE_VALUE)
+				{
+					// remove *
+					{
+						char * ch = &_path_buffer[_new_size - 1];
+						*ch = '\0';
+						_new_size -= 1;
+					}
+					auto path = StringView(&_path_buffer[0], _new_size);
+					do
+					{
+						auto entry_name = StringView((char const *)fdata.cFileName);
+						if(entry_name.size() > 0 && entry_name != "." && entry_name != "..")
+						{
+							if(!enumerator(path, entry_name))
+								break;
+						}
+					}
+					while(FindNextFileA(_handle, &fdata) != 0);
+					FindClose(_handle);
+					return sls::ok;
+				}
+				else
+				{
+					auto err = GetLastError();
+					switch(err)
+					{
+						case ERROR_INVALID_DRIVE: 
+						case ERROR_FILE_NOT_FOUND: return sls::dir_not_found;
+						case ERROR_DIRECTORY:      return sls::not_a_dir;
+						case ERROR_ACCESS_DENIED:  return sls::access_denied;
+						case ERROR_PATH_BUSY:      return sls::busy;
+						default:                   return sls::other;
+					}
+				}
+			  #else
+				char _path_buffer[max_path+1];
+				size_t _new_size = path_.size();
+				{
+					memcpy(&_path_buffer[0], path_.begin(), path_.size());
+					char * ch = &_path_buffer[path_.size()-1];
+					if(*ch != '/' && *ch != '\\')
+					{
+						*(++ch) = '/';
+						_new_size += 1;
+					}
+					*(++ch) = '\0';
+				}
+				auto path = StringView(&_path_buffer[0], _new_size);
+				auto dir = ::opendir(path.begin());
+				if(dir != nullptr)
+				{
+					::dirent * entry = nullptr; 
+					while((entry = ::readdir(dir)) != nullptr)
+					{
+						auto entry_name = StringView((char const *)entry->d_name);
+						if(entry_name.size() > 0 && entry_name != "." && entry_name != "..")
+						{
+							if(!enumerator(path, entry_name))
+								break;
+						}
+					}
+					::closedir(dir);
+					return sls::ok;
+				}
+				else
+				{
+					int err = int(errno);
+					switch(err)
+					{
+						case EACCES:  return sls::access_denied;
+						case ENOENT:  return sls::dir_not_found;
+						case ENOTDIR: return sls::not_a_dir;
+						case EBUSY:   return sls::busy;
+						default:      return sls::other;
+					}
+				}
+			  #endif
+			}
+		}
+		return sls::invalid_path;
+	}
+
 	enum class smkdir
 	{
 		ok = 0,
@@ -384,6 +527,44 @@ namespace sys {
 		return srmdir::invalid_path;
 	}
 
+	namespace _ {
+		static bool 
+		_recursive_rmdir(StringView const & current, StringView const & entry) noexcept
+		{
+			auto full_path = String<>(current, entry);
+			if(is_dir(full_path))
+			{
+				ls(full_path, _recursive_rmdir);
+			  #ifdef _WIN32
+				::_rmdir(full_path.begin());
+			  #else
+				::rmdir(full_path.begin());
+			  #endif
+			}
+			return true;
+		};
+	} // namespace _
+	
+	// only remove the directory and its sub-directories if they are empty
+	// does not remove files
+	static srmdir
+	rmdirs(StringView const & path_) noexcept
+	{
+		auto _sls = ls(path_, _::_recursive_rmdir);
+		switch(_sls)
+		{
+			case sls::ok:            return srmdir::ok; 
+			case sls::invalid_path:  return srmdir::invalid_path; 
+			case sls::name_too_long: return srmdir::name_too_long; 
+			case sls::dir_not_found:
+			case sls::not_a_dir:     return srmdir::not_a_dir; 
+			case sls::access_denied: return srmdir::access_denied; 
+			case sls::busy:          return srmdir::busy; 
+			default:
+			case sls::other:         return srmdir::other; 
+		}
+	}
+
 	enum class smkfile
 	{
 		ok = 0,
@@ -498,147 +679,86 @@ namespace sys {
 		return srmfile::invalid_path;
 	}
 
-	enum class sls
+	enum class sremove
 	{
 		ok = 0,
 		invalid_path,
 		name_too_long,
-		dir_not_found,
-		not_a_dir,
+		does_not_exist,
+		not_a_dir_nor_file,
 		access_denied,
 		busy,
 		other
 	};
 
-	// enumerate a directory
-	// enumerator must return true to continue enumeration
-	// enumerator must be able to accept two string_view arguments
-	//    the first argument being for the path, guaranteed
-	//      to end with '\' or '/'
-	//    and the second argument being for the current entry name.
-	template <class En
-			, enable_if_t<is_same<decltype(decl<En>()(decl<StringView const &>(), decl<StringView const &>())),bool>::value,int> = 0
-		>
-	static sls
-	ls(StringView const & path_, En && enumerator)
+	namespace _ {
+		static bool 
+		_recursive_remove(StringView const & current, StringView const & entry) noexcept
+		{
+			auto full_path = String<>(current, entry);
+			if(is_dir(full_path))
+			{
+				ls(full_path, _recursive_remove);
+			  #ifdef _WIN32
+				::_rmdir(full_path.begin());
+			  #else
+				::rmdir(full_path.begin());
+			  #endif
+			}
+			else
+				::remove(full_path.begin());
+			return true;
+		};
+	} // namespace _
+	
+	// removes both files and directories along with all sub-directories
+	static sremove
+	remove(StringView const & path_) noexcept
 	{
 		if(path_.size() > 0)
 		{
-			if(path_.size() > max_path - 2)
-				return sls::name_too_long;
+			if(path_.size() > max_path)
+				return sremove::name_too_long;
 			else
 			{
-				// check if path points to a directory
+				auto _type = get_type(path_);
+				if(_type == type::does_not_exist)
+					return sremove::does_not_exist;
+				else if(_type == type::dir)
 				{
-					auto _type = get_type(path_);
-					if(_type == type::does_not_exist)
-						return sls::dir_not_found;
-					else if(_type != type::dir)
-						return sls::not_a_dir;
-				}
-			  #ifdef _WIN32
-				char _path_buffer[max_path+1];
-				size_t _new_size = path_.size();
-				{
-					memcpy(&_path_buffer[0], path_.begin(), path_.size());
-					char * ch = &_path_buffer[path_.size()-1];
-					if(*ch == '/' || *ch == '\\')
+					auto _sls = ls(path_, _::_recursive_remove);	
+					switch(_sls)
 					{
-						*(++ch) = '*';
-						*(++ch) = '\0';
-						_new_size += 1;
-					}
-					else
-					{
-						*(++ch) = '/';
-						*(++ch) = '*';
-						*(++ch) = '\0';
-						_new_size += 2;
+						case sls::ok:            return sremove::ok; 
+						case sls::invalid_path:  return sremove::invalid_path; 
+						case sls::name_too_long: return sremove::name_too_long; 
+						case sls::dir_not_found: return sremove::not_a_dir_nor_file; 
+						case sls::access_denied: return sremove::access_denied; 
+						case sls::busy:          return sremove::busy; 
+						default:
+						case sls::other:         return sremove::other; 
 					}
 				}
-				WIN32_FIND_DATAA fdata {}; 
-				HANDLE _handle = FindFirstFileA(&_path_buffer[0], &fdata);
-				if(_handle != INVALID_HANDLE_VALUE)
+				else if(_type == type::regular_file)
 				{
-					// remove *
+					auto _srmfile = rmfile(path_.begin());
+					switch(_srmfile)
 					{
-						char * ch = &_path_buffer[_new_size - 1];
-						*ch = '\0';
-						_new_size -= 1;
-					}
-					auto path = StringView(&_path_buffer[0], _new_size);
-					do
-					{
-						auto entry_name = StringView((char const *)fdata.cFileName);
-						if(entry_name.size() > 0 && entry_name != "." && entry_name != "..")
-						{
-							if(!enumerator(path, entry_name))
-								break;
-						}
-					}
-					while(FindNextFileA(_handle, &fdata) != 0);
-					FindClose(_handle);
-					return sls::ok;
-				}
-				else
-				{
-					auto err = GetLastError();
-					switch(err)
-					{
-						case ERROR_INVALID_DRIVE: 
-						case ERROR_FILE_NOT_FOUND: return sls::dir_not_found;
-						case ERROR_DIRECTORY:      return sls::not_a_dir;
-						case ERROR_ACCESS_DENIED:  return sls::access_denied;
-						case ERROR_PATH_BUSY:      return sls::busy;
-						default:                   return sls::other;
+						case srmfile::ok:             return sremove::ok; 
+						case srmfile::invalid_path:   return sremove::invalid_path; 
+						case srmfile::name_too_long:  return sremove::name_too_long; 
+						case srmfile::file_not_found: return sremove::not_a_dir_nor_file; 
+						case srmfile::access_denied:  return sremove::access_denied; 
+						case srmfile::busy:           return sremove::busy; 
+						default:
+						case srmfile::other:          return sremove::other; 
 					}
 				}
-			  #else
-				char _path_buffer[max_path+1];
-				size_t _new_size = path_.size();
-				{
-					memcpy(&_path_buffer[0], path_.begin(), path_.size());
-					char * ch = &_path_buffer[path_.size()-1];
-					if(*ch != '/' && *ch != '\\')
-					{
-						*(++ch) = '/';
-						_new_size += 1;
-					}
-					*(++ch) = '\0';
-				}
-				auto path = StringView(&_path_buffer[0], _new_size);
-				auto dir = ::opendir(path.begin());
-				if(dir != nullptr)
-				{
-					::dirent * entry = nullptr; 
-					while((entry = ::readdir(dir)) != nullptr)
-					{
-						auto entry_name = StringView((char const *)entry->d_name);
-						if(entry_name.size() > 0 && entry_name != "." && entry_name != "..")
-						{
-							if(!enumerator(path, entry_name))
-								break;
-						}
-					}
-					::closedir(dir);
-					return sls::ok;
-				}
-				else
-				{
-					int err = int(errno);
-					switch(err)
-					{
-						case EACCES:  return sls::access_denied;
-						case ENOENT:  return sls::dir_not_found;
-						case ENOTDIR: return sls::not_a_dir;
-						case EBUSY:   return sls::busy;
-						default:      return sls::other;
-					}
-				}
-			  #endif
+				else 
+					return sremove::not_a_dir_nor_file;
 			}
 		}
-		return sls::invalid_path;
+		return sremove::invalid_path;
 	}
 
 } // namespace sys
