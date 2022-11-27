@@ -376,11 +376,26 @@ template <typename R, typename... Args> struct is_function<R(Args...)> : true_ty
 template <typename T>          struct is_member_pointer         : false_type {};
 template <typename T, class C> struct is_member_pointer<T C::*> : true_type {};
 
-template <typename T>          struct is_member_object_pointer         : false_type {};
-template <typename T, class C> struct is_member_object_pointer<T C::*> : bool_constant<!is_function<T>::value> {};
+namespace _ {
+	template <typename T>                            struct _is_member_object_pointer                                  : false_type {};
+	template <typename T, class C>                   struct _is_member_object_pointer<T C::*>                          : true_type {};
+	template <typename R, class C, typename... Args> struct _is_member_object_pointer<R(C::*)(Args...)>                : false_type {};
+	template <typename R, class C, typename... Args> struct _is_member_object_pointer<R(C::*)(Args...) const>          : false_type {};
+	template <typename R, class C, typename... Args> struct _is_member_object_pointer<R(C::*)(Args...) volatile>       : false_type {};
+	template <typename R, class C, typename... Args> struct _is_member_object_pointer<R(C::*)(Args...) const volatile> : false_type {};
+} // namespace _
 
-template <typename T>          struct is_member_function_pointer         : false_type {};
-template <typename T, class C> struct is_member_function_pointer<T C::*> : bool_constant<is_function<T>::value> {};
+template <typename T> struct is_member_object_pointer : bool_constant<_::_is_member_object_pointer<remove_cv_t<T>>::value> {};
+
+namespace _ {
+	template <typename T>                            struct _is_member_function_pointer                                  : false_type {};
+	template <typename R, class C, typename... Args> struct _is_member_function_pointer<R(C::*)(Args...)>                : true_type {};
+	template <typename R, class C, typename... Args> struct _is_member_function_pointer<R(C::*)(Args...) const>          : true_type {};
+	template <typename R, class C, typename... Args> struct _is_member_function_pointer<R(C::*)(Args...) volatile>       : true_type {};
+	template <typename R, class C, typename... Args> struct _is_member_function_pointer<R(C::*)(Args...) const volatile> : true_type {};
+} // namespace _
+
+template <typename T> struct is_member_function_pointer : bool_constant<_::_is_member_function_pointer<remove_cv_t<T>>::value> {};
 
 namespace _ {
 	template <typename T, typename... Args
