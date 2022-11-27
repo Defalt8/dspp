@@ -510,8 +510,14 @@ namespace sys {
 		other
 	};
 
+	// enumerate a directory
+	// enumerator must return true to continue enumeration
+	// enumerator must be able to accept two string_view arguments
+	//    the first argument being for the path, guaranteed
+	//      to end with '\' or '/'
+	//    and the second argument being for the current entry name.
 	template <class En
-			, enable_if_t<is_same<decltype(decl<En>()(decl<StringView const &>())),bool>::value,int> = 0
+			, enable_if_t<is_same<decltype(decl<En>()(decl<StringView const &>(), decl<StringView const &>())),bool>::value,int> = 0
 		>
 	static sls
 	ls(StringView const & path_, En && enumerator)
@@ -531,32 +537,42 @@ namespace sys {
 						return sls::not_a_dir;
 				}
 			  #ifdef _WIN32
-				char find_info[max_path+1];
+				char _path_buffer[max_path+1];
+				size_t _new_size = path_.size();
 				{
-					memcpy(&find_info[0], path_.begin(), path_.size());
-					char * ch = &find_info[path_.size()-1];
+					memcpy(&_path_buffer[0], path_.begin(), path_.size());
+					char * ch = &_path_buffer[path_.size()-1];
 					if(*ch == '/' || *ch == '\\')
 					{
 						*(++ch) = '*';
 						*(++ch) = '\0';
+						_new_size += 1;
 					}
 					else
 					{
 						*(++ch) = '/';
 						*(++ch) = '*';
 						*(++ch) = '\0';
+						_new_size += 2;
 					}
 				}
 				WIN32_FIND_DATAA fdata {}; 
-				HANDLE _handle = FindFirstFileA(&find_info[0], &fdata);
+				HANDLE _handle = FindFirstFileA(&_path_buffer[0], &fdata);
 				if(_handle != INVALID_HANDLE_VALUE)
 				{
+					// remove *
+					{
+						char * ch = &_path_buffer[_new_size - 1];
+						*ch = '\0';
+						_new_size -= 1;
+					}
+					auto path = StringView(&_path_buffer[0], _new_size);
 					do
 					{
 						auto entry_name = StringView((char const *)fdata.cFileName);
 						if(entry_name.size() > 0 && entry_name != "." && entry_name != "..")
 						{
-							if(!enumerator(entry_name))
+							if(!enumerator(path, entry_name))
 								break;
 						}
 					}
@@ -578,8 +594,19 @@ namespace sys {
 					}
 				}
 			  #else
-				char _path_buffer[ds::sys::max_path+1];
-				auto path = ds::sys::_::_terminate_path(path_, _path_buffer);
+				char _path_buffer[max_path+1];
+				size_t _new_size = path_.size();
+				{
+					memcpy(&_path_buffer[0], path_.begin(), path_.size());
+					char * ch = &_path_buffer[path_.size()-1];
+					if(*ch != '/' && *ch != '\\')
+					{
+						*(++ch) = '/';
+						_new_size += 1;
+					}
+					*(++ch) = '\0';
+				}
+				auto path = StringView(&_path_buffer[0], _new_size);
 				auto dir = ::opendir(path.begin());
 				if(dir != nullptr)
 				{
@@ -589,7 +616,7 @@ namespace sys {
 						auto entry_name = StringView((char const *)entry->d_name);
 						if(entry_name.size() > 0 && entry_name != "." && entry_name != "..")
 						{
-							if(!enumerator(entry_name))
+							if(!enumerator(path, entry_name))
 								break;
 						}
 					}
