@@ -19,7 +19,6 @@
 
 #include "common"
 #include "string"
-#include "list"
 
 namespace ds {
 namespace sys {
@@ -511,9 +510,11 @@ namespace sys {
 		other
 	};
 
-	template <class A = default_allocator>
+	template <class En
+			, enable_if_t<is_same<decltype(decl<En>()(decl<StringView const &>())),bool>::value,int> = 0
+		>
 	static sls
-	ls(string_view const & path_, List<2,String<A>,A> & entries)
+	ls(StringView const & path_, En && enumerator)
 	{
 		if(path_.size() > 0)
 		{
@@ -550,12 +551,14 @@ namespace sys {
 				HANDLE _handle = FindFirstFileA(&find_info[0], &fdata);
 				if(_handle != INVALID_HANDLE_VALUE)
 				{
-					entries = {};
 					do
 					{
 						auto entry_name = StringView((char const *)fdata.cFileName);
 						if(entry_name.size() > 0 && entry_name != "." && entry_name != "..")
-							entries.insert_last(entry_name);
+						{
+							if(!enumerator(entry_name))
+								break;
+						}
 					}
 					while(FindNextFileA(_handle, &fdata) != 0);
 					FindClose(_handle);
@@ -580,13 +583,15 @@ namespace sys {
 				auto dir = ::opendir(path.begin());
 				if(dir != nullptr)
 				{
-					entries = {};
 					::dirent * entry = nullptr; 
 					while((entry = ::readdir(dir)) != nullptr)
 					{
 						auto entry_name = StringView((char const *)entry->d_name);
 						if(entry_name.size() > 0 && entry_name != "." && entry_name != "..")
-							entries.insert_last(entry_name);
+						{
+							if(!enumerator(entry_name))
+								break;
+						}
 					}
 					::closedir(dir);
 					return sls::ok;
