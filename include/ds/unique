@@ -201,7 +201,7 @@ class Unique<E[size_],A>
 
 	Unique(Unique const &) = delete;
 
-	constexpr void
+	DS_constexpr14 void
 	_destruct() noexcept
 	{
 		if DS_constexpr17 (!is_trivially_destructible<E>::value)
