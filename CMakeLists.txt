@@ -1,6 +1,9 @@
 cmake_minimum_required( VERSION 3.4 )
 project( dspp VERSION 0.23.97 LANGUAGES CXX )
 
+set( CMAKE_CXX_STANDARD 11 )
+set( CMAKE_CXX_STANDARD_REQUIRED true )
+
 set( DS_HEADER_FILES
 	include/ds/all
 	include/ds/macros
