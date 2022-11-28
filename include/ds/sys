@@ -92,7 +92,7 @@ namespace sys {
 
 	enum class type
 	{
-		does_not_exist = 0, // not available 
+		unavailable = 0,
 		dir, 
 		regular_file, 
 		pipe, 
@@ -146,7 +146,7 @@ namespace sys {
 			}
 		  #endif
 		}
-		return type::does_not_exist;
+		return type::unavailable;
 	}
 
 	static bool 
@@ -260,7 +260,7 @@ namespace sys {
 				// check if path points to a directory
 				{
 					auto _type = get_type(path_);
-					if(_type == type::does_not_exist)
+					if(_type == type::unavailable)
 						return sls::dir_not_found;
 					else if(_type != type::dir)
 						return sls::not_a_dir;
@@ -373,9 +373,9 @@ namespace sys {
 	enum class smkdir
 	{
 		ok = 0,
-		file_exists,
 		invalid_path,
 		name_too_long,
+		file_exists,
 		access_denied,
 		not_enough_space,
 		other
@@ -481,10 +481,10 @@ namespace sys {
 	enum class srmdir
 	{
 		ok = 0,
-		not_empty,
-		not_a_dir,
 		invalid_path,
 		name_too_long,
+		not_a_dir,
+		not_empty,
 		access_denied,
 		busy,
 		other
@@ -531,18 +531,25 @@ namespace sys {
 		static bool 
 		_recursive_rmdir(StringView const & current, StringView const & entry) noexcept
 		{
-			auto full_path = String<>(current, entry);
+			auto _size = current.size() + entry.size(); 
+			if(_size > max_path)
+				return false;
+			char _path_buffer[max_path+1];
+			memcpy(&_path_buffer[0], current.begin(), current.size());
+			memcpy(&_path_buffer[current.size()], entry.begin(), entry.size());
+			_path_buffer[_size] = '\0';
+			auto full_path = StringView(&_path_buffer[0], _size);
 			if(is_dir(full_path))
 			{
 				ls(full_path, _recursive_rmdir);
 			  #ifdef _WIN32
-				::_rmdir(full_path.begin());
+				return ::_rmdir(full_path.begin()) == 0;
 			  #else
-				::rmdir(full_path.begin());
+				return ::rmdir(full_path.begin()) == 0;
 			  #endif
 			}
 			return true;
-		};
+		}
 	} // namespace _
 	
 	// only remove the directory and its sub-directories if they are empty
@@ -553,7 +560,7 @@ namespace sys {
 		auto _sls = ls(path_, _::_recursive_rmdir);
 		switch(_sls)
 		{
-			case sls::ok:            return srmdir::ok; 
+			case sls::ok:            break; 
 			case sls::invalid_path:  return srmdir::invalid_path; 
 			case sls::name_too_long: return srmdir::name_too_long; 
 			case sls::dir_not_found:
@@ -563,6 +570,7 @@ namespace sys {
 			default:
 			case sls::other:         return srmdir::other; 
 		}
+		return rmdir(path_);
 	}
 
 	enum class smkfile
@@ -594,7 +602,7 @@ namespace sys {
 					return smkfile::regular_file_exists;
 				else if(_type == type::dir)
 					return smkfile::dir_exists;
-				else if(_type != type::does_not_exist)
+				else if(_type != type::unavailable)
 					return smkfile::irregular_file_exists;
 				else
 				{
@@ -659,7 +667,7 @@ namespace sys {
 					if(_err == ENOENT)
 					{
 						auto _type = get_type(path);
-						if(_type == type::does_not_exist)
+						if(_type == type::unavailable)
 							return srmfile::file_not_found;
 						else if(_type != type::regular_file)
 							return srmfile::not_a_file;
@@ -682,10 +690,11 @@ namespace sys {
 	enum class sremove
 	{
 		ok = 0,
+		unavailable,
 		invalid_path,
 		name_too_long,
-		does_not_exist,
 		not_a_dir_nor_file,
+		not_empty,
 		access_denied,
 		busy,
 		other
@@ -695,20 +704,26 @@ namespace sys {
 		static bool 
 		_recursive_remove(StringView const & current, StringView const & entry) noexcept
 		{
-			auto full_path = String<>(current, entry);
+			auto _size = current.size() + entry.size(); 
+			if(_size > max_path)
+				return false;
+			char _path_buffer[max_path+1];
+			memcpy(&_path_buffer[0], current.begin(), current.size());
+			memcpy(&_path_buffer[current.size()], entry.begin(), entry.size());
+			_path_buffer[_size] = '\0';
+			auto full_path = StringView(&_path_buffer[0], _size);
 			if(is_dir(full_path))
 			{
 				ls(full_path, _recursive_remove);
 			  #ifdef _WIN32
-				::_rmdir(full_path.begin());
+				return ::_rmdir(full_path.begin()) == 0;
 			  #else
-				::rmdir(full_path.begin());
+				return ::rmdir(full_path.begin()) == 0;
 			  #endif
 			}
 			else
-				::remove(full_path.begin());
-			return true;
-		};
+				return ::remove(full_path.begin()) == 0;
+		}
 	} // namespace _
 	
 	// removes both files and directories along with all sub-directories
@@ -722,14 +737,14 @@ namespace sys {
 			else
 			{
 				auto _type = get_type(path_);
-				if(_type == type::does_not_exist)
-					return sremove::does_not_exist;
+				if(_type == type::unavailable)
+					return sremove::unavailable;
 				else if(_type == type::dir)
 				{
 					auto _sls = ls(path_, _::_recursive_remove);	
 					switch(_sls)
 					{
-						case sls::ok:            return sremove::ok; 
+						case sls::ok:            break; 
 						case sls::invalid_path:  return sremove::invalid_path; 
 						case sls::name_too_long: return sremove::name_too_long; 
 						case sls::dir_not_found: return sremove::not_a_dir_nor_file; 
@@ -737,6 +752,18 @@ namespace sys {
 						case sls::busy:          return sremove::busy; 
 						default:
 						case sls::other:         return sremove::other; 
+					}
+					auto _srmdir = rmdir(path_);
+					switch(_srmdir)
+					{
+						case srmdir::ok:            return sremove::ok; 
+						case srmdir::invalid_path:  return sremove::invalid_path; 
+						case srmdir::name_too_long: return sremove::name_too_long; 
+						case srmdir::not_empty:     return sremove::not_empty; 
+						case srmdir::access_denied: return sremove::access_denied; 
+						case srmdir::busy:          return sremove::busy; 
+						default:
+						case srmdir::other:         return sremove::other; 
 					}
 				}
 				else if(_type == type::regular_file)
