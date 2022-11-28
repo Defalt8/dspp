@@ -34,7 +34,7 @@ set( DS_HEADER_FILES
 add_library( dspp INTERFACE )
 target_include_directories( dspp INTERFACE include )
 set_target_properties( dspp PROPERTIES PUBLIC_HEADER "${DS_HEADER_FILES}" )
-install( TARGETS dspp PUBLIC_HEADER DESTINATION include COMPONENT Development )
+install( TARGETS dspp PUBLIC_HEADER DESTINATION include/ds COMPONENT Development )
 
 #################################################################
 

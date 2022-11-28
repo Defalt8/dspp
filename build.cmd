@@ -16,7 +16,7 @@
 
 SET CONFIG=Release
 SET BUILD_DIR=./out/build
-SET INSTALL_DIR=./out/install
+SET INSTALL_DIR=../install
 SET SOURCE_DIR=.
 SET BUILD_TESTS=ON
 

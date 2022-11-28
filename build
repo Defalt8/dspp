@@ -15,8 +15,8 @@
 #     CMAKE_BUILD_TESTS
 
 export CONFIG=Release
-export BUILD_DIR=out/build
-export INSTALL_DIR=out/install
+export BUILD_DIR=./out/build
+export INSTALL_DIR=../install
 export SOURCE_DIR=.
 export BUILD_TESTS=ON
 
