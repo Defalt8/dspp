@@ -29,8 +29,8 @@ Test(sys_test)
 	Testcase(test_get_type)
 	{
 		ExpectEQ(ds::sys::get_type("."), ds::sys::type::dir);
-		ExpectEQ(ds::sys::get_type(nullptr), ds::sys::type::does_not_exist);
-		ExpectEQ(ds::sys::get_type(WORKING_DIR"_non_existent"), ds::sys::type::does_not_exist);
+		ExpectEQ(ds::sys::get_type(nullptr), ds::sys::type::unavailable);
+		ExpectEQ(ds::sys::get_type(WORKING_DIR"_non_existent"), ds::sys::type::unavailable);
 		constexpr char const * dir_path  = WORKING_DIR"_test_dir";
 		constexpr char const * file_path = WORKING_DIR"_test_file.txt";
 		AssertTrue(ds::sys::exists(dir_path));
