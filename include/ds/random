@@ -68,9 +68,11 @@ class Random
 	} 
 
 	constexpr void
-	_update_offset()
+	_init()
 	{
-		_offs = (_seed / 2) + 1;
+		_offs = _seed % 2 == 0 ? 1 : 0;
+		_prev = _seed;
+		_get_next();
 	}
 
  public:
@@ -79,14 +81,14 @@ class Random
 	constexpr Random(coeff_t seed_)
 		: _seed { seed_ }
 	{
-		this->_update_offset();
+		this->_init();
 	}
 	
 	void
 	set_seed(coeff_t seed_)
 	{
 		_seed = seed_;
-		this->_update_offset();
+		this->_init();
 	}
 	
 	constexpr value_t
@@ -100,7 +102,8 @@ class Random
 	next_range(value_t min_, value_t max_)
 	{
 		auto _next  = this->_get_next();
-		auto _rnval = _next % coeff_t(max_ - min_);
+		auto _range = coeff_t(max_ - min_);
+		auto _rnval = _next % _range;
 		return this->_cast(_rnval) + min_;
 	}
 
