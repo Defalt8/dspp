@@ -2,10 +2,9 @@
 #
 # ./build
 # ./build [target]
-# ./build <library-type> <config> [target] ...cmake args
+# ./build <config> [target] ...cmake args
 #
-# target: workflow|install|clean|...
-# library-type: static|shared 
+# target: all|install|clean|...
 # config: Debug|Release|MinSizeRel|RelWithDebInfo
 #
 # you can set this variables
@@ -15,7 +14,6 @@
 #     CMAKE_SOURCE_DIR
 #     CMAKE_BUILD_TESTS
 
-export LIBRARY_TYPE=STATIC
 export CONFIG=Release
 export BUILD_DIR=out/build
 export INSTALL_DIR=out/install
@@ -26,10 +24,8 @@ if [ ! -z "${CMAKE_BUILD_DIR}"     	]; then export BUILD_DIR=${CMAKE_BUILD_DIR};
 if [ ! -z "${CMAKE_INSTALL_DIR}" 	]; then export INSTALL_DIR=${CMAKE_INSTALL_DIR}; fi
 if [ ! -z "${CMAKE_SOURCE_DIR}" 	]; then export SOURCE_DIR=${CMAKE_SOURCE_DIR}; fi
 if [ ! -z "${CMAKE_BUILD_TESTS}" 	]; then export BUILD_TESTS=${CMAKE_BUILD_TESTS}; fi
-if [ ! -z "$1" 						]; then export LIBRARY_TYPE=$1; fi
-if [ ! -z "$2" 						]; then export CONFIG=$2; fi
+if [ ! -z "$1" 						]; then export CONFIG=$1; fi
 
-# echo LIBRARY_TYPE=${LIBRARY_TYPE}
 # echo CONFIG=${CONFIG}
 # echo BUILD_DIR=${BUILD_DIR}
 # echo INSTALL_DIR=${INSTALL_DIR}
@@ -37,16 +33,14 @@ if [ ! -z "$2" 						]; then export CONFIG=$2; fi
 # echo BUILD_TESTS=${BUILD_TESTS}
 
 if [ ! -z "${CMAKE_GENERATOR}"      ]; then  
-    cmake -G "${CMAKE_GENERATOR}" -B "${BUILD_DIR}" -S "${SOURCE_DIR}" -DCMAKE_INSTALL_PREFIX:PATH="${INSTALL_DIR}" -DWORKFLOW_BUILD_TESTS:BOOL=${BUILD_TESTS} -DWORKFLOW_TYPE:STRING=${LIBRARY_TYPE}
+    cmake -G "${CMAKE_GENERATOR}" -B "${BUILD_DIR}" -S "${SOURCE_DIR}" -DCMAKE_INSTALL_PREFIX:PATH="${INSTALL_DIR}" -DBUILD_TESTS:BOOL=${BUILD_TESTS}
 else
-    cmake -B "${BUILD_DIR}" -S "${SOURCE_DIR}" -DCMAKE_INSTALL_PREFIX:PATH="${INSTALL_DIR}" -DWORKFLOW_BUILD_TESTS:BOOL=${BUILD_TESTS} -DWORKFLOW_TYPE:STRING=${LIBRARY_TYPE}
+    cmake -B "${BUILD_DIR}" -S "${SOURCE_DIR}" -DCMAKE_INSTALL_PREFIX:PATH="${INSTALL_DIR}" -DBUILD_TESTS:BOOL=${BUILD_TESTS}
 fi
 
 if [ ! -z "$1" ]; then
-    if [ -z "$2" ]; then
-        cmake --build "${BUILD_DIR}" --config ${CONFIG} --target $1 ;
-    elif [ ! -z "$3" ]; then
-        cmake --build "${BUILD_DIR}" --config ${CONFIG} --target $3 $4 $5 $6 $7 $8 $9 ;
+    if [ ! -z "$2" ]; then
+        cmake --build "${BUILD_DIR}" --config ${CONFIG} --target $2 $3 $4 $5 $6 $7 $8 $9 ;
     else
         cmake --build "${BUILD_DIR}" --config ${CONFIG} ;
     fi

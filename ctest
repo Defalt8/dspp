@@ -1,0 +1,13 @@
+#!/usr/bin/bash
+#
+# ./ctest
+# ./ctest <config>
+
+export CONFIG=Release
+export BUILD_DIR=out/build
+
+if [ ! -z "${CMAKE_BUILD_DIR}" ]; then export BUILD_DIR=${CMAKE_BUILD_DIR}; fi
+if [ ! -z "$1"                 ]; then export CONFIG=$1; fi
+
+cd ${BUILD_DIR}
+ctest -C ${CONFIG}

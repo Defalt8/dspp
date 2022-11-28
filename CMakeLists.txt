@@ -1,8 +1,7 @@
 cmake_minimum_required( VERSION 3.4 )
 project( dspp VERSION 0.23.97 LANGUAGES CXX )
 
-set( CMAKE_CXX_STANDARD 11 )
-set( CMAKE_CXX_STANDARD_REQUIRED true )
+option( BUILD_TESTS ON )
 
 set( DS_HEADER_FILES
 	include/ds/all
@@ -12,7 +11,7 @@ set( DS_HEADER_FILES
 	include/ds/file
 	include/ds/random
 	include/ds/traits/allocator
-	include/ds/traits/iterator
+	include/ds/traits/iterable
 	include/ds/allocator
 	include/ds/fixed
 	include/ds/fixed_stack
@@ -35,11 +34,14 @@ set( DS_HEADER_FILES
 add_library( dspp INTERFACE )
 target_include_directories( dspp INTERFACE include )
 set_target_properties( dspp PROPERTIES PUBLIC_HEADER "${DS_HEADER_FILES}" )
+install( TARGETS dspp PUBLIC_HEADER DESTINATION include COMPONENT Development )
 
 #################################################################
 
-if( ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR} 
-	AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dep/pptest/CMakeLists.txt" )
+if( BUILD_TESTS 
+	AND ${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR}
+	AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dep/pptest/CMakeLists.txt" 
+)
 	add_subdirectory( dep/pptest dspp_pptest )
 	add_subdirectory( test dspp_testing )
 	enable_testing()
