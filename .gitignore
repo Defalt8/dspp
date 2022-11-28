@@ -40,5 +40,4 @@
 #misc
 .dump
 out
-build
 test/_wdir
