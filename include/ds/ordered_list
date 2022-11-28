@@ -686,13 +686,13 @@ class OrderedList
 			switch(param)
 			{
 				default:
-				case duplicate_rule::Allow:
+				case duplicate_rule::allow:
 					for(size_t i = 0; i < size_ && this->_insert_object(ds::move(array_[i])); ++i);
 					break;
-				case duplicate_rule::Unique:
+				case duplicate_rule::unique:
 					for(size_t i = 0; i < size_ && this->_insert_object_unique(ds::move(array_[i]), false); ++i);
 					break;
-				case duplicate_rule::Replace:
+				case duplicate_rule::replace:
 					for(size_t i = 0; i < size_ && this->_insert_object_unique(ds::move(array_[i]), true); ++i);
 					break;
 			}
@@ -710,13 +710,13 @@ class OrderedList
 			switch(param)
 			{
 				default:
-				case duplicate_rule::Allow:
+				case duplicate_rule::allow:
 					for(auto it = begin_; it != end_ && this->_insert_object(*it); ++it);
 					break;
-				case duplicate_rule::Unique:
+				case duplicate_rule::unique:
 					for(auto it = begin_; it != end_ && this->_insert_object_unique(*it, false); ++it);
 					break;
-				case duplicate_rule::Replace:
+				case duplicate_rule::replace:
 					for(auto it = begin_; it != end_ && this->_insert_object_unique(*it, true); ++it);
 					break;
 			}

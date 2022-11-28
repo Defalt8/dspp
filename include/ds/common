@@ -1484,10 +1484,9 @@ operator<<(OST && ost, C const & rhs)
 
 enum class duplicate_rule
 {
-	Default   = 1, // same as Allow.
-	Allow     = 1, // Allow duplicates.
-	Unique    = 2, // No duplicates but no replacing.
-	Replace   = 3, // Replace duplicates.
+	allow     = 1, // Allow duplicates.
+	unique    = 2, // No duplicates but no replacing.
+	replace   = 3, // Replace duplicates.
 };
 
 // returns the upper-case hexadecimal representation of 'value' 0-F
