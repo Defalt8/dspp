@@ -15,48 +15,6 @@ env:
   CMAKE_BUILD_TESTS: ON
 
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-
-    steps:
-    - name: Checkout Repo
-      uses: actions/checkout@v2
-
-    - name: Get Latest CMake
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y cmake ninja-build
-
-    - name: Build
-      run: ./build
-
-    # - name: Install
-    #   run: ./build install
-
-    - name: Test
-      working-directory: ${{env.CMAKE_BUILD_DIR}}
-      run: ctest -C ${{env.CMAKE_CONFIG}}
-      
-  build-windows:
-    runs-on: windows-latest
-    steps:
-    - name: Checkout Repo
-      uses: actions/checkout@v2
-
-    - name: Get Latest CMake
-      run: choco install cmake
-
-    - name: Build
-      run: ./build
-
-    # - name: Install
-    #   run: ./build install
-
-    - name: Test
-      working-directory: ${{env.CMAKE_BUILD_DIR}}
-      run: ctest -C ${{env.CMAKE_CONFIG}}
-      
-      
   build-macos:
     runs-on: macos-latest
     steps:
