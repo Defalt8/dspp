@@ -564,7 +564,7 @@ Test(meta_functions_test)
 		ExpectTrue(ds::is_signed<long double>::value);
 
 		ExpectFalse(ds::is_signed<bool>::value);
-		ExpectFalse(ds::is_signed<ds::char8_t>::value);
+		ExpectFalse(ds::is_signed<char8_t>::value);
 		ExpectFalse(ds::is_signed<char16_t>::value);
 		ExpectFalse(ds::is_signed<char32_t>::value);
 		ExpectFalse(ds::is_signed<unsigned char>::value);
@@ -578,7 +578,7 @@ Test(meta_functions_test)
 	Testcase(test_is_unsigned)
 	{
 		ExpectTrue(ds::is_unsigned<bool>::value);
-		ExpectTrue(ds::is_unsigned<ds::char8_t>::value);
+		ExpectTrue(ds::is_unsigned<char8_t>::value);
 		ExpectTrue(ds::is_unsigned<char16_t>::value);
 		ExpectTrue(ds::is_unsigned<char32_t>::value);
 		ExpectTrue(ds::is_unsigned<unsigned char>::value);
@@ -603,7 +603,7 @@ Test(meta_functions_test)
 	{
 		ExpectTrue(ds::is_integral<bool>::value);
 		ExpectTrue(ds::is_integral<char>::value);
-		ExpectTrue(ds::is_integral<ds::char8_t>::value);
+		ExpectTrue(ds::is_integral<char8_t>::value);
 		ExpectTrue(ds::is_integral<char16_t>::value);
 		ExpectTrue(ds::is_integral<char32_t>::value);
 		ExpectTrue(ds::is_integral<wchar_t>::value);
@@ -620,7 +620,7 @@ Test(meta_functions_test)
 
 		ExpectTrue(ds::is_integral<bool const>::value);
 		ExpectTrue(ds::is_integral<char const>::value);
-		ExpectTrue(ds::is_integral<ds::char8_t const>::value);
+		ExpectTrue(ds::is_integral<char8_t const>::value);
 		ExpectTrue(ds::is_integral<char16_t const>::value);
 		ExpectTrue(ds::is_integral<char32_t const>::value);
 		ExpectTrue(ds::is_integral<wchar_t const>::value);
@@ -637,7 +637,7 @@ Test(meta_functions_test)
 
 		ExpectTrue(ds::is_integral<bool volatile>::value);
 		ExpectTrue(ds::is_integral<char volatile>::value);
-		ExpectTrue(ds::is_integral<ds::char8_t volatile>::value);
+		ExpectTrue(ds::is_integral<char8_t volatile>::value);
 		ExpectTrue(ds::is_integral<char16_t volatile>::value);
 		ExpectTrue(ds::is_integral<char32_t volatile>::value);
 		ExpectTrue(ds::is_integral<wchar_t volatile>::value);
@@ -654,7 +654,7 @@ Test(meta_functions_test)
 
 		ExpectTrue(ds::is_integral<bool const volatile>::value);
 		ExpectTrue(ds::is_integral<char const volatile>::value);
-		ExpectTrue(ds::is_integral<ds::char8_t const volatile>::value);
+		ExpectTrue(ds::is_integral<char8_t const volatile>::value);
 		ExpectTrue(ds::is_integral<char16_t const volatile>::value);
 		ExpectTrue(ds::is_integral<char32_t const volatile>::value);
 		ExpectTrue(ds::is_integral<wchar_t const volatile>::value);
@@ -671,7 +671,7 @@ Test(meta_functions_test)
 
 		ExpectFalse(ds::is_integral<bool &>::value);
 		ExpectFalse(ds::is_integral<char &>::value);
-		ExpectFalse(ds::is_integral<ds::char8_t &>::value);
+		ExpectFalse(ds::is_integral<char8_t &>::value);
 		ExpectFalse(ds::is_integral<char16_t &>::value);
 		ExpectFalse(ds::is_integral<char32_t &>::value);
 		ExpectFalse(ds::is_integral<wchar_t &>::value);
@@ -688,7 +688,7 @@ Test(meta_functions_test)
 
 		ExpectFalse(ds::is_integral<bool &&>::value);
 		ExpectFalse(ds::is_integral<char &&>::value);
-		ExpectFalse(ds::is_integral<ds::char8_t &&>::value);
+		ExpectFalse(ds::is_integral<char8_t &&>::value);
 		ExpectFalse(ds::is_integral<char16_t &&>::value);
 		ExpectFalse(ds::is_integral<char32_t &&>::value);
 		ExpectFalse(ds::is_integral<wchar_t &&>::value);
@@ -731,7 +731,7 @@ Test(meta_functions_test)
 		ExpectFalse(ds::is_floating_point<void>::value);
 		ExpectFalse(ds::is_floating_point<bool>::value);
 		ExpectFalse(ds::is_floating_point<char>::value);
-		ExpectFalse(ds::is_floating_point<ds::char8_t>::value);
+		ExpectFalse(ds::is_floating_point<char8_t>::value);
 		ExpectFalse(ds::is_floating_point<char16_t>::value);
 		ExpectFalse(ds::is_floating_point<char32_t>::value);
 		ExpectFalse(ds::is_floating_point<wchar_t>::value);
@@ -753,7 +753,7 @@ Test(meta_functions_test)
 	{
 		ExpectTrue(ds::is_arithmetic<bool>::value);
 		ExpectTrue(ds::is_arithmetic<char>::value);
-		ExpectTrue(ds::is_arithmetic<ds::char8_t>::value);
+		ExpectTrue(ds::is_arithmetic<char8_t>::value);
 		ExpectTrue(ds::is_arithmetic<char16_t>::value);
 		ExpectTrue(ds::is_arithmetic<char32_t>::value);
 		ExpectTrue(ds::is_arithmetic<wchar_t>::value);
@@ -779,7 +779,7 @@ Test(meta_functions_test)
 	{
 		ExpectTrue(ds::is_scalar<bool>::value);
 		ExpectTrue(ds::is_scalar<char>::value);
-		ExpectTrue(ds::is_scalar<ds::char8_t>::value);
+		ExpectTrue(ds::is_scalar<char8_t>::value);
 		ExpectTrue(ds::is_scalar<char16_t>::value);
 		ExpectTrue(ds::is_scalar<char32_t>::value);
 		ExpectTrue(ds::is_scalar<wchar_t>::value);
@@ -850,7 +850,7 @@ Test(meta_functions_test)
 		ExpectFalse(ds::is_enum<_func_ref_t>::value);
 		ExpectFalse(ds::is_enum<bool>::value);
 		ExpectFalse(ds::is_enum<char>::value);
-		ExpectFalse(ds::is_enum<ds::char8_t>::value);
+		ExpectFalse(ds::is_enum<char8_t>::value);
 		ExpectFalse(ds::is_enum<char16_t>::value);
 		ExpectFalse(ds::is_enum<char32_t>::value);
 		ExpectFalse(ds::is_enum<wchar_t>::value);
@@ -885,7 +885,7 @@ Test(meta_functions_test)
 		ExpectFalse(ds::is_class<_func_ref_t>::value);
 		ExpectFalse(ds::is_class<bool>::value);
 		ExpectFalse(ds::is_class<char>::value);
-		ExpectFalse(ds::is_class<ds::char8_t>::value);
+		ExpectFalse(ds::is_class<char8_t>::value);
 		ExpectFalse(ds::is_class<char16_t>::value);
 		ExpectFalse(ds::is_class<char32_t>::value);
 		ExpectFalse(ds::is_class<wchar_t>::value);
@@ -922,7 +922,7 @@ Test(meta_functions_test)
 		ExpectFalse(ds::is_function<_func_ref_t>::value);
 		ExpectFalse(ds::is_function<bool>::value);
 		ExpectFalse(ds::is_function<char>::value);
-		ExpectFalse(ds::is_function<ds::char8_t>::value);
+		ExpectFalse(ds::is_function<char8_t>::value);
 		ExpectFalse(ds::is_function<char16_t>::value);
 		ExpectFalse(ds::is_function<char32_t>::value);
 		ExpectFalse(ds::is_function<wchar_t>::value);
@@ -961,7 +961,7 @@ Test(meta_functions_test)
 		ExpectFalse(ds::is_member_object_pointer<_func_ref_t>::value);
 		ExpectFalse(ds::is_member_object_pointer<bool>::value);
 		ExpectFalse(ds::is_member_object_pointer<char>::value);
-		ExpectFalse(ds::is_member_object_pointer<ds::char8_t>::value);
+		ExpectFalse(ds::is_member_object_pointer<char8_t>::value);
 		ExpectFalse(ds::is_member_object_pointer<char16_t>::value);
 		ExpectFalse(ds::is_member_object_pointer<char32_t>::value);
 		ExpectFalse(ds::is_member_object_pointer<wchar_t>::value);
@@ -1000,7 +1000,7 @@ Test(meta_functions_test)
 		ExpectFalse(ds::is_member_function_pointer<_func_ref_t>::value);
 		ExpectFalse(ds::is_member_function_pointer<bool>::value);
 		ExpectFalse(ds::is_member_function_pointer<char>::value);
-		ExpectFalse(ds::is_member_function_pointer<ds::char8_t>::value);
+		ExpectFalse(ds::is_member_function_pointer<char8_t>::value);
 		ExpectFalse(ds::is_member_function_pointer<char16_t>::value);
 		ExpectFalse(ds::is_member_function_pointer<char32_t>::value);
 		ExpectFalse(ds::is_member_function_pointer<wchar_t>::value);

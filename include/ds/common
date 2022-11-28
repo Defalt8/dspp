@@ -20,6 +20,11 @@
 #	undef max
 #endif
 
+#if DS_Cxx_Version <= DS_Cxx_Version_17 && !defined(__cpp_char8_t)
+#	define __cpp_char8_t DS_Cxx_Version
+using char8_t = unsigned char;
+#endif
+
 namespace ds {
 
 static constexpr struct Version { int major, minor, patch; } version { 0, 25, 105 };
@@ -34,9 +39,6 @@ using align_t      = size_t;
 using byte_ptr_t   = byte_t *;
 using byte_cptr_t  = byte_t const *;
 using max_align_t  = std::max_align_t;
-#if DS_Cxx_Version < DS_Cxx_Version_20
-using char8_t = unsigned char;
-#endif
 
 template <size_t size_, typename T> using fixed_ref_t  = T (&)[size_];
 template <size_t size_, typename T> using fixed_cref_t = T const (&)[size_];
