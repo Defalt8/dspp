@@ -643,14 +643,16 @@ template <typename T> struct min_limit<T,2> : min_floating_point<T> {};
 template <typename T>
 struct integral_index 
 {};
-template <> struct integral_index<int8_t>   : integral_constant<size_t,0> {};
-template <> struct integral_index<uint8_t>  : integral_constant<size_t,1> {};
-template <> struct integral_index<int16_t>  : integral_constant<size_t,2> {};
-template <> struct integral_index<uint16_t> : integral_constant<size_t,3> {};
-template <> struct integral_index<int32_t>  : integral_constant<size_t,4> {};
-template <> struct integral_index<uint32_t> : integral_constant<size_t,5> {};
-template <> struct integral_index<int64_t>  : integral_constant<size_t,6> {};
-template <> struct integral_index<uint64_t> : integral_constant<size_t,7> {};
+template <> struct integral_index<signed char>            : integral_constant<size_t,0> {};
+template <> struct integral_index<unsigned char>          : integral_constant<size_t,1> {};
+template <> struct integral_index<signed short>           : integral_constant<size_t,2> {};
+template <> struct integral_index<unsigned short>         : integral_constant<size_t,3> {};
+template <> struct integral_index<signed long>            : integral_constant<size_t,4> {};
+template <> struct integral_index<unsigned long>          : integral_constant<size_t,5> {};
+template <> struct integral_index<signed long long>       : integral_constant<size_t,6> {};
+template <> struct integral_index<unsigned long long>     : integral_constant<size_t,7> {};
+template <> struct integral_index<signed int>             : integral_constant<size_t,8> {};
+template <> struct integral_index<unsigned int>           : integral_constant<size_t,9> {};
 
 template <typename T>
 struct floating_point_index 
@@ -659,19 +661,11 @@ template <> struct floating_point_index<float>       : integral_constant<size_t,
 template <> struct floating_point_index<double>      : integral_constant<size_t,1> {};
 template <> struct floating_point_index<long double> : integral_constant<size_t,2> {};
 
-#ifdef _WIN32
 static constexpr char const * 
 integral_format[]
 {
-	"%hhd", "%hhu", "%hd", "%hu", "%d", "%u", "%I64i", "%I64u"
+	"%hhd", "%hhu", "%hd", "%hu", "%ld", "%lu", "%lld", "%llu", "%d", "%u"
 };
-#else
-static constexpr char const * 
-integral_format[]
-{
-	"%hhd", "%hhu", "%hd", "%hu", "%d", "%u", "%li", "%lu"
-};
-#endif
 
 static constexpr char const * 
 floating_point_format[]
