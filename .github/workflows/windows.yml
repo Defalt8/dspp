@@ -20,6 +20,8 @@ jobs:
     steps:
     - name: Checkout Repo
       uses: actions/checkout@v2
+      with:
+        submodules: recursive
 
     - name: Get Latest CMake
       run: choco install cmake
