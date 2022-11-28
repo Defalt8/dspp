@@ -10,8 +10,6 @@ set( DS_HEADER_FILES
 	include/ds/sys
 	include/ds/file
 	include/ds/random
-	include/ds/traits/allocator
-	include/ds/traits/iterable
 	include/ds/allocator
 	include/ds/fixed
 	include/ds/fixed_stack
@@ -31,10 +29,15 @@ set( DS_HEADER_FILES
 	include/ds/ordered_map
 )
  
+set( DS_TRAITS_HEADER_FILES
+	include/ds/traits/allocator
+	include/ds/traits/iterable
+)
+ 
 add_library( dspp INTERFACE )
 target_include_directories( dspp INTERFACE include )
-set_target_properties( dspp PROPERTIES PUBLIC_HEADER "${DS_HEADER_FILES}" )
-install( TARGETS dspp PUBLIC_HEADER DESTINATION include/ds COMPONENT Development )
+install( FILES ${DS_HEADER_FILES}        DESTINATION include/ds )
+install( FILES ${DS_TRAITS_HEADER_FILES} DESTINATION include/ds/traits )
 
 #################################################################
 
