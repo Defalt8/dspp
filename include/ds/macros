@@ -59,64 +59,47 @@
 #endif
 
 
-// C++20 attributes and helper macros
-#if DS_Cxx_Version >= DS_Cxx_Version_20
-#	define DS_Likely [[likely]]
-#	define DS_Unlikely [[unlikely]]
-#	define DS_No_Unique_Address [[no_unique_address]]
-#endif
 
-
-// C++17 attributes and helper macros
+// C++17 helper macros
 #if DS_Cxx_Version >= DS_Cxx_Version_17
 #   define DS_constexpr17 constexpr
 #	define DS_inline17 inline
-#	define DS_fallthrough [[fallthrough]]
-#	define DS_maybe_unused [[maybe_unused]]
 #else
 #   define DS_constexpr17
 #	define DS_inline17
 #endif
 
 
-// C++14 attributes and helper macros
+// C++14 helper macros
 #if DS_Cxx_Version >= DS_Cxx_Version_14
 #   define DS_constexpr14 constexpr
 #   define DS_inline14 inline
-#	define DS_deprecated [[deprecated]]
-#	define DS_deprecated_x(...) [[deprecated(__VA_ARGS__)]]
 #else
 #   define DS_constexpr14 inline
 #   define DS_inline14
 #endif
 
 
-// C++11 attributes and helper macros
-#if DS_Cxx_Version >= DS_Cxx_Version_11
-#	define DS_noreturn [[noreturn]]
-#	define DS_carries_dependency [[carries_dependency]]
-#endif
-
 
 // DS_has_cpp_attribute and C++ attributes
 #if defined(__has_cpp_attribute)
 #	define DS_has_cpp_attribute(...) __has_cpp_attribute(__VA_ARGS__)
 #	ifndef DS_noreturn
-#		if DS_has_cpp_attribute(noreturn)
+#		if DS_has_cpp_attribute(noreturn) >= 200809L && DS_Cxx_Version > DS_Cxx_Version_98
 #			define DS_noreturn [[noreturn]]
 #		else
 #			define DS_noreturn
 #		endif
 #	endif
 #	ifndef DS_carries_dependency
-#		if DS_has_cpp_attribute(carries_dependency)
+#		if DS_has_cpp_attribute(carries_dependency) >= 200809L && DS_Cxx_Version > DS_Cxx_Version_98
 #			define DS_carries_dependency [[carries_dependency]]
 #		else
 #			define DS_carries_dependency
 #		endif
 #	endif
 #	ifndef DS_deprecated
-#		if DS_has_cpp_attribute(deprecated)
+#		if DS_has_cpp_attribute(deprecated) >= 201309L && DS_Cxx_Version > DS_Cxx_Version_11
 #			define DS_deprecated [[deprecated]]
 #			define DS_deprecated_x(...) [[deprecated(__VA_ARGS__)]]
 #		else
@@ -125,43 +108,47 @@
 #		endif
 #	endif
 #	ifndef DS_fallthrough
-#		if DS_has_cpp_attribute(fallthrough)
+#		if DS_has_cpp_attribute(fallthrough) >= 201603L && DS_Cxx_Version > DS_Cxx_Version_14
 #			define DS_fallthrough [[fallthrough]]
 #		else
 #			define DS_fallthrough
 #		endif
 #	endif
 #	ifndef DS_nodiscard
-#		if DS_has_cpp_attribute(nodiscard) >= 201603
+#		if DS_has_cpp_attribute(nodiscard) >= 201907L && DS_Cxx_Version > DS_Cxx_Version_17
 #			define DS_nodiscard [[nodiscard]]
-#			define AXL_NODISCARD_CTOR
+#			define DS_nodiscard_x(...) [[nodiscard(__VA_ARGS__)]]
+#		elif DS_has_cpp_attribute(nodiscard) >= 201603L && DS_Cxx_Version > DS_Cxx_Version_14
+#			define DS_nodiscard [[nodiscard]]
+#			define DS_nodiscard_x(...)
 #		else
 #			define DS_nodiscard
+#			define DS_nodiscard_x(...)
 #		endif
 #	endif
 #	ifndef DS_maybe_unused
-#		if DS_has_cpp_attribute(maybe_unused)
+#		if DS_has_cpp_attribute(maybe_unused) >= 201603L && DS_Cxx_Version > DS_Cxx_Version_14
 #			define DS_maybe_unused [[maybe_unused]]
 #		else
 #			define DS_maybe_unused
 #		endif
 #	endif
 #	ifndef DS_likely
-#		if DS_has_cpp_attribute(likely)
+#		if DS_has_cpp_attribute(likely) >= 201803L && DS_Cxx_Version > DS_Cxx_Version_17
 #			define DS_likely [[likely]]
 #		else
 #			define DS_likely
 #		endif
 #	endif
 #	ifndef DS_unlikely
-#		if DS_has_cpp_attribute(unlikely)
+#		if DS_has_cpp_attribute(unlikely) >= 201803L && DS_Cxx_Version > DS_Cxx_Version_17
 #			define DS_unlikely [[unlikely]]
 #		else
 #			define DS_unlikely
 #		endif
 #	endif
 #	ifndef DS_no_unique_address
-#		if DS_has_cpp_attribute(no_unique_address)
+#		if DS_has_cpp_attribute(no_unique_address) >= 201803L && DS_Cxx_Version > DS_Cxx_Version_17
 #			define DS_no_unique_address [[no_unique_address]]
 #		else
 #			define DS_no_unique_address
