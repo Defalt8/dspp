@@ -50,6 +50,8 @@ template <typename E> using array_cref_t = E const (&)[];
 template <typename E> using array_ptr_t  = E (*)[];
 template <typename E> using array_cptr_t = E const (*)[];
 
+struct init_t {};
+
 struct noinit_t {};
 
 template <typename T>
@@ -58,6 +60,7 @@ struct inplace {};
 template <typename T>
 struct make {};
 
+static constexpr init_t   init {};
 static constexpr noinit_t noinit {};
 static constexpr double   nanf   = float(__builtin_nan("0"));
 static constexpr double   nan    = double(__builtin_nan("0"));
