@@ -10,12 +10,16 @@
 
 namespace ds {
 
-enum class coroutine_state
+enum class co_
 {
-	init,
-	suspend,
-	resume,
-	halt
+	halt,
+	resume
+};
+
+enum class co
+{
+	_yield,
+	_return
 };
 
 template <typename F, class A = default_allocator>
@@ -28,6 +32,7 @@ struct allocator<Coroutine<F,A>> : allocator_traits<A> {};
 
 } // namespace trait
 
+
 template <class A, typename R, typename... Args>
 class Coroutine<R(Args...),A>
 {
@@ -36,8 +41,8 @@ class Coroutine<R(Args...),A>
 	enum class state { suspended, done };
 
  public:
-	using callable_t = callable<coroutine_state(coroutine_state,R &,Args &...)>;
-	using data_t     = unique<Tuple<R, Args...>>;
+	using callable_t = Callable<co(co_,R &,Args &...),A>;
+	using data_t     = Unique<Tuple<R, Args...>,A>;
 
  private:
 	callable_t _callable;
@@ -47,41 +52,19 @@ class Coroutine<R(Args...),A>
 	static constexpr auto _index_seq = make_index_sequence_t<0,sizeof...(Args)+1>();
 
 	template <size_t... indices_>
-	coroutine_state
-	_call(coroutine_state coroutine_state_, index_sequence<indices_...>)
+	co
+	_call(co_ _co_, index_sequence<indices_...>)
 	{
-		return _callable(coroutine_state_, _data->template at<indices_>()...);
+		return _callable(_co_, _data->template at<indices_>()...);
 	}
-
-	void 
-	_init()
-	{
-		if(_callable)
-		{
-			_data = {};
-			if(_data)
-			{
-				auto ret_ = _call(coroutine_state::init, _index_seq);
-				if(ret_ == coroutine_state::resume)
-				{
-					this->resume();
-				}
-				else if(ret_ == coroutine_state::halt)
-				{
-					_state = state::done;
-					_data.destroy();
-				}
-			}
-		}
-	}
-
+	
 	Coroutine(Coroutine const &) = delete;
 
  public:
 	~Coroutine()
 	{
 		if(_state != state::done && _callable && _data)
-			_call(coroutine_state::halt, _index_seq);
+			_call(co_::halt, _index_seq);
 	}
 
 	Coroutine() = default;
@@ -99,11 +82,18 @@ class Coroutine<R(Args...),A>
 		>
 	Coroutine(CArgs &&... callable_args)
 		: _callable { ds::forward<CArgs>(callable_args)... }
-		, _data     { noinit }
+		, _data     {}
 		, _state    { state::suspended }
-	{
-		this->_init();
-	}
+	{}
+
+	template <typename... CArgs
+			, enable_if_t<is_constructible<callable_t,CArgs...>::value,int> = 0
+		>
+	Coroutine(Args &&... data_init_args, init_t, CArgs &&... callable_args)
+		: _callable { ds::forward<CArgs>(callable_args)... }
+		, _data     { R{}, ds::forward<Args>(data_init_args)... }
+		, _state    { state::suspended }
+	{}
 
 	Coroutine &
 	operator=(Coroutine && rhs) noexcept
@@ -137,8 +127,8 @@ class Coroutine<R(Args...),A>
 	{
 		if(_state != state::done && _callable && _data)
 		{
-			auto ret_ = _call(coroutine_state::resume, _index_seq);
-			if(ret_ == coroutine_state::halt)
+			auto ret_ = _call(co_::resume, _index_seq);
+			if(ret_ == co::_return)
 				_state = state::done;
 			return &_data->template at<0>();
 		}
@@ -146,7 +136,7 @@ class Coroutine<R(Args...),A>
 	}
 
 	R * 
-	return_ptr() noexcept 
+	get_yield() noexcept 
 	{
 		if(_data)
 			return &_data->template at<0>();
@@ -154,7 +144,7 @@ class Coroutine<R(Args...),A>
 	}
 
 	R const * 
-	return_ptr() const noexcept 
+	get_yield() const noexcept 
 	{
 		if(_data)
 			return &_data->template at<0>();
@@ -180,6 +170,7 @@ class Coroutine<R(Args...),A>
 
 };
 
+
 template <class A, typename... Args>
 class Coroutine<void(Args...),A>
 {
@@ -188,8 +179,8 @@ class Coroutine<void(Args...),A>
 	enum class state { suspended, done };
 
  public:
-	using callable_t = callable<coroutine_state(coroutine_state,Args &...)>;
-	using data_t     = unique<Tuple<Args...>>;
+	using callable_t = Callable<co(co_,Args &...),A>;
+	using data_t     = Unique<Tuple<Args...>,A>;
 
  private:
 	callable_t _callable;
@@ -199,32 +190,10 @@ class Coroutine<void(Args...),A>
 	static constexpr auto _index_seq = make_index_sequence_t<0,sizeof...(Args)>();
 
 	template <size_t... indices_>
-	coroutine_state
-	_call(coroutine_state coroutine_state_, index_sequence<indices_...>)
+	co
+	_call(co_ _co_, index_sequence<indices_...>)
 	{
-		return _callable(coroutine_state_, _data->template at<indices_>()...);
-	}
-
-	void 
-	_init()
-	{
-		if(_callable)
-		{
-			_data = {};
-			if(_data)
-			{
-				auto ret_ = _call(coroutine_state::init, _index_seq);
-				if(ret_ == coroutine_state::resume)
-				{
-					this->resume();
-				}
-				else if(ret_ == coroutine_state::halt)
-				{
-					_state = state::done;
-					_data.destroy();
-				}
-			}
-		}
+		return _callable(_co_, _data->template at<indices_>()...);
 	}
 
 	Coroutine(Coroutine const &) = delete;
@@ -233,7 +202,7 @@ class Coroutine<void(Args...),A>
 	~Coroutine()
 	{
 		if(_state != state::done && _callable && _data)
-			_call(coroutine_state::halt, _index_seq);
+			_call(co_::halt, _index_seq);
 	}
 
 	Coroutine() = default;
@@ -251,11 +220,18 @@ class Coroutine<void(Args...),A>
 		>
 	Coroutine(CArgs &&... callable_args)
 		: _callable { ds::forward<CArgs>(callable_args)... }
-		, _data     { noinit }
+		, _data     {}
 		, _state    { state::suspended }
-	{
-		this->_init();
-	}
+	{}
+
+	template <typename... CArgs
+			, enable_if_t<is_constructible<callable_t,CArgs...>::value,int> = 0
+		>
+	Coroutine(Args &&... data_init_args, init_t, CArgs &&... callable_args)
+		: _callable { ds::forward<CArgs>(callable_args)... }
+		, _data     { ds::forward<Args>(data_init_args)... }
+		, _state    { state::suspended }
+	{}
 
 	Coroutine &
 	operator=(Coroutine && rhs) noexcept
@@ -289,8 +265,8 @@ class Coroutine<void(Args...),A>
 	{
 		if(_state != state::done && _callable && _data)
 		{
-			auto ret_ = _call(coroutine_state::resume, _index_seq);
-			if(ret_ == coroutine_state::halt)
+			auto ret_ = _call(co_::resume, _index_seq);
+			if(ret_ == co::_return)
 				_state = state::done;
 			return true;
 		}
