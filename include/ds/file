@@ -117,9 +117,41 @@ class File
 			this->_seek(0, SEEK_END);
 			fsize_t _size = this->_tell();
 			fsetpos(_handle, &position);
-		  return _size;
+			return _size;
 		}
 		return 0;
+	}
+
+	fsize_t 
+	position() const noexcept 
+	{
+		if(_handle != nullptr)
+			return this->_tell();
+		return 0;
+	}
+
+	bool
+	set_position(fsize_t position_) const noexcept 
+	{
+		if(_handle != nullptr)
+			return this->_seek(position_, SEEK_SET);
+		return false;
+	}
+
+	bool
+	offset_position(fsize_t offset_) const noexcept 
+	{
+		if(_handle != nullptr)
+			return this->_seek(offset_, SEEK_SET);
+		return false;
+	}
+
+	bool
+	roffset_position(fsize_t offset_) const noexcept 
+	{
+		if(_handle != nullptr)
+			return this->_seek(offset_, SEEK_END);
+		return false;
 	}
 
 	FILE * handle() const &  noexcept { return _handle; }
