@@ -18,7 +18,7 @@ namespace _ {
 	{
 	 public:
 		virtual ~_icallable() = default;
-		virtual R operator()(Args ... args) = 0;
+		virtual R operator()(Args ... args) const = 0;
 
 	};
 
@@ -38,7 +38,7 @@ namespace _ {
 		{}
 		
 		R 
-		operator()(Args ... args) override 
+		operator()(Args ... args) const override 
 		{
 			return _callable(args...); 
 		}
@@ -50,7 +50,7 @@ namespace _ {
 	{
 		using callable_t = C;
 
-		callable_t _callable;
+		callable_t mutable _callable;
 
 	 public:
 		_callable_s() = default;
@@ -67,7 +67,7 @@ namespace _ {
 		{}
 
 		R 
-		operator()(Args ... args) override 
+		operator()(Args ... args) const override 
 		{ 
 			return _callable(args...); 
 		}
@@ -87,7 +87,7 @@ namespace _ {
 		{}
 
 		R 
-		operator()(Args ... args) override 
+		operator()(Args ... args) const override 
 		{ 
 			return (*_callable)(args...); 
 		}
@@ -110,7 +110,7 @@ namespace _ {
 		{}
 
 		R 
-		operator()(Args ... args) override 
+		operator()(Args ... args) const override 
 		{ 
 			return ((*_object).*_callable)(args...); 
 		}
@@ -133,7 +133,7 @@ namespace _ {
 		{}
 
 		R 
-		operator()(Args ... args) override 
+		operator()(Args ... args) const override 
 		{ 
 			return ((*_object).*_callable)(args...); 
 		}
@@ -156,7 +156,7 @@ namespace _ {
 		{}
 
 		R 
-		operator()(Args ... args) override 
+		operator()(Args ... args) const override 
 		{ 
 			return ((*_object).*_callable)(args...); 
 		}
@@ -170,8 +170,8 @@ namespace _ {
 		using object_t   = C;
 		using callable_t = R (C::*)(Args...);
 
-		object_t   _object;
-		callable_t _callable = nullptr;
+		object_t   mutable _object;
+		callable_t         _callable = nullptr;
 
 	 public:
 		template <typename... Args_
@@ -188,7 +188,7 @@ namespace _ {
 		{}
 
 		R 
-		operator()(Args ... args) override 
+		operator()(Args ... args) const override 
 		{ 
 			return (_object.*_callable)(args...); 
 		}
@@ -219,7 +219,7 @@ namespace _ {
 		{}
 
 		R 
-		operator()(Args ... args) override 
+		operator()(Args ... args) const override 
 		{ 
 			return (cref(_object).*_callable)(args...); 
 		}
@@ -232,8 +232,8 @@ namespace _ {
 		using object_t   = C;
 		using callable_t = R (C::* const)(Args...) const;
 
-		object_t const  _object;
-		callable_t      _callable = nullptr;
+		object_t const _object;
+		callable_t     _callable = nullptr;
 
 	 public:
 		template <typename... Args_
@@ -250,7 +250,7 @@ namespace _ {
 		{}
 
 		R 
-		operator()(Args ... args) override 
+		operator()(Args ... args) const override 
 		{ 
 			return (_object.*_callable)(args...); 
 		}
@@ -380,7 +380,7 @@ class Callable<R(Args...),A>
 	}
 
 	inline R 
-	operator()(Args ... args)
+	operator()(Args ... args) const 
 	{
 		return (*_icallable)(args...); 
 	}
