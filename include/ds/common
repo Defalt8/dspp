@@ -20,14 +20,15 @@
 #	undef max
 #endif
 
-#if DS_Cxx_Version <= DS_Cxx_Version_17 && !defined(__cpp_char8_t)
-#	define __cpp_char8_t DS_Cxx_Version
-using char8_t = unsigned char;
-#endif
-
 namespace ds {
 
 static constexpr struct Version { int major, minor, patch; } version { 0, 26, 107 };
+
+#if DS_Cxx_Version <= DS_Cxx_Version_17 && !defined(__cpp_char8_t)
+using char8_t = unsigned char;
+#else
+using char8_t = ::char8_t;
+#endif
 
 using exception = std::exception;
 using bad_alloc = std::bad_alloc;
