@@ -291,15 +291,16 @@ class Callable<R(Args...),A>
 		: _icallable { make<CS>(), ds::forward<Args_>(args)... }
 	{}
 	
-	template <typename T, typename T_ = remove_cvref_t<T>
-			, typename CS = conditional_t<is_function<T>::value
-					, _::_callable_s<R(Args...),R(*)(Args...)>
-					, _::_callable_s<R(Args...),T>
-				>
+	Callable(R(* func_)(Args...))
+		: _icallable { make<_::_callable_s<R(Args...),R(*)(Args...)>>(), func_ }
+	{}
+
+	template <typename T
+			, typename CS = _::_callable_s<R(Args...),T>
 			, typename = decltype(decl<CS &>()(decl<Args>()...))
 			, enable_if_t<is_constructible<storage_t,make<CS>,T>::value,int> = 0
 		>
-	explicit Callable(T && callable_)
+	Callable(T && callable_)
 		: _icallable { make<CS>(), ds::forward<T>(callable_) }
 	{}
 	
