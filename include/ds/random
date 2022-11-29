@@ -134,7 +134,7 @@ struct RandomSequence
 		: _random(seed_)
 	{}
 	
-	constexpr value_t
+	DS_constexpr14 value_t
 	operator()()
 	{
 		return _random.next();
@@ -162,7 +162,7 @@ struct RandomRangeSequence
 		, _max { max_ }
 	{}
 	
-	constexpr value_t
+	DS_constexpr14 value_t
 	operator()()
 	{
 		return _random.next_range(_min, _max);
@@ -186,7 +186,7 @@ struct RandomBinarySequence
 		: _random(seed_)
 	{}
 	
-	constexpr value_t
+	DS_constexpr14 value_t
 	operator()()
 	{
 		return _random.next_binary();

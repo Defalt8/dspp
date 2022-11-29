@@ -105,7 +105,7 @@ namespace _ {
 	struct variant_destructor<size_,index_,true>
 	{
 		template <typename T, typename... Ts>
-		static constexpr void 
+		static DS_constexpr14 void 
 		_destruct(ds::Variant<T,Ts...> & variant) noexcept
 		{
 			destruct(variant.template at<index_>());
