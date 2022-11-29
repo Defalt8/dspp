@@ -100,7 +100,7 @@ class File
 
 	template <typename T = char>
 	size_t
-	read(T * dest_, size_t size_ = 1) noexcept
+	read(T * dest_, size_t size_ = 1) const noexcept
 	{
 		if(_handle)
 			return size_t(fread(dest_, sizeof(T), size_, _handle));
