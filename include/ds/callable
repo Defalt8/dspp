@@ -40,7 +40,7 @@ namespace _ {
 		R 
 		operator()(Args ... args) const override 
 		{
-			return _callable(args...); 
+			return _callable(ds::forward<Args>(args)...); 
 		}
 
 	};
@@ -69,7 +69,7 @@ namespace _ {
 		R 
 		operator()(Args ... args) const override 
 		{ 
-			return _callable(args...); 
+			return _callable(ds::forward<Args>(args)...); 
 		}
 	
 	};
@@ -89,7 +89,7 @@ namespace _ {
 		R 
 		operator()(Args ... args) const override 
 		{ 
-			return (*_callable)(args...); 
+			return (*_callable)(ds::forward<Args>(args)...); 
 		}
 	
 	};
@@ -112,7 +112,7 @@ namespace _ {
 		R 
 		operator()(Args ... args) const override 
 		{ 
-			return ((*_object).*_callable)(args...); 
+			return ((*_object).*_callable)(ds::forward<Args>(args)...); 
 		}
 
 	};
@@ -135,7 +135,7 @@ namespace _ {
 		R 
 		operator()(Args ... args) const override 
 		{ 
-			return ((*_object).*_callable)(args...); 
+			return ((*_object).*_callable)(ds::forward<Args>(args)...); 
 		}
 
 	};
@@ -158,7 +158,7 @@ namespace _ {
 		R 
 		operator()(Args ... args) const override 
 		{ 
-			return ((*_object).*_callable)(args...); 
+			return ((*_object).*_callable)(ds::forward<Args>(args)...); 
 		}
 
 
@@ -190,7 +190,7 @@ namespace _ {
 		R 
 		operator()(Args ... args) const override 
 		{ 
-			return (_object.*_callable)(args...); 
+			return (_object.*_callable)(ds::forward<Args>(args)...); 
 		}
 
 	};
@@ -221,7 +221,7 @@ namespace _ {
 		R 
 		operator()(Args ... args) const override 
 		{ 
-			return (cref(_object).*_callable)(args...); 
+			return (cref(_object).*_callable)(ds::forward<Args>(args)...); 
 		}
 
 	};
@@ -252,7 +252,7 @@ namespace _ {
 		R 
 		operator()(Args ... args) const override 
 		{ 
-			return (_object.*_callable)(args...); 
+			return (_object.*_callable)(ds::forward<Args>(args)...); 
 		}
 
 	};
@@ -382,7 +382,7 @@ class Callable<R(Args...),A>
 	inline R 
 	operator()(Args ... args) const 
 	{
-		return (*_icallable)(args...); 
+		return (*_icallable)(ds::forward<Args>(args)...); 
 	}
 
 	inline bool operator!() const noexcept { return !_icallable; }
