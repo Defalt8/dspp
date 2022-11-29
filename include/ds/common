@@ -286,6 +286,7 @@ namespace _ {
 } // namespace _
 
 template <typename T, typename... Ts> struct are_all_true<T,Ts...> : bool_constant<_::_are_all_true<T,T::value,Ts...>::value> {};
+template <>                           struct are_all_true<>        : true_type {};
 
 template <typename... Ts> struct are_all_false : false_type {};
 
@@ -297,6 +298,7 @@ namespace _ {
 } // namespace _
 
 template <typename T, typename... Ts> struct are_all_false<T,Ts...> : bool_constant<_::_are_all_false<T,T::value,Ts...>::value> {};
+template <>                           struct are_all_false<>        : true_type {};
 
 template <typename T, typename U> struct is_same      : false_type {};
 template <typename T>             struct is_same<T,T> : true_type {};
@@ -825,6 +827,12 @@ namespace _ {
 	template <typename T, T start_, T end_, bool = (start_ < end_), T i_ = start_, T... sequence_>
 	struct integer_sequence_maker 
 	{};
+
+	template <typename T, T start_>
+	struct integer_sequence_maker<T,start_,start_,false,start_>
+	{
+		using type = integer_sequence<T>;
+	};
 
 	template <typename T, T start_, T end_, T... sequence_>
 	struct integer_sequence_maker<T,start_,end_,true,start_,sequence_...>
