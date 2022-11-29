@@ -27,7 +27,7 @@ using char8_t = unsigned char;
 
 namespace ds {
 
-static constexpr struct Version { int major, minor, patch; } version { 0, 25, 105 };
+static constexpr struct Version { int major, minor, patch; } version { 0, 26, 107 };
 
 using exception = std::exception;
 using bad_alloc = std::bad_alloc;
