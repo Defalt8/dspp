@@ -29,11 +29,11 @@ namespace ds {
 
 static constexpr struct Version { int major, minor, patch; } version { 0, 25, 105 };
 
-using std::exception;
-using std::bad_alloc;
-using std::nothrow_t;
+using exception = std::exception;
+using bad_alloc = std::bad_alloc;
+using nothrow_t = std::nothrow_t;
+using nullptr_t = std::nullptr_t;
 using std::nothrow;
-using std::nullptr_t;
 using byte_t       = unsigned char;
 using align_t      = size_t;
 using byte_ptr_t   = byte_t *;

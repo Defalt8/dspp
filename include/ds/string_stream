@@ -15,7 +15,7 @@ namespace _ {
 	template <>       struct _ptr_fmt<8>{ static constexpr char const * value = "%016zx"; };
 } // namespace _
 
-template <class A = ds::default_allocator>
+template <class A = default_allocator>
 class StringStream
 {
  public:
@@ -334,10 +334,10 @@ class StringStream
 
 };
 
-template <class A = ds::default_allocator>
+template <class A = default_allocator>
 using string_stream = StringStream<A>;
 
-template <class A = ds::default_nt_allocator>
+template <class A = default_nt_allocator>
 using nt_string_stream = StringStream<A>;
 
 template <class A, size_t size_>

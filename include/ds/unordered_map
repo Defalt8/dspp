@@ -3,6 +3,9 @@
 #define DS_UNORDERED_MAP
 
 #include "common"
+#include "traits/iterable"
+#include "traits/allocator"
+#include "allocator"
 #include "unordered_list"
 
 namespace ds {
@@ -167,22 +170,22 @@ class UnorderedMap : protected UnorderedList<table_size_,Entry<K,V>,A>
 };
 
 
-template <size_t table_size_, typename K, typename V, class A = ds::default_allocator>
+template <size_t table_size_, typename K, typename V, class A = default_allocator>
 using unordered_map_iterator = UnorderedMapIterator<table_size_,K,V,A>;
 
-template <size_t table_size_, typename K, typename V, class A = ds::default_allocator>
+template <size_t table_size_, typename K, typename V, class A = default_allocator>
 using const_unordered_map_iterator = ConstUnorderedMapIterator<table_size_,K,V,A>;
 
-template <size_t table_size_, typename K, typename V, class A = ds::default_allocator>
+template <size_t table_size_, typename K, typename V, class A = default_allocator>
 using unordered_map = UnorderedMap<table_size_,K,V,A>;
 
-template <size_t table_size_, typename K, typename V, class A = ds::default_nt_allocator>
+template <size_t table_size_, typename K, typename V, class A = default_nt_allocator>
 using nt_unordered_map_iterator = UnorderedMapIterator<table_size_,K,V,A>;
 
-template <size_t table_size_, typename K, typename V, class A = ds::default_nt_allocator>
+template <size_t table_size_, typename K, typename V, class A = default_nt_allocator>
 using const_nt_unordered_map_iterator = ConstUnorderedMapIterator<table_size_,K,V,A>;
 
-template <size_t table_size_, typename K, typename V, class A = ds::default_nt_allocator>
+template <size_t table_size_, typename K, typename V, class A = default_nt_allocator>
 using nt_unordered_map = UnorderedMap<table_size_,K,V,A>;
 
 

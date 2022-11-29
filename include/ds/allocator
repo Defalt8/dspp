@@ -11,7 +11,7 @@ namespace ds {
 class NewDeleteAllocator 
 {
  public:
-	struct allocation_failure : public std::bad_alloc
+	struct allocation_failure : public bad_alloc
 	{
 		char const * what() const noexcept override { return "failed to allocate the requested amount of memory"; }
 	};
