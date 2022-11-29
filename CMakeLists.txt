@@ -27,6 +27,7 @@ set( DS_HEADER_FILES
 	include/ds/unordered_map
 	include/ds/ordered_list
 	include/ds/ordered_map
+	include/ds/coroutine
 )
  
 set( DS_TRAITS_HEADER_FILES

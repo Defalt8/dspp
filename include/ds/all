@@ -26,5 +26,6 @@
 #include "unordered_map"
 #include "ordered_list"
 #include "ordered_map"
+#include "coroutine"
 
 #endif // DS_ALL

@@ -1,0 +1,328 @@
+#pragma once
+#ifndef DS_COROUTINE
+#define DS_COROUTINE
+
+#include "common"
+#include "traits/allocator"
+#include "allocator"
+#include "unique"
+#include "tuple"
+
+namespace ds {
+
+enum class coroutine_state
+{
+	init,
+	suspend,
+	resume,
+	halt
+};
+
+template <typename F, class A = default_allocator>
+class Coroutine;
+
+namespace traits {
+
+template <typename F, class A>
+struct allocator<Coroutine<F,A>> : allocator_traits<A> {};
+
+} // namespace trait
+
+template <class A, typename R, typename... Args>
+class Coroutine<R(Args...),A>
+{
+	static_assert(are_all_false<is_reference<Args>...>::value, "no reference types");
+
+	enum class state { suspended, done };
+
+ public:
+	using callable_t = callable<coroutine_state(coroutine_state,R &,Args &...)>;
+	using data_t     = unique<Tuple<R, Args...>>;
+
+ private:
+	callable_t _callable;
+	data_t     _data;
+	state      _state = state::done;
+
+	static constexpr auto _index_seq = make_index_sequence_t<0,sizeof...(Args)+1>();
+
+	template <size_t... indices_>
+	coroutine_state
+	_call(coroutine_state coroutine_state_, index_sequence<indices_...>)
+	{
+		return _callable(coroutine_state_, _data->template at<indices_>()...);
+	}
+
+	void 
+	_init()
+	{
+		if(_callable)
+		{
+			_data = {};
+			if(_data)
+			{
+				auto ret_ = _call(coroutine_state::init, _index_seq);
+				if(ret_ == coroutine_state::resume)
+				{
+					this->resume();
+				}
+				else if(ret_ == coroutine_state::halt)
+				{
+					_state = state::done;
+					_data.destroy();
+				}
+			}
+		}
+	}
+
+	Coroutine(Coroutine const &) = delete;
+
+ public:
+	~Coroutine()
+	{
+		if(_state != state::done && _callable && _data)
+			_call(coroutine_state::halt, _index_seq);
+	}
+
+	Coroutine() = default;
+
+	Coroutine(Coroutine && rhs) noexcept
+		: _callable { ds::move(rhs._callable) }
+		, _data     { ds::move(rhs._data) } 
+		, _state    { rhs._state }
+	{
+		rhs._state = state::done;
+	}
+
+	template <typename... CArgs
+			, enable_if_t<is_constructible<callable_t,CArgs...>::value,int> = 0
+		>
+	Coroutine(CArgs &&... callable_args)
+		: _callable { ds::forward<CArgs>(callable_args)... }
+		, _data     { noinit }
+		, _state    { state::suspended }
+	{
+		this->_init();
+	}
+
+	Coroutine &
+	operator=(Coroutine && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	void 
+	destroy() noexcept
+	{
+		_callable.destroy();
+		_data.destroy();
+		_state = state::done;
+	}
+
+	void 
+	swap(Coroutine & rhs) noexcept
+	{
+		ds::swap(_callable, rhs._callable);
+		ds::swap(_data, rhs._data);
+		ds::swap(_state, rhs._state);
+	}
+
+	R *
+	resume()
+	{
+		if(_state != state::done && _callable && _data)
+		{
+			auto ret_ = _call(coroutine_state::resume, _index_seq);
+			if(ret_ == coroutine_state::halt)
+				_state = state::done;
+			return &_data->template at<0>();
+		}
+		return nullptr;
+	}
+
+	R * 
+	return_ptr() noexcept 
+	{
+		if(_data)
+			return &_data->template at<0>();
+		return nullptr;
+	}
+
+	R const * 
+	return_ptr() const noexcept 
+	{
+		if(_data)
+			return &_data->template at<0>();
+		return nullptr;
+	}
+
+	bool 
+	is_done() const noexcept
+	{
+		return _state == state::done;
+	}
+
+	bool 
+	is_not_done() const noexcept
+	{
+		return _state != state::done;
+	}
+
+	bool operator!() const noexcept { return !_callable || !_data; } 
+
+	explicit inline operator bool()       noexcept { return bool(_callable) && bool(_data); } 
+	explicit inline operator bool() const noexcept { return bool(_callable) && bool(_data); } 
+
+};
+
+template <class A, typename... Args>
+class Coroutine<void(Args...),A>
+{
+	static_assert(are_all_false<is_reference<Args>...>::value, "no reference types");
+
+	enum class state { suspended, done };
+
+ public:
+	using callable_t = callable<coroutine_state(coroutine_state,Args &...)>;
+	using data_t     = unique<Tuple<Args...>>;
+
+ private:
+	callable_t _callable;
+	data_t     _data;
+	state      _state = state::done;
+
+	static constexpr auto _index_seq = make_index_sequence_t<0,sizeof...(Args)>();
+
+	template <size_t... indices_>
+	coroutine_state
+	_call(coroutine_state coroutine_state_, index_sequence<indices_...>)
+	{
+		return _callable(coroutine_state_, _data->template at<indices_>()...);
+	}
+
+	void 
+	_init()
+	{
+		if(_callable)
+		{
+			_data = {};
+			if(_data)
+			{
+				auto ret_ = _call(coroutine_state::init, _index_seq);
+				if(ret_ == coroutine_state::resume)
+				{
+					this->resume();
+				}
+				else if(ret_ == coroutine_state::halt)
+				{
+					_state = state::done;
+					_data.destroy();
+				}
+			}
+		}
+	}
+
+	Coroutine(Coroutine const &) = delete;
+
+ public:
+	~Coroutine()
+	{
+		if(_state != state::done && _callable && _data)
+			_call(coroutine_state::halt, _index_seq);
+	}
+
+	Coroutine() = default;
+
+	Coroutine(Coroutine && rhs) noexcept
+		: _callable { ds::move(rhs._callable) }
+		, _data     { ds::move(rhs._data) } 
+		, _state    { rhs._state }
+	{
+		rhs._state = state::done;
+	}
+
+	template <typename... CArgs
+			, enable_if_t<is_constructible<callable_t,CArgs...>::value,int> = 0
+		>
+	Coroutine(CArgs &&... callable_args)
+		: _callable { ds::forward<CArgs>(callable_args)... }
+		, _data     { noinit }
+		, _state    { state::suspended }
+	{
+		this->_init();
+	}
+
+	Coroutine &
+	operator=(Coroutine && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	void 
+	destroy() noexcept
+	{
+		_callable.destroy();
+		_data.destroy();
+		_state = state::done;
+	}
+
+	void 
+	swap(Coroutine & rhs) noexcept
+	{
+		ds::swap(_callable, rhs._callable);
+		ds::swap(_data, rhs._data);
+		ds::swap(_state, rhs._state);
+	}
+
+	bool 
+	resume()
+	{
+		if(_state != state::done && _callable && _data)
+		{
+			auto ret_ = _call(coroutine_state::resume, _index_seq);
+			if(ret_ == coroutine_state::halt)
+				_state = state::done;
+			return true;
+		}
+		return false;
+	}
+
+	bool 
+	is_done() const noexcept
+	{
+		return _state == state::done;
+	}
+
+	bool 
+	is_not_done() const noexcept
+	{
+		return _state != state::done;
+	}
+
+	bool operator!() const noexcept { return !_callable || !_data; } 
+
+	explicit inline operator bool()       noexcept { return bool(_callable) && bool(_data); } 
+	explicit inline operator bool() const noexcept { return bool(_callable) && bool(_data); } 
+
+};
+
+
+template <typename F, class A = default_allocator>
+using coroutine = Coroutine<F,A>;
+
+template <typename F, class A = default_nt_allocator>
+using nt_coroutine = Coroutine<F,A>;
+
+} // namespace ds
+
+#endif // DS_COROUTINE
