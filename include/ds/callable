@@ -56,7 +56,7 @@ namespace _ {
 		_callable_s() = default;
 
 		template <typename... Args_
-				, ds::enable_if_t<is_aggregate_initializable<callable_t,Args_...>::value,int> = 0
+				, enable_if_t<is_aggregate_initializable<callable_t,Args_...>::value,int> = 0
 			>
 		_callable_s(Args_ &&... args)
 			: _callable { ds::forward<Args_>(args)... }
@@ -284,7 +284,7 @@ class Callable<R(Args...),A>
 
 	template <class C, typename... Args_
 			, typename CS = _::_callable_s<R(Args...),C>
-			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, enable_if_t<is_same<decltype(decl<C &>()(decl<Args>()...)),R>::value,int> = 0
 			, enable_if_t<is_constructible<storage_t,make<CS>,Args_...>::value,int> = 0
 		>
 	Callable(make<C>, Args_ &&... args)
@@ -297,7 +297,7 @@ class Callable<R(Args...),A>
 
 	template <typename T
 			, typename CS = _::_callable_s<R(Args...),T>
-			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, enable_if_t<is_same<decltype(decl<T>()(decl<Args>()...)),R>::value,int> = 0
 			, enable_if_t<is_constructible<storage_t,make<CS>,T>::value,int> = 0
 		>
 	Callable(T && callable_)
@@ -306,7 +306,7 @@ class Callable<R(Args...),A>
 	
 	template <class C
 			, typename CS = _::_callable_s<R(C::*)(Args...)>
-			, typename = decltype(decl<CS &>()(decl<Args>()...))
+			, typename = decltype(decl<C &>()(decl<Args>()...))
 			, enable_if_t<is_constructible<storage_t,make<CS>,C &,R(C::*)(Args...)>::value,int> = 0
 		>
 	Callable(C & object_, R (C::* callable_)(Args...))
