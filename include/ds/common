@@ -1087,7 +1087,6 @@ namespace _ {
 
 
 template <typename T
-		, enable_if_t<!is_const<T>::value,int> = 0
 		, typename = decltype(_::_swapper<T>::swap(decl<T &>(), decl<T &>()))
 	>
 static DS_constexpr14 void
@@ -1096,9 +1095,9 @@ swap(T & lhs, T & rhs) noexcept
 	_::_swapper<T>::swap(lhs, rhs);
 }
 
-template <typename T, enable_if_t<is_const<T>::value,int> = 0>
+template <typename T>
 static DS_constexpr14 void
-swap(T & lhs, T & rhs) noexcept = delete;
+swap(T const & lhs, T const & rhs) noexcept = delete;
 
 namespace _ {
 	template <typename T
@@ -1534,7 +1533,9 @@ hex_value(char hex_char)
 }
 
 // efficient reverse.
-template<typename It> 
+template<typename It
+		, typename = decltype(ds::swap(*decl<It &>(), *decl<It &>()))
+	> 
 static DS_constexpr14 void
 reverse(It begin_, It end_)
 {
@@ -1559,6 +1560,33 @@ reverse(T && f_iterable)
 	ds::reverse(ds::begin(f_iterable), ds::end(f_iterable));
 }
 
+template<typename It, class C = less<remove_cvref_t<decltype(*decl<It &>())>>
+		, enable_if_t<is_same<decltype(decl<It &>() == decl<It &>()),bool>::value,int> = 0
+		, enable_if_t<is_same<decltype(++decl<It &>()),It &>::value,int> = 0
+		, typename = decltype(*decl<It &>())
+	> 
+static DS_constexpr14 bool
+is_sorted(It begin_, It end_, C && compare = {}) noexcept
+{
+	for(auto it = begin_, next_ = begin_; ; it = next_)
+	{
+		if(++next_ == end_)
+			break;
+		if(compare(*next_, *it))
+			return false;
+	}
+	return true;
+}
+
+template <typename T, class C = less<remove_cvref_t<decltype(*begin(decl<T &>()))>>
+		, typename = decltype(ds::is_sorted(begin(decl<T const &>()), end(decl<T const &>()), decl<C>()))
+	>
+static DS_constexpr14 bool
+is_sorted(T const & f_iterable, C && compare = {}) noexcept
+{
+	return ds::is_sorted(begin(f_iterable), end(f_iterable), ds::forward<C>(compare));
+}
+
 namespace _ {
 	template <typename E, class C>
 	static DS_constexpr14 void
@@ -1574,29 +1602,31 @@ namespace _ {
 	{
 		if(compare(a, b))
 		{
-			if(compare(a, c))
+			if(compare(c, b))
 			{
-				if(compare(c, b))
+				if(compare(a, c))
+				{
 					ds::swap(b, c);
-			}
-			else
-			{
-				ds::swap(a, b);
-				ds::swap(a, c);
+				}
+				else
+				{
+					ds::swap(b, c);
+					ds::swap(a, b);
+				}
 			}
 		}
-		else
+		else if(compare(a, c))
 		{
-			if(compare(a, c))
-			{
-				ds::swap(a, b);
-			}
-			else
-			{
-				ds::swap(a, c);
-				if(compare(b, a))
-					ds::swap(a, b);
-			}
+			ds::swap(a, b);
+		}
+		else if(compare(c, b))
+		{
+			ds::swap(a, c);
+		}
+		else 
+		{
+			ds::swap(a, c);
+			ds::swap(a, b);
 		}
 	}
 
@@ -1608,97 +1638,222 @@ namespace _ {
 		{
 			if(compare(a, c))
 			{
-				if(compare(a, d))
-				{
-					_sort3(b, c, d, compare);
-				}
-				else
-				{
+				if(compare(d, a))
 					ds::swap(a, d);
-					_sort3(b, c, d, compare);
-				}
 			}
+			else if(compare(d, c))
+				ds::swap(a, d);
 			else
-			{
-				if(compare(d, c))
-				{
-					ds::swap(a, d);
-					_sort3(b, c, d, compare);
-				}
-				else
-				{
-					ds::swap(a, c);
-					_sort3(b, c, d, compare);
-				}
-			}
+				ds::swap(a, c);
 		}
 		else
 		{
 			if(compare(b, c))
 			{
 				if(compare(b, d))
-				{
 					ds::swap(a, b);
-					_sort3(b, c, d, compare);
-				}
 				else
-				{
 					ds::swap(a, d);
-					_sort3(b, c, d, compare);
+			}
+			else if(compare(d, c))
+				ds::swap(a, d);
+			else
+				ds::swap(a, c);
+		}
+		_sort3(b, c, d, ds::forward<C>(compare));
+	}
+
+} // namespace _
+
+template<typename It, class C = less<decltype(*decl<It &>())>>
+static DS_constexpr14 void
+selection_sort(It begin_, It end_, C && compare = {}) noexcept
+{
+	if(begin_ != end_)
+	{
+		{
+			auto last_          = end_ - 1;
+			auto sorted         = true;
+			auto reverse_sorted = true;
+			for(auto it = begin_, next_ = begin_; it < last_; it = next_)
+			{
+				++next_;
+				if(sorted && compare(*next_, *it))
+				{
+					sorted = false;
+					if(!reverse_sorted)
+						break;
+				}
+				else if(reverse_sorted && compare(*it, *next_))
+				{
+					reverse_sorted = false;
+					if(!sorted)
+						break;
 				}
 			}
-			else
+			if(sorted)
+				return;
+			else if(reverse_sorted)
 			{
-				if(compare(d, c))
+				ds::reverse(begin_, end_);
+				return;
+			}
+		}
+		{
+			auto last_ = end_ - 1;
+			for(auto it = begin_; it != last_; ++it)
+			{
+				auto cit = it;
+				auto sit = it + 1;
+				for(; sit != end_; ++sit)
 				{
-					ds::swap(a, d);
-					_sort3(b, c, d, compare);
+					if(compare(*sit, *cit))
+						cit = sit;
 				}
-				else
-				{
-					ds::swap(a, c);
-					_sort3(b, c, d, compare);
-				}
+				if(cit != it)
+					ds::swap(*cit, *it);
 			}
 		}
 	}
-} // namespace _
+}
 
 // a very quick quick-sort.
 template<typename It, class C = less<decltype(*decl<It &>())>
 		, enable_if_t<is_integral<decltype(decl<It &>() - decl<It &>())>::value,int> = 0
 		, enable_if_t<is_same<decltype(decl<It &>() < decl<It &>()),bool>::value,int> = 0
+		, enable_if_t<is_same<decltype(decl<It &>() <= decl<It &>()),bool>::value,int> = 0
 		, enable_if_t<is_same<decltype(decl<It &>() - size_t(1)),It>::value,int> = 0
 		, enable_if_t<is_same<decltype(decl<It &>() + size_t(1)),It>::value,int> = 0
+		, typename = decltype(ds::swap(*decl<It &>(), *decl<It &>()))
 	> 
 static DS_constexpr14 void 
 sort(It begin_, It end_, C && compare = {}) noexcept
 {
-	if(begin_ + 1 < end_)
+	auto size_ = size_t(end_ - begin_);
+	if(size_ <= 1)
+		return;
+	else if(size_ == 2)
+		return _::_sort2(*begin_, *(begin_ + 1), compare);
+	else if(size_ == 3)
+		return _::_sort3(*begin_, *(begin_ + 1), *(begin_ + 2), compare);
+	else if(size_ == 4)
+		return _::_sort4(*begin_, *(begin_ + 1), *(begin_ + 2), *(begin_ + 3), compare);
+	else if(size_ <= 7)
+		return selection_sort(begin_, end_, compare);
+	else 
 	{
-		auto size_ = size_t(end_ - begin_);
+		// check if sorted
+		{
+			auto last_          = end_ - 1;
+			auto sorted         = true;
+			auto reverse_sorted = true;
+			for(auto it = begin_, next_ = begin_; it < last_; it = next_)
+			{
+				++next_;
+				if(sorted && compare(*next_, *it))
+				{
+					sorted = false;
+					if(!reverse_sorted)
+						break;
+				}
+				else if(reverse_sorted && compare(*it, *next_))
+				{
+					reverse_sorted = false;
+					if(!sorted)
+						break;
+				}
+			}
+			if(sorted)
+				return;
+			else if(reverse_sorted)
+			{
+				ds::reverse(begin_, end_);
+				return;
+			}
+		}
+		// sort
+		{
+			auto pivot = begin_;
+			auto left  = begin_ + 1;
+			auto right = end_ - 1;
+			while(left < right)
+			{
+				while(left < right && compare(*left, *pivot))
+					++left;
+				while(left <= right && !compare(*right, *pivot))
+					--right;
+				if(left < right)
+				{
+					ds::swap(*left, *right);
+					++left;
+					--right;
+				}
+			}
+			if(right != pivot)
+			{
+				if(compare(*left, *pivot))
+					ds::swap(*pivot, *left);
+				else
+					ds::swap(*pivot, *(--left));
+			}
+			else
+				--left;
+			ds::sort(begin_, left, compare);
+			ds::sort(left + 1, end_, compare);
+		}
+	}
+}
+
+// a very quick quick-sort.
+template<typename It, class C = less<decltype(*decl<It &>())>
+		, enable_if_t<is_same<decltype(decl<It &>() != decl<It &>()),bool>::value,int> = 0
+		, enable_if_t<is_same<decltype(++decl<It &>()),It &>::value,int> = 0
+		, enable_if_t<is_same<decltype(--decl<It &>()),It &>::value,int> = 0
+		, typename = decltype(ds::swap(*decl<It &>(), *decl<It &>()))
+	> 
+static DS_constexpr14 void 
+sortl(It begin_, It end_, size_t size_, C && compare = {}) noexcept
+{
+	if(size_ > 1)
+	{
 		if(size_ == 2)
-			_::_sort2(*begin_, *(begin_+1), compare);
+		{
+			auto & next_0 = *(begin_);
+			auto & next_1 = *(++begin_);
+			_::_sort2(next_0, next_1, compare);
+		}
 		else if(size_ == 3)
-			_::_sort3(*begin_, *(begin_+1), *(begin_+2), compare);
+		{
+			auto & next_0 = *(begin_);
+			auto & next_1 = *(++begin_);
+			auto & next_2 = *(++begin_);
+			_::_sort3(next_0, next_1, next_2, compare);
+		}
 		else if(size_ == 4)
-			_::_sort4(*begin_, *(begin_+1), *(begin_+2), *(begin_+3), compare);
+		{
+			auto & next_0 = *(begin_);
+			auto & next_1 = *(++begin_);
+			auto & next_2 = *(++begin_);
+			auto & next_3 = *(++begin_);
+			_::_sort4(next_0, next_1, next_2, next_3, compare);
+		}
 		else 
 		{
 			// check if sorted
 			{
-				auto last_ = end_ - 1;
+				auto last_ = end_; --last_;
 				bool sorted         = true;
 				bool reverse_sorted = true;
-				for(It it = begin_; it < last_; ++it)
+				for(auto it = begin_, next_ = begin_; it != last_; it = next_)
 				{
-					if(sorted && compare(*(it+1), *it))
+					++next_;
+					if(sorted && compare(*next_, *it))
 					{
 						sorted = false;
 						if(!reverse_sorted)
 							break;
 					}
-					else if(reverse_sorted && compare(*it, *(it+1)))
+					else if(reverse_sorted && compare(*it, *next_))
 					{
 						reverse_sorted = false;
 						if(!sorted)
@@ -1715,21 +1870,32 @@ sort(It begin_, It end_, C && compare = {}) noexcept
 			}
 			// sort
 			{
-				ds::swap(*begin_, *(begin_+3));
-				It pivot = begin_;
-				It left  = begin_ + 1;
-				It right = end_ - 1;
-				while(left < right)
+				auto last_  = end_;   --last_;
+				auto next_  = begin_; ++next_;
+				auto pivot  = begin_;
+				auto left   = next_;
+				auto right  = last_;
+				auto lsize_ = size_t(1);
+				while(left != right)
 				{
-					while(left < right && compare(*left, *pivot))
+					while(left != right && compare(*left, *pivot))
+					{
 						++left;
-					while(left <= right && !compare(*right, *pivot))
+						++lsize_;
+					}
+					while(!compare(*right, *pivot))
+					{
+						if(left == right)
+							break;
 						--right;
-					if(left < right)
+					}
+					if(left != right)
 					{
 						ds::swap(*left, *right);
-						++left;
-						--right;
+						++left; 
+						++lsize_;
+						if(left != right)
+							--right;
 					}
 				}
 				if(right != pivot)
@@ -1737,23 +1903,43 @@ sort(It begin_, It end_, C && compare = {}) noexcept
 					if(compare(*left, *pivot))
 						ds::swap(*pivot, *left);
 					else
+					{
 						ds::swap(*pivot, *(--left));
+						--lsize_;
+					}
 				}
 				else
+				{
 					--left;
-				ds::sort(begin_, left, compare);
-				ds::sort(left + 1, end_, compare);
+					--lsize_;
+				}
+				size_t rsize_ = (size_ - lsize_) - 1;
+				ds::sortl(begin_, left, lsize_, compare);
+				ds::sortl(++left, end_, rsize_, compare);
 			}
 		}
 	}
 }
 
+namespace _ {
+	template <typename T, class C
+			, typename = decltype(ds::sort(begin(decl<T>()), end(decl<T>()), decl<C>()))
+		>
+	static constexpr true_type _test_sort(int);
+	template <typename T, class C>
+	static constexpr false_type _test_sort(...);
+
+	template <typename T, class C
+			, typename = decltype(ds::sortl(begin(decl<T>()), end(decl<T>()), size(decl<T>()), decl<C>()))
+		>
+	static constexpr true_type _test_sortl(int);
+	template <typename T, class C>
+	static constexpr false_type _test_sortl(...);
+} // namespace _
 
 // a very quick quick-sort.
-template <typename T, class C = less<decltype(*decl<T &>().begin())>
-		, typename = decltype(size(decl<T>()))
-		, typename = decltype(begin(decl<T>()))
-		, typename = decltype(rbegin(decl<T>()))
+template <typename T, class C = less<remove_cvref_t<decltype(*begin(decl<T &>()))>>
+		, enable_if_t<(decltype(_::_test_sort<T,C>(0))::value),int> = 0
 	>
 static DS_constexpr14 T &&
 sort(T && fr_iterable, C && compare = {})
@@ -1763,18 +1949,15 @@ sort(T && fr_iterable, C && compare = {})
 }
 
 // a very quick quick-sort.
-template <typename T, class C = less<decltype(*decl<T &>().begin())>
-		, typename = decltype(size(decl<T>()))
-		, typename = decltype(begin(decl<T>()))
-		, typename = decltype(rbegin(decl<T>()))
+template <typename T, class C = less<remove_cvref_t<decltype(*begin(decl<T &>()))>>
+		, enable_if_t<(!decltype(_::_test_sort<T,C>(0))::value && decltype(_::_test_sortl<T,C>(0))::value),int> = 0
 	>
-static DS_constexpr14 T
-sorted(T const & fr_iterable, C && compare = {})
+static DS_constexpr14 T &&
+sort(T && fr_iterable, C && compare = {})
 {
-	auto _sorted = fr_iterable;
-	return ds::move(ds::sort(_sorted, ds::forward<C>(compare)));
+	ds::sortl(begin(fr_iterable), end(fr_iterable), size(fr_iterable), ds::forward<C>(compare));
+	return ds::forward<T>(fr_iterable);
 }
-
 
 template <typename T, typename U
 		, typename    = decltype(size(decl<T const &>()))
