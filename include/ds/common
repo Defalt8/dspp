@@ -1525,6 +1525,29 @@ operator<<(OST && ost, C const & rhs)
 	return ost;
 }
 
+template <size_t size_, size_t align_ = alignof(max_align_t)>
+struct AlignedBytes
+{
+	alignas(align_) byte_t bytes[size_];
+	
+	AlignedBytes(noinit_t) noexcept
+	{}
+	
+	AlignedBytes() noexcept
+		: bytes {}
+	{}
+	
+	size_t      size()  const noexcept { return size_; }
+	byte_ptr_t  begin()       noexcept { return &bytes[0]; }
+	byte_ptr_t  end()         noexcept { return &bytes[size_]; }
+	byte_cptr_t begin() const noexcept { return &bytes[0]; }
+	byte_cptr_t end()   const noexcept { return &bytes[size_]; }
+	
+};
+
+template <size_t size_, align_t align_ = alignof(max_align_t)>
+using aligned_bytes = AlignedBytes<size_,align_>;
+
 enum class duplicate_rule
 {
 	allow     = 1, // Allow duplicates.
