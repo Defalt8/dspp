@@ -1,0 +1,111 @@
+#pragma once
+#ifndef DS_ALLOCATORS_MEMO
+#define DS_ALLOCATORS_MEMO
+
+#include "../common"
+#include "../memo"
+#include "base"
+
+namespace ds {
+namespace allocators {
+
+template <class UID_ = void, class A = Base>
+class Memo
+{
+ public:
+	using UID         = UID_;
+	using Allocator   = A;
+	
+ private:
+	ds::Memo<Allocator *> _memo;
+
+	static thread_local Allocator   _default;
+	static thread_local Allocator * _allocator;
+
+ public:
+	Memo()
+		: _memo { _allocator, &_default }
+	{}
+
+	Memo(Allocator & allocator_)
+		: _memo { _allocator, &allocator_ }
+	{}
+	
+	DS_nodiscard static inline void * 
+	allocate(size_t size_, size_t align_ = alignof(max_align_t))
+	{
+		if(_allocator != nullptr)
+			return _allocator->allocate(size_, align_);
+		return nullptr;
+	}
+
+	static inline void 
+	deallocate(void * block_) noexcept
+	{
+		if(_allocator != nullptr)
+			_allocator->deallocate(block_);
+	}
+
+};
+
+template <class UID_ = void, class A = NTBase>
+class NTMemo
+{
+ public:
+	using UID         = UID_;
+	using NTAllocator = A;
+	
+ private:
+	ds::Memo<NTAllocator *> _memo;
+
+	static thread_local NTAllocator   _nt_default;
+	static thread_local NTAllocator * _nt_allocator;
+
+ public:
+	NTMemo()
+		: _memo { _nt_allocator, &_nt_default }
+	{}
+
+	NTMemo(NTAllocator & nt_allocator_)
+		: _memo { _nt_allocator, &nt_allocator_ }
+	{}
+	
+	DS_nodiscard static inline void * 
+	allocate(size_t size_, size_t align_ = alignof(max_align_t)) noexcept
+	{
+		if(_nt_allocator != nullptr)
+			return _nt_allocator->allocate(size_, align_);
+		return nullptr;
+	}
+
+	static inline void 
+	deallocate(void * block_) noexcept
+	{
+		if(_nt_allocator != nullptr)
+			_nt_allocator->deallocate(block_);
+	}
+
+};
+
+
+template <class UID, class A>
+thread_local A Memo<UID,A>::_default;
+
+template <class UID, class A>
+thread_local A * Memo<UID,A>::_allocator = &Memo<UID,A>::_default;
+
+template <class UID, class A>
+thread_local A NTMemo<UID,A>::_nt_default;
+
+template <class UID, class A>
+thread_local A * NTMemo<UID,A>::_nt_allocator = &NTMemo<UID,A>::_nt_default;
+
+template <class UID = void, class A = Base>    using memo    = Memo<UID,A>;
+template <class UID = void, class A = NTBase>  using nt_memo = NTMemo<UID,A>;
+
+
+} // namespace allocators
+} // namespace ds
+
+
+#endif // DS_ALLOCATORS_MEMO

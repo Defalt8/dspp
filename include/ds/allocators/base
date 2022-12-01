@@ -1,0 +1,59 @@
+#pragma once
+#ifndef DS_ALLOCATORS_BASE
+#define DS_ALLOCATORS_BASE
+
+#include "../common"
+#include "new_delete"
+
+namespace ds {
+namespace allocators {
+
+// throwing allocator base
+class Base 
+{
+ public:
+	virtual ~Base() = default;
+
+	DS_nodiscard virtual void * 
+	allocate(size_t size_, DS_maybe_unused size_t align_ = alignof(max_align_t)) noexcept(false)
+	{
+		return NewDelete::allocate(size_, align_);
+	}
+
+	virtual void 
+	deallocate(void * block_) noexcept
+	{
+		NewDelete::deallocate(block_);
+	}
+
+};
+
+// no-throw allocator base
+class NTBase 
+{
+ public:
+	virtual ~NTBase() = default;
+
+	DS_nodiscard virtual void * 
+	allocate(size_t size_, DS_maybe_unused size_t align_ = alignof(max_align_t)) noexcept
+	{
+		return NTNewDelete::allocate(size_, align_);
+	}
+
+	virtual void 
+	deallocate(void * block_) noexcept
+	{
+		NTNewDelete::deallocate(block_);
+	}
+
+};
+
+using base    = Base;
+using nt_base = NTBase;
+
+
+} // namespace allocators
+} // namespace ds
+
+
+#endif // DS_ALLOCATORS_BASE

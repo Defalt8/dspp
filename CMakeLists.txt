@@ -37,10 +37,19 @@ set( DS_TRAITS_HEADER_FILES
 	include/ds/traits/iterable
 )
  
+set( DS_ALLOCATORS_HEADER_FILES
+	include/ds/allocators/new_delete
+	include/ds/allocators/base
+	include/ds/allocators/memo
+	include/ds/allocators/local_forward
+	include/ds/allocators/heap_forward
+)
+ 
 add_library( dspp INTERFACE )
 target_include_directories( dspp INTERFACE include )
-install( FILES ${DS_HEADER_FILES}        DESTINATION include/ds )
-install( FILES ${DS_TRAITS_HEADER_FILES} DESTINATION include/ds/traits )
+install( FILES ${DS_HEADER_FILES}            DESTINATION include/ds )
+install( FILES ${DS_TRAITS_HEADER_FILES}     DESTINATION include/ds/traits )
+install( FILES ${DS_ALLOCATORS_HEADER_FILES} DESTINATION include/ds/allocators )
 
 #################################################################
 
