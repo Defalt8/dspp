@@ -1,0 +1,437 @@
+#pragma once
+#ifndef DS_STACK
+#define DS_STACK
+
+#include "common"
+#include "traits/allocator"
+#include "traits/iterable"
+#include "allocator"
+
+namespace ds {
+
+template <typename E, class A = default_allocator> class Stack;
+
+namespace traits {
+
+	template <typename E, class A>
+	struct allocator<Stack<E,A>> : public allocator_traits<A> 
+	{}; 
+
+	template <typename E, class A>
+	struct iterable<Stack<E,A>> : public iterable_traits<
+			  E
+			, size_t
+			, E *
+			, E const *
+			, E *
+			, E const *
+			, E *
+			, E const *
+		> 
+	{}; 
+
+	template <typename E, class A>
+	struct iterable<Stack<E,A> const> : public iterable_traits<
+			  E const
+			, size_t
+			, void
+			, E const *
+			, void
+			, E const *
+			, void
+			, E const *
+		> 
+	{}; 
+
+} // namespace traits
+
+template <typename E, class A>
+class Stack
+{
+ #ifndef NDEBUG
+	union {
+		array_ptr_t<E>      _array = nullptr;
+		fixed_ptr_t<4096,E> _view;
+	};
+ #else
+	array_ptr_t<E> _array = nullptr;
+ #endif
+	size_t         _capacity = 0;
+	size_t         _size     = 0;
+
+	inline bool
+	_resize()
+	{
+		auto _min_capacity = max<size_t>(1, min_capacity);
+		if(_array == nullptr)
+		{
+			*this = { _min_capacity };
+			return _array != nullptr && _capacity >= _min_capacity; 
+		}
+		else if(_size >= _capacity)
+		{
+			auto extra_cap = max<size_t>(1, (_capacity * max<size_t>(1,capacity_scale_nominator)) / max<size_t>(1,capacity_scale_denominator));
+			auto new_size  = max(_min_capacity, _capacity + extra_cap);
+			*this = { ds::move(*this), new_size };
+			return _array != nullptr && _capacity >= new_size; 
+		}
+		return _array != nullptr;
+	}
+
+ public:
+	// Used when resizing internally.
+	// max(1,min_capacity)
+	static thread_local size_t min_capacity;
+	// Used when resizing internally;
+	// max(1,capacity_scale_nominator)
+	static thread_local size_t capacity_scale_nominator;
+	// Used when resizing internally;
+	// max(1,capacity_scale_denominator)
+	static thread_local size_t capacity_scale_denominator;
+
+ public:
+	struct null_pointer : public exception
+	{
+		char const * what() const noexcept override { return "null stack"; }
+	};
+
+	struct index_out_of_bounds : public exception
+	{
+		char const * what() const noexcept override { return "stack index out of bounds"; }
+	};
+
+ public:
+	~Stack() noexcept
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_destructible<E>::value && !is_trivially_destructible<E>::value)
+				while(_size > 0)
+					destruct((*_array)[--_size]);
+			A::deallocate(_array);
+		}
+	}
+
+	// Constructs to an invalid/null state.
+	// Use capacity constructor with zero size if you want
+	//   a zero-sized valid stack.
+	Stack() noexcept = default;
+	
+	Stack(Stack && rhs) noexcept
+		: _array    { rhs._array }
+		, _capacity { rhs._capacity }
+		, _size     { rhs._size }
+	{
+		rhs._array    = nullptr;
+		rhs._capacity = 0;
+		rhs._size     = 0;
+	}
+
+	Stack(Stack const & rhs)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(rhs._capacity * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : rhs._capacity }
+		, _size     { _array == nullptr ? 0 : rhs._size }
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_trivially_copy_constructible<E>::value)
+			{
+				memcpy(&(*_array)[0], &(*rhs._array)[0], _size * sizeof(E));
+			}
+			else
+			{
+				for(size_t i = 0; i < _size; ++i)
+					construct_at<E>(&(*_array)[i], (*rhs._array)[i]);
+			}
+		}
+	}
+
+	// Resizing move
+	// Only the minimum of capacity_ and rhs.size() elements will be copied;
+	// The rest, if any, will be destroyed.
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	Stack(Stack && rhs, size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : min(rhs._size, capacity_) }
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_trivially_move_constructible<E>::value)
+			{
+				memcpy(&(*_array)[0], &(*rhs._array)[0], _size * sizeof(E));
+			}
+			else
+			{
+				for(size_t i = 0; i < _size; ++i)
+					construct_at<E>(&(*_array)[i], ds::move((*rhs._array)[i]));
+			}
+			if DS_constexpr17 (is_destructible<E>::value && !is_trivially_destructible<E>::value)
+			{
+				for(size_t i = _size; i < rhs._size; ++i)
+					destruct((*rhs._array)[i]);
+			}
+			rhs._array    = nullptr;
+			rhs._capacity = 0;
+			rhs._size     = 0;
+		}
+	}
+	
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	Stack(size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+	{}
+
+	// Exact size copy
+	// (end_ - begin_) elements will be copied.
+	// Will attempt to allocate enough memory to store a maximum of (end_ - begin_) elements.
+	Stack(E const * begin_, E const * end_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(size_t(end_ - begin_) * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : size_t(end_ - begin_) }
+		, _size     { _array == nullptr ? 0 : _capacity }
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_trivially_copy_constructible<E>::value)
+			{
+				memcpy(&(*_array)[0], begin_, _size * sizeof(E));
+			}
+			else
+			{
+				for(size_t i = 0; i < _size; ++i)
+					construct_at<E>(&(*_array)[i], begin_[i]);
+			}
+		}
+	}
+
+	// Reserved copy
+	// Only the minimum of capacity_ and (end_ - begin_) elements will be copied.
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	Stack(E const * begin_, E const * end_, size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : min(size_t(end_ - begin_), capacity_) }
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_trivially_copy_constructible<E>::value)
+			{
+				memcpy(&(*_array)[0], begin_, _size * sizeof(E));
+			}
+			else
+			{
+				for(size_t i = 0; i < _size; ++i)
+					construct_at<E>(&(*_array)[i], begin_[i]);
+			}
+		}
+	}
+
+	// Generic reserved copy
+	// Elements will be copied until end_ is reached or capacity_ elements have been copied.
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	template <typename It, typename E_ = decltype(*decl<It &>())
+			, enable_if_t<is_aggregate_initializable<E,E_>::value,int> = 0
+		>
+	Stack(It begin_, It end_, size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+	{
+		if(_array)
+		{
+			for(auto it = begin_; it != end_ && _size < _capacity; ++it, ++_size)
+				aggregate_init_at<E>(&(*_array)[_size], *it);
+		}
+	}
+
+	// Array move construct
+	// size_ elements will be moved.
+	// Will attempt to allocate enough memory to store a maximum of size_ elements.
+	template <typename T, size_t size_
+			, enable_if_t<is_aggregate_initializable<E,T &&>::value,int> = 0
+		>
+	Stack(T (&& array_)[size_])
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(size_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : size_ }
+		, _size     { _array == nullptr ? 0 : size_ }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_at<E>(&(*_array)[i], ds::move(array_[i]));
+		}
+	}
+
+	// Array move construct
+	// Only the minimum of capacity_ and size_ elements will be moved.
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	template <typename T, size_t size_
+			, enable_if_t<is_aggregate_initializable<E,T &&>::value,int> = 0
+		>
+	Stack(T (&& array_)[size_], size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : min(size_, capacity_) }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_at<E>(&(*_array)[i], ds::move(array_[i]));
+		}
+	}
+
+	Stack & 
+	operator=(Stack && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	Stack & 
+	operator=(Stack const & rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->~Stack();
+			construct_at<Stack>(this, rhs);
+		}
+		return *this;
+	}
+
+	// nullptr will be returned if the stack is invalid/null or size() >= capacity().
+	// No resizing will be done.
+	template <typename... Args
+			, enable_if_t<is_aggregate_initializable<E,Args...>::value,int> = 0
+		>
+	E * 
+	push_noresize(Args &&... args)
+	{
+		if(_array == nullptr || _size >= _capacity)
+			return nullptr;
+		return aggregate_init_at<E>(&(*_array)[_size++], ds::forward<Args>(args)...);
+	}
+
+	// Adaptive push.
+	// The stack will be resized and is guaranteed to be resized to at least max(min_capacity, capacity() + 1).
+	// nullptr will only be returned if resizing fails.
+	// @see min_capacity, capacity_scale_nominator, capacity_scale_denominator
+	template <typename... Args
+			, enable_if_t<is_aggregate_initializable<E,Args...>::value,int> = 0
+		>
+	E * 
+	push(Args &&... args)
+	{
+		if(this->_resize())
+			return aggregate_init_at<E>(&(*_array)[_size++], ds::forward<Args>(args)...);
+		return nullptr;
+	}
+
+	// Destruct the top element.
+	// Returns false if the stack is empty.
+	bool
+	pop() noexcept
+	{
+		if(_size > 0)
+		{
+			auto & object = (*_array)[--_size];
+			destruct(object);
+			return true;
+		}
+		return false;
+	}
+
+	// Fetch a non-const reference to the top element
+	// !NOTE: Does not do validation. So, be careful when using this.
+	inline E & 
+	top() noexcept 
+	{ 
+		return (*_array)[size_t(_size > 0) * (_size - 1)]; 
+	}
+
+	// Fetch a const reference to the top element
+	// !NOTE: Does not do validation. So, be careful when using this.
+	inline E const & 
+	top() const noexcept 
+	{ 
+		return (*_array)[size_t(_size > 0) * (_size - 1)]; 
+	}
+
+	// Destructs size() elements and deallocated the allocated memory.
+	// The state of the stack will invalid after this call, and it will have to be 
+	//   move-assigned to a valid stack before next use.
+	void 
+	destroy() noexcept
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_destructible<E>::value && !is_trivially_destructible<E>::value)
+				while(_size > 0)
+					destruct((*_array)[--_size]);
+			A::deallocate(_array);
+			_array    = nullptr;
+			_capacity = 0;
+		}
+	}
+
+	void
+	swap(Stack & rhs) noexcept
+	{
+		ds::swap(_array, rhs._array);
+		ds::swap(_capacity, rhs._capacity);
+		ds::swap(_size, rhs._size);
+	}
+
+	inline bool operator!() const noexcept { return _array == nullptr; }
+
+	explicit inline operator bool()       noexcept { return _array != nullptr; }
+	explicit inline operator bool() const noexcept { return _array != nullptr; }
+
+	inline E       & operator[](size_t index_)       noexcept { return (*_array)[index_]; }
+	inline E const & operator[](size_t index_) const noexcept { return (*_array)[index_]; }
+
+	inline E &
+	at(size_t index_) noexcept(false) 
+	{
+		ds_throw_if(_array == nullptr, null_pointer());
+		ds_throw_if(index_ >= _size, index_out_of_bounds());
+		return (*_array)[index_]; 
+	}
+
+	inline E const &
+	at(size_t index_) const noexcept(false) 
+	{
+		ds_throw_if(_array == nullptr, null_pointer());
+		ds_throw_if(index_ >= _size, index_out_of_bounds());
+		return (*_array)[index_]; 
+	}
+
+	inline size_t capacity() const noexcept { return _capacity; }
+	inline size_t size()     const noexcept { return _size; }
+
+	inline E * begin()  noexcept { return _array == nullptr ? nullptr : &(*_array)[0]; }
+	inline E * end()    noexcept { return _array == nullptr ? nullptr : &(*_array)[_size]; }
+	inline E * rbegin() noexcept { return _array == nullptr ? nullptr : &(*_array)[size_t(_size > 0) * (_size - 1)]; }
+	inline E * rend()   noexcept { return _array == nullptr ? nullptr : &(*_array)[0] - size_t(_size > 0); }
+
+	inline E const * begin()  const noexcept { return _array == nullptr ? nullptr : &(*_array)[0]; }
+	inline E const * end()    const noexcept { return _array == nullptr ? nullptr : &(*_array)[_size]; }
+	inline E const * rbegin() const noexcept { return _array == nullptr ? nullptr : &(*_array)[size_t(_size > 0) * (_size - 1)]; }
+	inline E const * rend()   const noexcept { return _array == nullptr ? nullptr : &(*_array)[0] - size_t(_size > 0); }
+
+};
+
+template <typename E, class A> thread_local size_t Stack<E,A>::min_capacity = 16;
+template <typename E, class A> thread_local size_t Stack<E,A>::capacity_scale_nominator = 1;
+template <typename E, class A> thread_local size_t Stack<E,A>::capacity_scale_denominator = 2;
+
+template <typename E, class A = default_allocator>    using stack    = Stack<E,A>;
+template <typename E, class A = default_nt_allocator> using nt_stack = Stack<E,A>;
+
+
+} // namespace ds
+
+#endif // DS_STACK

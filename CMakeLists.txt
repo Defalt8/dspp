@@ -1,5 +1,5 @@
 cmake_minimum_required( VERSION 3.4 )
-project( dspp VERSION 0.26.107 LANGUAGES CXX )
+project( dspp VERSION 0.27.111 LANGUAGES CXX )
 
 option( BUILD_TESTS ON )
 
@@ -22,6 +22,7 @@ set( DS_HEADER_FILES
 	include/ds/string
 	include/ds/string_stream
 	include/ds/array
+	include/ds/stack
 	include/ds/list
 	include/ds/unordered_list
 	include/ds/unordered_map
