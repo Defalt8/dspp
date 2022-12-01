@@ -120,7 +120,7 @@
 #			define DS_nodiscard_x(...) [[nodiscard(__VA_ARGS__)]]
 #		elif DS_has_cpp_attribute(nodiscard) >= 201603L && DS_Cxx_Version > DS_Cxx_Version_14
 #			define DS_nodiscard [[nodiscard]]
-#			define DS_nodiscard_x(...)
+#			define DS_nodiscard_x(...) [[nodiscard]]
 #		else
 #			define DS_nodiscard
 #			define DS_nodiscard_x(...)
