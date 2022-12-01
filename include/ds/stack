@@ -146,6 +146,22 @@ class Stack
 		}
 	}
 
+	template <typename E_, class A_
+			, enable_if_t<is_aggregate_initializable<E,E_ const &>::value,int> = 0
+		>
+	Stack(Stack<E_,A_> const & rhs)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(rhs.capacity() * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : rhs.capacity() }
+		, _size     { _array == nullptr ? 0 : rhs.size() }
+	{
+		if(_array)
+		{
+			auto * rhs_array = rhs.begin();
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_at<E>(&(*_array)[i], rhs_array[i]);
+		}
+	}
+
 	// Resizing move
 	// Only the minimum of capacity_ and rhs.size() elements will be copied;
 	// The rest, if any, will be destroyed.
@@ -299,6 +315,17 @@ class Stack
 			this->~Stack();
 			construct_at<Stack>(this, rhs);
 		}
+		return *this;
+	}
+
+	template <typename E_, class A_
+			, enable_if_t<is_constructible<Stack,Stack<E_,A_> const &>::value,int> = 0
+		>
+	Stack & 
+	operator=(Stack<E_,A_> const & rhs) noexcept
+	{
+		this->~Stack();
+		construct_at<Stack>(this, rhs);
 		return *this;
 	}
 
