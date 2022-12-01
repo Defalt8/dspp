@@ -100,9 +100,52 @@ thread_local A NTMemo<UID,A>::_nt_default;
 template <class UID, class A>
 thread_local A * NTMemo<UID,A>::_nt_allocator = &NTMemo<UID,A>::_nt_default;
 
-template <class UID = void, class A = Base>    using memo    = Memo<UID,A>;
-template <class UID = void, class A = NTBase>  using nt_memo = NTMemo<UID,A>;
+template <class UID = void, class A = Base>  
+using memo    = Memo<UID,A>;
 
+template <class UID = void, class A = NTBase>
+using nt_memo = NTMemo<UID,A>;
+
+
+template <class DA, class UID = void, class A = Base>
+struct MemoWrapper
+{
+	DA          allocator;
+	Memo<UID,A> memo;
+
+	template <typename... Args
+			, enable_if_t<is_aggregate_initializable<DA,Args...>::value,int> = 0
+		>
+	MemoWrapper(Args &&... args)
+		: allocator { ds::forward<Args>(args)... }
+		, memo      { allocator }
+	{}
+
+};
+
+
+template <class DA, class UID = void, class A = NTBase>
+struct NTMemoWrapper
+{
+	DA            nt_allocator;
+	NTMemo<UID,A> nt_memo;
+
+	template <typename... Args
+			, enable_if_t<is_aggregate_initializable<DA,Args...>::value,int> = 0
+		>
+	NTMemoWrapper(Args &&... args)
+		: nt_allocator { ds::forward<Args>(args)... }
+		, nt_memo      { nt_allocator }
+	{}
+
+};
+
+
+template <class DA, class UID = void, class A = Base>
+using memo_wrapper = MemoWrapper<DA,UID,A>;
+
+template <class DA, class UID = void, class A = NTBase>
+using nt_memo_wrapper = NTMemoWrapper<DA,UID,A>;
 
 } // namespace allocators
 } // namespace ds
