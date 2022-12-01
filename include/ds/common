@@ -524,8 +524,22 @@ min(T const & lhs, T const & rhs) noexcept
 }
 
 template <typename T>
+static constexpr T &
+min(T & lhs, T & rhs) noexcept
+{
+	return lhs < rhs ? lhs : rhs;
+}
+
+template <typename T>
 static constexpr T const &
 max(T const & lhs, T const & rhs) noexcept
+{
+	return lhs > rhs ? lhs : rhs;
+}
+
+template <typename T>
+static constexpr T &
+max(T & lhs, T & rhs) noexcept
 {
 	return lhs > rhs ? lhs : rhs;
 }
