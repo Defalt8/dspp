@@ -10,6 +10,7 @@ set( DS_HEADER_FILES
 	include/ds/sys
 	include/ds/file
 	include/ds/random
+	include/ds/memo
 	include/ds/allocator
 	include/ds/fixed
 	include/ds/fixed_stack

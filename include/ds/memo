@@ -1,0 +1,60 @@
+#pragma once
+#ifndef DS_MEMO
+#define DS_MEMO
+
+#include "common"
+
+namespace ds {
+
+// Holds an object, until destruction, and sets it to a new object.
+// Upon destruction of the Memo object, the saved object is restored.
+template <typename T>
+class Memo
+{
+	static_assert(is_move_constructible<T>::value, "only movables");
+
+	T   _saved;
+	T & _ref;
+
+ public:
+	~Memo()
+	{
+		_ref = ds::move(_saved);
+	}
+
+	template <typename... Args
+			, enable_if_t<is_aggregate_initializable<T,Args...>::value,int> = 0 
+		>
+	Memo(T & object_, Args &&... args)
+		: _saved { ds::move(object_) }
+		, _ref   { object_ }
+	{
+		destruct(_ref);
+		aggregate_init_at<T>(&_ref, ds::forward<Args>(args)...);
+	}
+
+	T       & saved()       noexcept { return _saved; }
+	T const & saved() const noexcept { return _saved; }
+
+	T       & ref()         noexcept { return _ref; }
+	T const & ref()   const noexcept { return _ref; }
+
+};
+
+template <typename T> using memo = Memo<T>; 
+
+template <typename T, typename... Args, enable_if_t<is_aggregate_initializable<Memo<T>,T &, Args...>::value,int> = 0> 
+DS_nodiscard static DS_constexpr14 Memo<T> 
+memorize(T & object_, Args &&... args) 
+{
+	return { object_, ds::forward<Args>(args)... }; 
+}
+
+template <typename T, typename... Args> 
+DS_nodiscard static DS_constexpr14 Memo<T> 
+memorize(T const & object_, Args &&... args) = delete;
+
+
+} // namespace ds
+
+#endif // DS_MEMO

@@ -9,6 +9,7 @@
 #include "sys"
 #include "file"
 #include "random"
+#include "memo"
 #include "allocator"
 #include "unique"
 #include "shared"
