@@ -163,8 +163,8 @@ class Stack
 	}
 
 	// Resizing move
-	// Only the minimum of capacity_ and rhs.size() elements will be copied;
-	// The rest, if any, will be destroyed.
+	// Only the minimum of capacity_ and rhs.size() elements will be moved;
+	// The moved stack, rhs, will be destroyed.
 	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
 	Stack(Stack && rhs, size_t capacity_)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
@@ -182,14 +182,7 @@ class Stack
 				for(size_t i = 0; i < _size; ++i)
 					construct_at<E>(&(*_array)[i], ds::move((*rhs._array)[i]));
 			}
-			if DS_constexpr17 (is_destructible<E>::value && !is_trivially_destructible<E>::value)
-			{
-				for(size_t i = _size; i < rhs._size; ++i)
-					destruct((*rhs._array)[i]);
-			}
-			rhs._array    = nullptr;
-			rhs._capacity = 0;
-			rhs._size     = 0;
+			rhs.destroy();
 		}
 	}
 	
