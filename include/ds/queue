@@ -828,7 +828,7 @@ struct usage_s<Queue<E,A>,size_>
 template <typename E, class A, size_t size_, size_t count_>
 struct usage_sn<Queue<E,A>,size_,count_>
 {
-	static constexpr size_t _single = usage_s<Array<E,A>,size_>::value;
+	static constexpr size_t _single = usage_s<Queue<E,A>,size_>::value;
 	static constexpr size_t _offset = (~_single+1) & (alignof(E) - 1);
 	static constexpr size_t value   = (_single + _offset) * count_;
 };
