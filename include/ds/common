@@ -1181,6 +1181,50 @@ aggregate_init_at_safe(void * addr, Args &&... args)
 		: new (addr) T { ds::forward<Args>(args)... };
 }
 
+template <typename T, typename... Args
+		, enable_if_t<is_aggregate_initializable<T,Args...>::value,int> = 0
+	>
+static inline T *
+aggregate_init_or_construct_at(void * addr, Args &&... args)
+{
+	return new (addr) T { ds::forward<Args>(args)... };
+}
+
+template <typename T, typename... Args
+		, enable_if_t<(!is_aggregate_initializable<T,Args...>::value
+		             && is_constructible<T,Args...>::value)
+			,int> = 0
+	>
+static inline T *
+aggregate_init_or_construct_at(void * addr, Args &&... args)
+{
+	return new (addr) T(ds::forward<Args>(args)...);
+}
+
+template <typename T, typename... Args
+		, enable_if_t<is_aggregate_initializable<T,Args...>::value,int> = 0
+	>
+static inline T *
+aggregate_init_or_construct_at_safe(void * addr, Args &&... args)
+{
+	return addr == nullptr 
+		? nullptr 
+		: new (addr) T { ds::forward<Args>(args)... };
+}
+
+template <typename T, typename... Args
+		, enable_if_t<(!is_aggregate_initializable<T,Args...>::value
+		             && is_constructible<T,Args...>::value)
+			,int> = 0
+	>
+static inline T *
+aggregate_init_or_construct_at_safe(void * addr, Args &&... args)
+{
+	return addr == nullptr 
+		? nullptr 
+		: new (addr) T { ds::forward<Args>(args)... };
+}
+
 
 template <typename T, typename S = T>
 struct Sequence
