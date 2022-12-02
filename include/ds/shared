@@ -36,7 +36,6 @@ class Shared
  public:
 	using count_t = size_t;
 	
- private:
 	struct Storage
 	{
 		T      * object_ptr = nullptr;
@@ -65,6 +64,7 @@ class Shared
 
 	};
 
+ private:
 	Storage * _ptr = nullptr;
 
 	static inline void
@@ -264,7 +264,7 @@ using nt_shared = Shared<T,A>;
 template <typename T, class A>
 struct usage<Shared<T,A>> 
 {
-	static constexpr size_t value = sizeof(Shared<T,A>::Storage) + sizeof(T) + usage<T>::value;
+	static constexpr size_t value = sizeof(typename Shared<T,A>::Storage) + alignof(T) + sizeof(T) + usage<T>::value;
 };
 
 template <typename T, class A, size_t count_>

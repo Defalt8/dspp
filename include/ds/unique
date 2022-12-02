@@ -442,7 +442,7 @@ using nt_unique = Unique<T,A>;
 template <typename T, class A>
 struct usage<Unique<T,A>> 
 {
-	static constexpr size_t value = sizeof(T) + usage<T>::value; 
+	static constexpr size_t value = alignof(T) + sizeof(T) + usage<T>::value; 
 };
 
 template <typename T, class A, size_t count_>
