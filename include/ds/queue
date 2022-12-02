@@ -524,7 +524,9 @@ class Queue
 	{
 		if(_size > 0)
 		{
-			auto & object = (*_array)[_start++];
+			size_t i = _start;
+			_start = (_start + 1) % _capacity;
+			auto & object = (*_array)[i];
 			if(--_size == 0)
 				_start = 0;
 			destruct(object);
