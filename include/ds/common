@@ -22,7 +22,7 @@
 
 namespace ds {
 
-static constexpr struct Version { int major, minor, patch; } version { 0, 29, 112 };
+static constexpr struct Version { int major, minor, patch; } version { 0, 30, 115 };
 
 #if DS_Cxx_Version <= DS_Cxx_Version_17 && !defined(__cpp_char8_t)
 using char8_t = unsigned char;

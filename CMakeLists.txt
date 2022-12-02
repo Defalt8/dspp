@@ -1,5 +1,5 @@
 cmake_minimum_required( VERSION 3.4 )
-project( dspp VERSION 0.29.112 LANGUAGES CXX )
+project( dspp VERSION 0.30.115 LANGUAGES CXX )
 
 option( BUILD_TESTS ON )
 
