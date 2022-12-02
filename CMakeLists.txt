@@ -24,6 +24,7 @@ set( DS_HEADER_FILES
 	include/ds/string_stream
 	include/ds/array
 	include/ds/stack
+	include/ds/queue
 	include/ds/list
 	include/ds/unordered_list
 	include/ds/unordered_map

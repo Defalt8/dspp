@@ -23,6 +23,7 @@
 #include "variant"
 #include "array"
 #include "stack"
+#include "queue"
 #include "list"
 #include "unordered_list"
 #include "unordered_map"

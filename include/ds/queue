@@ -1,0 +1,746 @@
+#pragma once
+#ifndef DS_QUEUE
+#define DS_QUEUE
+
+#include "common"
+#include "traits/allocator"
+#include "traits/iterable"
+#include "allocator"
+
+namespace ds {
+
+template <typename E, class A = default_allocator> class Queue;
+
+namespace traits {
+
+	template <typename E, class A>
+	struct allocator<Queue<E,A>> : public allocator_traits<A> 
+	{}; 
+
+	template <typename E, class A>
+	struct iterable<Queue<E,A>> : public iterable_traits<
+			  E
+			, size_t
+			, typename Queue<E,A>::Iterator
+			, typename Queue<E,A>::ConstIterator
+			, typename Queue<E,A>::Iterator
+			, typename Queue<E,A>::ConstIterator
+			, typename Queue<E,A>::Iterator
+			, typename Queue<E,A>::ConstIterator
+		> 
+	{}; 
+
+	template <typename E, class A>
+	struct iterable<Queue<E,A> const> : public iterable_traits<
+			  E const
+			, size_t
+			, void
+			, typename Queue<E,A>::ConstIterator
+			, void
+			, typename Queue<E,A>::ConstIterator
+			, void
+			, typename Queue<E,A>::ConstIterator
+		> 
+	{}; 
+
+} // namespace traits
+
+template <typename E, class A>
+class Queue
+{
+ #ifndef NDEBUG
+	union {
+		array_ptr_t<E>      _array = nullptr;
+		fixed_ptr_t<4096,E> _view;
+	};
+ #else
+	array_ptr_t<E> _array = nullptr;
+ #endif
+	size_t         _capacity = 0;
+	size_t         _start    = 0;
+	size_t         _size     = 0;
+
+	inline bool
+	_resize()
+	{
+		auto _min_capacity = max<size_t>(1, min_capacity);
+		if(_array == nullptr)
+		{
+			*this = { _min_capacity };
+			return _array != nullptr && _capacity >= _min_capacity; 
+		}
+		else if(_size >= _capacity)
+		{
+			auto extra_cap = max<size_t>(1, (_capacity * max<size_t>(1,capacity_scale_nominator)) / max<size_t>(1,capacity_scale_denominator));
+			auto new_size  = max(_min_capacity, _capacity + extra_cap);
+			*this = { ds::move(*this), new_size };
+			return _array != nullptr && _capacity >= new_size; 
+		}
+		return _array != nullptr;
+	}
+
+ public:
+	// Used when resizing internally.
+	// max(1,min_capacity)
+	static thread_local size_t min_capacity;
+	// Used when resizing internally;
+	// max(1,capacity_scale_nominator)
+	static thread_local size_t capacity_scale_nominator;
+	// Used when resizing internally;
+	// max(1,capacity_scale_denominator)
+	static thread_local size_t capacity_scale_denominator;
+
+ public:
+	struct null_pointer : public exception
+	{
+		char const * what() const noexcept override { return "null queue"; }
+	};
+
+	struct index_out_of_bounds : public exception
+	{
+		char const * what() const noexcept override { return "queue index out of bounds"; }
+	};
+
+ public:
+	~Queue() noexcept
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_destructible<E>::value && !is_trivially_destructible<E>::value)
+				while(_size > 0)
+				{
+					size_t size_mod = (_start + --_size) % _capacity;
+					destruct((*_array)[size_mod]);
+				}
+			A::deallocate(_array);
+		}
+	}
+
+	// Constructs to an invalid/null state.
+	// Use capacity constructor with zero size if you want
+	//   a zero-sized valid queue.
+	Queue() noexcept = default;
+	
+	Queue(Queue && rhs) noexcept
+		: _array    { rhs._array }
+		, _capacity { rhs._capacity }
+		, _start    { rhs._start }
+		, _size     { rhs._size }
+	{
+		rhs._array    = nullptr;
+		rhs._capacity = 0;
+		rhs._start    = 0;
+		rhs._size     = 0;
+	}
+
+	Queue(Queue const & rhs)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(rhs._capacity * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : rhs._capacity }
+		, _size     { _array == nullptr ? 0 : rhs._size }
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_trivially_copy_constructible<E>::value)
+			{
+				if(_size > (rhs._capacity - rhs._start))
+				{
+					size_t size_clp = min((rhs._start + _size), rhs._capacity) - rhs._start;
+					size_t size_rem = _size - size_clp;
+					memcpy(&(*_array)[0], &(*rhs._array)[rhs._start], size_clp * sizeof(E));
+					memcpy(&(*_array)[size_clp], &(*rhs._array)[0], size_rem * sizeof(E));
+				}
+				else
+					memcpy(&(*_array)[0], &(*rhs._array)[rhs._start], _size * sizeof(E));
+			}
+			else
+			{
+				if(_size > (rhs._capacity - rhs._start))
+				{
+					size_t size_clp  = min((rhs._start + _size), rhs._capacity) - rhs._start;
+					size_t size_rem  = _size - size_clp;
+					for(size_t i = 0; i < size_clp; ++i)
+						construct_at<E>(&(*_array)[i], (*rhs._array)[rhs._start + i]);
+					for(size_t i = 0; i < size_rem; ++i)
+						construct_at<E>(&(*_array)[size_clp + i], (*rhs._array)[i]);
+				}
+				else
+				{
+					for(size_t i = 0; i < _size; ++i)
+						construct_at<E>(&(*_array)[i], (*rhs._array)[rhs._start + i]);
+				}
+			}
+		}
+	}
+
+	template <typename E_, class A_
+			, enable_if_t<is_aggregate_initializable<E,E_ const &>::value,int> = 0
+		>
+	Queue(Queue<E_,A_> const & rhs)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(rhs.capacity() * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : rhs.capacity() }
+		, _size     { _array == nullptr ? 0 : rhs.size() }
+	{
+		if(_array)
+		{
+			auto * rhs_array = &*rhs.begin();
+			auto   rhs_start = rhs.start();
+			if(_size > (rhs._capacity - rhs_start))
+			{
+				size_t size_clp  = min((rhs_start + _size), rhs._capacity) - rhs_start;
+				size_t size_rem  = (_size - size_clp);
+				for(size_t i = 0; i < size_clp; ++i)
+					aggregate_init_at<E>(&(*_array)[i], rhs_array[rhs_start + i]);
+				for(size_t i = 0; i < size_rem; ++i)
+					aggregate_init_at<E>(&(*_array)[size_clp + i], rhs_array[i]);
+			}
+			else
+			{
+				for(size_t i = 0; i < _size; ++i)
+					aggregate_init_at<E>(&(*_array)[i], rhs_array[rhs_start + i]);
+			}
+		}
+	}
+
+	// Resizing move
+	// Only the minimum of capacity_ and rhs.size() elements will be moved;
+	// The moved queue will be destroyed.
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	Queue(Queue && rhs, size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : min(rhs._size, capacity_) }
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_trivially_move_constructible<E>::value)
+			{
+				if(_size > (rhs._capacity - rhs._start))
+				{
+					size_t size_clp  = min((rhs._start + _size), rhs._capacity) - rhs._start;
+					size_t size_rem  = _size - size_clp;
+					memcpy(&(*_array)[0], &(*rhs._array)[rhs._start], size_clp * sizeof(E));
+					memcpy(&(*_array)[size_clp], &(*rhs._array)[0], size_rem * sizeof(E));
+				}
+				else
+					memcpy(&(*_array)[0], &(*rhs._array)[rhs._start], _size * sizeof(E));
+			}
+			else
+			{
+				for(size_t i = 0; i < _size; ++i)
+				{
+					size_t i_mod = (rhs._start + i) % rhs._capacity;
+					construct_at<E>(&(*_array)[i], ds::move((*rhs._array)[i_mod]));
+				}
+			}
+			rhs.destroy();
+		}
+	}
+	
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	Queue(size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+	{}
+
+	// Exact size copy
+	// (end_ - begin_) elements will be copied.
+	// Will attempt to allocate enough memory to store a maximum of (end_ - begin_) elements.
+	Queue(E const * begin_, E const * end_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(size_t(end_ - begin_) * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : size_t(end_ - begin_) }
+		, _size     { _array == nullptr ? 0 : _capacity }
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_trivially_copy_constructible<E>::value)
+			{
+				memcpy(&(*_array)[0], begin_, _size * sizeof(E));
+			}
+			else
+			{
+				for(size_t i = 0; i < _size; ++i)
+					construct_at<E>(&(*_array)[i], begin_[i]);
+			}
+		}
+	}
+
+	// Reserved copy
+	// Only the minimum of capacity_ and (end_ - begin_) elements will be copied.
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	Queue(E const * begin_, E const * end_, size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : min(size_t(end_ - begin_), capacity_) }
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_trivially_copy_constructible<E>::value)
+			{
+				memcpy(&(*_array)[0], begin_, _size * sizeof(E));
+			}
+			else
+			{
+				for(size_t i = 0; i < _size; ++i)
+					construct_at<E>(&(*_array)[i], begin_[i]);
+			}
+		}
+	}
+
+	// Generic reserved copy
+	// Elements will be copied until end_ is reached or capacity_ elements have been copied.
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	template <typename It, typename E_ = decltype(*decl<It &>())
+			, enable_if_t<is_aggregate_initializable<E,E_>::value,int> = 0
+		>
+	Queue(It begin_, It end_, size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+	{
+		if(_array)
+		{
+			for(auto it = begin_; it != end_ && _size < _capacity; ++it, ++_size)
+				aggregate_init_at<E>(&(*_array)[_size], *it);
+		}
+	}
+
+	// Array move construct
+	// size_ elements will be moved.
+	// Will attempt to allocate enough memory to store a maximum of size_ elements.
+	template <typename T, size_t size_
+			, enable_if_t<is_aggregate_initializable<E,T &&>::value,int> = 0
+		>
+	Queue(T (&& array_)[size_])
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(size_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : size_ }
+		, _size     { _array == nullptr ? 0 : size_ }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_at<E>(&(*_array)[i], ds::move(array_[i]));
+		}
+	}
+
+	// Array move construct
+	// Only the minimum of capacity_ and size_ elements will be moved.
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	template <typename T, size_t size_
+			, enable_if_t<is_aggregate_initializable<E,T &&>::value,int> = 0
+		>
+	Queue(T (&& array_)[size_], size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : min(size_, capacity_) }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_at<E>(&(*_array)[i], ds::move(array_[i]));
+		}
+	}
+
+	Queue & 
+	operator=(Queue && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	Queue & 
+	operator=(Queue const & rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->~Queue();
+			construct_at<Queue>(this, rhs);
+		}
+		return *this;
+	}
+
+	template <typename E_, class A_
+			, enable_if_t<is_constructible<Queue,Queue<E_,A_> const &>::value,int> = 0
+		>
+	Queue & 
+	operator=(Queue<E_,A_> const & rhs) noexcept
+	{
+		this->~Queue();
+		construct_at<Queue>(this, rhs);
+		return *this;
+	}
+
+	// nullptr will be returned if the queue is invalid/null or size() >= capacity().
+	// No resizing will be done.
+	template <typename... Args
+			, enable_if_t<is_aggregate_initializable<E,Args...>::value,int> = 0
+		>
+	E * 
+	push_noresize(Args &&... args)
+	{
+		if(_array == nullptr || _size >= _capacity)
+			return nullptr;
+		size_t i = (_start + _size++) % _capacity;
+		return aggregate_init_at<E>(&(*_array)[i], ds::forward<Args>(args)...);
+	}
+
+	// Adaptive push.
+	// The queue will be resized and is guaranteed to be resized to at least max(min_capacity, capacity() + 1).
+	// nullptr will only be returned if resizing fails.
+	// @see min_capacity, capacity_scale_nominator, capacity_scale_denominator
+	template <typename... Args
+			, enable_if_t<is_aggregate_initializable<E,Args...>::value,int> = 0
+		>
+	E * 
+	push(Args &&... args)
+	{
+		if(this->_resize())
+		{
+			size_t i = (_start + _size++) % _capacity;
+			return aggregate_init_at<E>(&(*_array)[i], ds::forward<Args>(args)...);
+		}
+		return nullptr;
+	}
+
+	// Destruct the bottom element.
+	// Returns false if the queue is empty.
+	bool
+	pop() noexcept
+	{
+		if(_size > 0)
+		{
+			auto & object = (*_array)[_start++];
+			if(--_size == 0)
+				_start = 0;
+			destruct(object);
+			return true;
+		}
+		return false;
+	}
+
+	// Fetch a non-const reference to the bottom element
+	// !NOTE: Does not do validation. So, be careful when using this.
+	inline E & 
+	bottom() noexcept 
+	{ 
+		return (*_array)[_start]; 
+	}
+
+	// Fetch a const reference to the bottom element
+	// !NOTE: Does not do validation. So, be careful when using this.
+	inline E const & 
+	bottom() const noexcept 
+	{ 
+		return (*_array)[_start]; 
+	}
+
+	// Destructs size() elements and deallocated the allocated memory.
+	// The state of the queue will invalid after this call, and it will have to be 
+	//   move-assigned to a valid queue before next use.
+	void 
+	destroy() noexcept
+	{
+		if(_array)
+		{
+			if DS_constexpr17 (is_destructible<E>::value && !is_trivially_destructible<E>::value)
+				while(_size > 0)
+				{
+					size_t size_mod = (_start + --_size) % _capacity;
+					destruct((*_array)[size_mod]);
+				}
+			A::deallocate(_array);
+			_array    = nullptr;
+			_capacity = 0;
+			_start    = 0;
+		}
+	}
+
+	void
+	swap(Queue & rhs) noexcept
+	{
+		ds::swap(_array, rhs._array);
+		ds::swap(_capacity, rhs._capacity);
+		ds::swap(_start, rhs._start);
+		ds::swap(_size, rhs._size);
+	}
+
+	inline bool operator!() const noexcept { return _array == nullptr; }
+
+	explicit inline operator bool()       noexcept { return _array != nullptr; }
+	explicit inline operator bool() const noexcept { return _array != nullptr; }
+
+	inline E       & operator[](size_t index_)       noexcept { return (*_array)[(_start + index_) % _capacity]; }
+	inline E const & operator[](size_t index_) const noexcept { return (*_array)[(_start + index_) % _capacity]; }
+
+	inline E &
+	at(size_t index_) noexcept(false) 
+	{
+		ds_throw_if(_array == nullptr, null_pointer());
+		ds_throw_if(index_ >= _size, index_out_of_bounds());
+		return (*_array)[(_start + index_) % _capacity]; 
+	}
+
+	inline E const &
+	at(size_t index_) const noexcept(false) 
+	{
+		ds_throw_if(_array == nullptr, null_pointer());
+		ds_throw_if(index_ >= _size, index_out_of_bounds());
+		return (*_array)[(_start + index_) % _capacity]; 
+	}
+
+	inline size_t capacity() const noexcept { return _capacity; }
+	inline size_t start()    const noexcept { return _start; }
+	inline size_t size()     const noexcept { return _size; }
+
+	class ConstIterator;
+
+	class Iterator
+	{
+		Queue * _queue = nullptr;
+		size_t  _index = 0;
+	
+		friend class ConstIterator;
+
+	 public:
+		Iterator() noexcept = default;
+		Iterator(Iterator &&) = default;
+		Iterator(Iterator const &) = default;
+		Iterator & operator=(Iterator &&) = default;
+		Iterator & operator=(Iterator const &) = default;
+		
+		Iterator(Queue * queue_)
+			: _queue { queue_ }
+		{}
+		
+		Iterator(Queue * queue_, size_t index_)
+			: _queue { queue_ }
+			, _index { index_ }
+		{}
+
+		Iterator &
+		operator++() noexcept
+		{
+			if(_queue != nullptr && (_index < _queue->_size || _index == size_t(-1)))
+				++_index;
+			return *this;
+		}
+
+		Iterator &
+		operator--() noexcept
+		{
+			if(_queue != nullptr && _index >= 0 && _index <= _queue->_size)
+				--_index;
+			return *this;
+		}
+
+		Iterator 
+		operator++(int) noexcept
+		{
+			if(_queue != nullptr && (_index < _queue->_size || _index == size_t(-1)))
+				return { _queue, _index++ };
+			return { _queue, _index };
+		}
+
+		Iterator 
+		operator--(int) noexcept
+		{
+			if(_queue != nullptr && _index >= 0 && _index <= _queue->_size)
+				return { _queue, _index-- };
+			return { _queue, _index };
+		}
+
+		Iterator
+		operator+(size_t offset_) const noexcept
+		{
+			if(_queue != nullptr && offset_ <= (_queue->_size - _index))
+				return { _queue, _index + offset_ };
+			return { _queue, _index };
+		}
+
+		Iterator
+		operator-(size_t offset_) const noexcept
+		{
+			if(_queue != nullptr && offset_ <= _index)
+				return { _queue, _index - offset_ };
+			return { _queue, size_t(-1) };
+		}
+
+		E       & operator*()       noexcept { return (*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
+		E const & operator*() const noexcept { return (*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
+
+		inline bool operator==(Iterator const & rhs) const noexcept { return _queue == rhs._queue && _index == rhs._index; }
+		inline bool operator!=(Iterator const & rhs) const noexcept { return _queue != rhs._queue || _index != rhs._index; }
+		inline bool operator<=(Iterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) <= (rhs._index + 1); }
+		inline bool operator>=(Iterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) >= (rhs._index + 1); }
+		inline bool operator< (Iterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) < (rhs._index + 1); }
+		inline bool operator> (Iterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) > (rhs._index + 1); }
+
+		inline bool operator==(ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && _index == rhs._index; }
+		inline bool operator!=(ConstIterator const & rhs) const noexcept { return _queue != rhs._queue || _index != rhs._index; }
+		inline bool operator<=(ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) <= (rhs._index + 1); }
+		inline bool operator>=(ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) >= (rhs._index + 1); }
+		inline bool operator< (ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) < (rhs._index + 1); }
+		inline bool operator> (ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) > (rhs._index + 1); }
+
+		inline bool operator!() const noexcept { return _queue == nullptr || _index >= _queue->_size; }
+
+		explicit inline operator bool()       noexcept { return _queue != nullptr && _index < _queue->_size; }
+		explicit inline operator bool() const noexcept { return _queue != nullptr && _index < _queue->_size; }
+
+	};
+
+	class ConstIterator
+	{
+		Queue const * _queue = nullptr;
+		size_t        _index = 0;
+	
+		friend class Iterator;
+
+	 public:
+		ConstIterator() noexcept = default;
+		ConstIterator(ConstIterator &&) = default;
+		ConstIterator(ConstIterator const &) = default;
+		ConstIterator & operator=(ConstIterator &&) = default;
+		ConstIterator & operator=(ConstIterator const &) = default;
+		
+		ConstIterator(Queue const * queue_)
+			: _queue { queue_ }
+		{}
+		
+		ConstIterator(Queue const * queue_, size_t index_)
+			: _queue { queue_ }
+			, _index { index_ }
+		{}
+
+		ConstIterator &
+		operator++() noexcept
+		{
+			if(_queue != nullptr && (_index < _queue->_size || _index == size_t(-1)))
+				++_index;
+			return *this;
+		}
+
+		ConstIterator &
+		operator--() noexcept
+		{
+			if(_queue != nullptr && _index >= 0 && _index <= _queue->_size)
+				--_index;
+			return *this;
+		}
+
+		ConstIterator 
+		operator++(int) noexcept
+		{
+			if(_queue != nullptr && (_index < _queue->_size || _index == size_t(-1)))
+				return { _queue, _index++ };
+			return { _queue, _index };
+		}
+
+		ConstIterator 
+		operator--(int) noexcept
+		{
+			if(_queue != nullptr && _index >= 0 && _index <= _queue->_size)
+				return { _queue, _index-- };
+			return { _queue, _index };
+		}
+
+		ConstIterator
+		operator+(size_t offset_) const noexcept
+		{
+			if(_queue != nullptr && offset_ <= (_queue->_size - _index))
+				return { _queue, _index + offset_ };
+			return { _queue, _index };
+		}
+
+		ConstIterator
+		operator-(size_t offset_) const noexcept
+		{
+			if(_queue != nullptr && offset_ <= _index)
+				return { _queue, _index - offset_ };
+			return { _queue, size_t(-1) };
+		}
+
+		E const & operator*() const noexcept { return (*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
+
+		inline bool operator==(ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && _index == rhs._index; }
+		inline bool operator!=(ConstIterator const & rhs) const noexcept { return _queue != rhs._queue || _index != rhs._index; }
+		inline bool operator<=(ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) <= (rhs._index + 1); }
+		inline bool operator>=(ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) >= (rhs._index + 1); }
+		inline bool operator< (ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) < (rhs._index + 1); }
+		inline bool operator> (ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) > (rhs._index + 1); }
+
+		inline bool operator==(Iterator const & rhs) const noexcept { return _queue == rhs._queue && _index == rhs._index; }
+		inline bool operator!=(Iterator const & rhs) const noexcept { return _queue != rhs._queue || _index != rhs._index; }
+		inline bool operator<=(Iterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) <= (rhs._index + 1); }
+		inline bool operator>=(Iterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) >= (rhs._index + 1); }
+		inline bool operator< (Iterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) < (rhs._index + 1); }
+		inline bool operator> (Iterator const & rhs) const noexcept { return _queue == rhs._queue && (_index + 1) > (rhs._index + 1); }
+
+		inline bool operator!() const noexcept { return _queue == nullptr || _index >= _queue->_size; }
+
+		explicit inline operator bool()       noexcept { return _queue != nullptr && _index < _queue->_size; }
+		explicit inline operator bool() const noexcept { return _queue != nullptr && _index < _queue->_size; }
+
+	};
+
+	inline Iterator begin()  noexcept { return { this, 0 }; }
+	inline Iterator end()    noexcept { return { this, _size }; }
+	inline Iterator rbegin() noexcept { return { this, size_t(_size > 0) * (_size - 1) }; }
+	inline Iterator rend()   noexcept { return { this, size_t(-1) }; }
+
+	inline ConstIterator begin()  const noexcept { return { this, 0 }; }
+	inline ConstIterator end()    const noexcept { return { this, _size }; }
+	inline ConstIterator rbegin() const noexcept { return { this, size_t(_size > 0) * (_size - 1) }; }
+	inline ConstIterator rend()   const noexcept { return { this, size_t(-1) }; }
+
+};
+
+template <typename E, class A> thread_local size_t Queue<E,A>::min_capacity = 16;
+template <typename E, class A> thread_local size_t Queue<E,A>::capacity_scale_nominator = 1;
+template <typename E, class A> thread_local size_t Queue<E,A>::capacity_scale_denominator = 2;
+
+template <typename E, class A = default_allocator>    using queue    = Queue<E,A>;
+template <typename E, class A = default_nt_allocator> using nt_queue = Queue<E,A>;
+
+template <typename E, class A, size_t size_>
+struct usage_s<Queue<E,A>,size_> 
+{
+	static constexpr size_t value = sizeof(E) * size_ + usage_n<E,size_>::value;
+};
+
+template <typename E, class A, size_t size_, size_t count_>
+struct usage_sn<Queue<E,A>,size_,count_>
+{
+	static constexpr size_t _single = usage_s<Array<E,A>,size_>::value;
+	static constexpr size_t _offset = (~_single+1) & (alignof(E) - 1);
+	static constexpr size_t value   = (_single + _offset) * count_;
+};
+
+template <typename E, class A>
+struct inserter<Queue<E,A>,E>
+{
+	Queue<E,A> & _queue;
+	size_t i = 0;
+	
+	inline bool
+	init(size_t required_size)
+	{
+		_queue = { required_size };
+		return _queue->capacity() >= required_size;
+	}
+
+	template <typename T, enable_if_t<is_aggregate_initializable<E,T>::value,int> = 0>
+	inline bool 
+	insert(T && object)
+	{
+		return _queue->push_noresize(ds::forward<T>(object));
+	}
+
+};
+
+
+} // namespace ds
+
+#endif // DS_QUEUE
