@@ -60,6 +60,26 @@ class Queue
 	size_t         _start    = 0;
 	size_t         _size     = 0;
 
+	struct impossible_s
+	{
+		array_ptr_t<E> _array = nullptr;
+		size_t         _capacity = 0;
+		size_t         _start    = 0;
+		size_t         _size     = 0;
+		Queue _queue;
+		impossible_s() = default;
+
+		operator Queue const & () const noexcept { return _queue; }
+
+	};
+
+	struct impossible_t
+	{
+		impossible_t() = default;
+		impossible_t(E const &) {}
+
+	};
+
 	inline bool
 	_resize()
 	{
@@ -78,6 +98,8 @@ class Queue
 		}
 		return _array != nullptr;
 	}
+
+	Queue(conditional_t<is_copy_constructible<E>::value,impossible_s,Queue> const & rhs) = delete;
 
  public:
 	// Used when resizing internally.
@@ -133,7 +155,7 @@ class Queue
 		rhs._size     = 0;
 	}
 
-	Queue(Queue const & rhs)
+	Queue(conditional_t<is_copy_constructible<E>::value,Queue,impossible_s> const & rhs)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(rhs._capacity * sizeof(E), alignof(E))) }
 		, _capacity { _array == nullptr ? 0 : rhs._capacity }
 		, _size     { _array == nullptr ? 0 : rhs._size }
@@ -159,21 +181,23 @@ class Queue
 					size_t size_clp  = min((rhs._start + _size), rhs._capacity) - rhs._start;
 					size_t size_rem  = _size - size_clp;
 					for(size_t i = 0; i < size_clp; ++i)
-						construct_at<E>(&(*_array)[i], (*rhs._array)[rhs._start + i]);
+						construct_at<conditional_t<is_copy_constructible<E>::value,E,impossible_t>>(&(*_array)[i], (*rhs._array)[rhs._start + i]);
 					for(size_t i = 0; i < size_rem; ++i)
-						construct_at<E>(&(*_array)[size_clp + i], (*rhs._array)[i]);
+						construct_at<conditional_t<is_copy_constructible<E>::value,E,impossible_t>>(&(*_array)[size_clp + i], (*rhs._array)[i]);
 				}
 				else
 				{
 					for(size_t i = 0; i < _size; ++i)
-						construct_at<E>(&(*_array)[i], (*rhs._array)[rhs._start + i]);
+						construct_at<conditional_t<is_copy_constructible<E>::value,E,impossible_t>>(&(*_array)[i], (*rhs._array)[rhs._start + i]);
 				}
 			}
 		}
 	}
 
 	template <typename E_, class A_
-			, enable_if_t<is_aggregate_initializable<E,E_ const &>::value,int> = 0
+			, enable_if_t<(is_aggregate_initializable<E,E_ const &>::value
+			            || is_constructible<E,E_ const &>::value)
+				,int> = 0
 		>
 	Queue(Queue<E_,A_> const & rhs)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(rhs.capacity() * sizeof(E), alignof(E))) }
@@ -189,14 +213,14 @@ class Queue
 				size_t size_clp  = min((rhs_start + _size), rhs._capacity) - rhs_start;
 				size_t size_rem  = (_size - size_clp);
 				for(size_t i = 0; i < size_clp; ++i)
-					aggregate_init_at<E>(&(*_array)[i], rhs_array[rhs_start + i]);
+					aggregate_init_or_construct_at<E>(&(*_array)[i], rhs_array[rhs_start + i]);
 				for(size_t i = 0; i < size_rem; ++i)
-					aggregate_init_at<E>(&(*_array)[size_clp + i], rhs_array[i]);
+					aggregate_init_or_construct_at<E>(&(*_array)[size_clp + i], rhs_array[i]);
 			}
 			else
 			{
 				for(size_t i = 0; i < _size; ++i)
-					aggregate_init_at<E>(&(*_array)[i], rhs_array[rhs_start + i]);
+					aggregate_init_or_construct_at<E>(&(*_array)[i], rhs_array[rhs_start + i]);
 			}
 		}
 	}
@@ -245,7 +269,9 @@ class Queue
 	// Exact size copy
 	// (end_ - begin_) elements will be copied.
 	// Will attempt to allocate enough memory to store a maximum of (end_ - begin_) elements.
-	Queue(E const * begin_, E const * end_)
+	Queue(conditional_t<is_copy_constructible<E>::value,E,impossible_t> const * begin_
+		, conditional_t<is_copy_constructible<E>::value,E,impossible_t> const * end_
+	)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(size_t(end_ - begin_) * sizeof(E), alignof(E))) }
 		, _capacity { _array == nullptr ? 0 : size_t(end_ - begin_) }
 		, _size     { _array == nullptr ? 0 : _capacity }
@@ -259,7 +285,7 @@ class Queue
 			else
 			{
 				for(size_t i = 0; i < _size; ++i)
-					construct_at<E>(&(*_array)[i], begin_[i]);
+					construct_at<conditional_t<is_copy_constructible<E>::value,E,impossible_t>>(&(*_array)[i], begin_[i]);
 			}
 		}
 	}
@@ -267,7 +293,10 @@ class Queue
 	// Reserved copy
 	// Only the minimum of capacity_ and (end_ - begin_) elements will be copied.
 	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
-	Queue(E const * begin_, E const * end_, size_t capacity_)
+	Queue(conditional_t<is_copy_constructible<E>::value,E,impossible_t> const * begin_
+		, conditional_t<is_copy_constructible<E>::value,E,impossible_t> const * end_
+		, size_t capacity_
+	)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
 		, _capacity { _array == nullptr ? 0 : capacity_ }
 		, _size     { _array == nullptr ? 0 : min(size_t(end_ - begin_), capacity_) }
@@ -281,8 +310,48 @@ class Queue
 			else
 			{
 				for(size_t i = 0; i < _size; ++i)
-					construct_at<E>(&(*_array)[i], begin_[i]);
+					construct_at<conditional_t<is_copy_constructible<E>::value,E,impossible_t>>(&(*_array)[i], begin_[i]);
 			}
+		}
+	}
+
+	// Exact size copy
+	// (end_ - begin_) elements will be copied.
+	// Will attempt to allocate enough memory to store a maximum of (end_ - begin_) elements.
+	template <typename T
+			, enable_if_t<(is_aggregate_initializable<E,T>::value
+			            || is_constructible<E,T>::value)
+				,int> = 0
+		>
+	Queue(T * begin_, T * end_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(size_t(end_ - begin_) * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : size_t(end_ - begin_) }
+		, _size     { _array == nullptr ? 0 : _capacity }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_or_construct_at<E>(&(*_array)[i], begin_[i]);
+		}
+	}
+
+	// Reserved copy
+	// Only the minimum of capacity_ and (end_ - begin_) elements will be copied.
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	template <typename T
+			, enable_if_t<(is_aggregate_initializable<E,T>::value
+			            || is_constructible<E,T>::value)
+				,int> = 0
+		>
+	Queue(T * begin_, T * end_, size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : min(_capacity, size_t(end_ - begin_)) }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_or_construct_at<E>(&(*_array)[i], begin_[i]);
 		}
 	}
 
@@ -290,7 +359,9 @@ class Queue
 	// Elements will be copied until end_ is reached or capacity_ elements have been copied.
 	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
 	template <typename It, typename E_ = decltype(*decl<It &>())
-			, enable_if_t<is_aggregate_initializable<E,E_>::value,int> = 0
+			, enable_if_t<(is_aggregate_initializable<E,E_>::value
+			            || is_constructible<E,E_>::value)
+				,int> = 0
 		>
 	Queue(It begin_, It end_, size_t capacity_)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
@@ -299,7 +370,7 @@ class Queue
 		if(_array)
 		{
 			for(auto it = begin_; it != end_ && _size < _capacity; ++it, ++_size)
-				aggregate_init_at<E>(&(*_array)[_size], *it);
+				aggregate_init_or_construct_at<E>(&(*_array)[_size], *it);
 		}
 	}
 
@@ -307,7 +378,9 @@ class Queue
 	// size_ elements will be moved.
 	// Will attempt to allocate enough memory to store a maximum of size_ elements.
 	template <typename T, size_t size_
-			, enable_if_t<is_aggregate_initializable<E,T &&>::value,int> = 0
+			, enable_if_t<(is_aggregate_initializable<E,T &&>::value
+			            || is_constructible<E,T &&>::value)
+				,int> = 0
 		>
 	Queue(T (&& array_)[size_])
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(size_ * sizeof(E), alignof(E))) }
@@ -317,7 +390,7 @@ class Queue
 		if(_array)
 		{
 			for(size_t i = 0; i < _size; ++i)
-				aggregate_init_at<E>(&(*_array)[i], ds::move(array_[i]));
+				aggregate_init_or_construct_at<E>(&(*_array)[i], ds::move(array_[i]));
 		}
 	}
 
@@ -325,7 +398,9 @@ class Queue
 	// Only the minimum of capacity_ and size_ elements will be moved.
 	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
 	template <typename T, size_t size_
-			, enable_if_t<is_aggregate_initializable<E,T &&>::value,int> = 0
+			, enable_if_t<(is_aggregate_initializable<E,T &&>::value
+			            || is_constructible<E,T &&>::value)
+				,int> = 0
 		>
 	Queue(T (&& array_)[size_], size_t capacity_)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
@@ -335,7 +410,41 @@ class Queue
 		if(_array)
 		{
 			for(size_t i = 0; i < _size; ++i)
-				aggregate_init_at<E>(&(*_array)[i], ds::move(array_[i]));
+				aggregate_init_or_construct_at<E>(&(*_array)[i], ds::move(array_[i]));
+		}
+	}
+
+	template <class Arg
+			, enable_if_t<(is_aggregate_initializable<E,Arg>::value
+			            || is_constructible<E,Arg>::value)
+				,int> = 0
+		>
+	Queue(size_t capacity_, Arg && fill)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : capacity_ }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_or_construct_at<E>(&(*_array)[i], fill);
+		}
+	}
+
+	template <class Func
+			, enable_if_t<(is_aggregate_initializable<E,decltype(decl<Func>()())>::value
+			            || is_constructible<E,decltype(decl<Func>()())>::value)
+				,int> = 0
+		>
+	Queue(size_t capacity_, Func && fill)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : capacity_ }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_or_construct_at<E>(&(*_array)[i], fill());
 		}
 	}
 
@@ -351,9 +460,9 @@ class Queue
 	}
 
 	Queue & 
-	operator=(Queue const & rhs) noexcept
+	operator=(conditional_t<is_copy_constructible<E>::value,Queue,impossible_s> const & rhs) noexcept
 	{
-		if(&rhs != this)
+		if(&static_cast<Queue const &>(rhs) != this)
 		{
 			this->~Queue();
 			construct_at<Queue>(this, rhs);
@@ -375,7 +484,9 @@ class Queue
 	// nullptr will be returned if the queue is invalid/null or size() >= capacity().
 	// No resizing will be done.
 	template <typename... Args
-			, enable_if_t<is_aggregate_initializable<E,Args...>::value,int> = 0
+			, enable_if_t<(is_aggregate_initializable<E,Args...>::value
+			            || is_constructible<E,Args...>::value)
+				,int> = 0
 		>
 	E * 
 	push_noresize(Args &&... args)
@@ -383,7 +494,7 @@ class Queue
 		if(_array == nullptr || _size >= _capacity)
 			return nullptr;
 		size_t i = (_start + _size++) % _capacity;
-		return aggregate_init_at<E>(&(*_array)[i], ds::forward<Args>(args)...);
+		return aggregate_init_or_construct_at<E>(&(*_array)[i], ds::forward<Args>(args)...);
 	}
 
 	// Adaptive push.
@@ -391,7 +502,9 @@ class Queue
 	// nullptr will only be returned if resizing fails.
 	// @see min_capacity, capacity_scale_nominator, capacity_scale_denominator
 	template <typename... Args
-			, enable_if_t<is_aggregate_initializable<E,Args...>::value,int> = 0
+			, enable_if_t<(is_aggregate_initializable<E,Args...>::value
+			            || is_constructible<E,Args...>::value)
+				,int> = 0
 		>
 	E * 
 	push(Args &&... args)
@@ -399,7 +512,7 @@ class Queue
 		if(this->_resize())
 		{
 			size_t i = (_start + _size++) % _capacity;
-			return aggregate_init_at<E>(&(*_array)[i], ds::forward<Args>(args)...);
+			return aggregate_init_or_construct_at<E>(&(*_array)[i], ds::forward<Args>(args)...);
 		}
 		return nullptr;
 	}
