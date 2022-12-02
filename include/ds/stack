@@ -586,7 +586,9 @@ struct inserter<Stack<E,A>,E>
 		return _stack.capacity() >= required_size;
 	}
 
-	template <typename T, enable_if_t<is_aggregate_initializable<E,T>::value,int> = 0>
+	template <typename T
+			, typename = decltype(decl<Stack<E,A> &>().push_noresize(decl<T>()))
+		>
 	inline bool 
 	insert(T && object)
 	{

@@ -846,7 +846,9 @@ struct inserter<Queue<E,A>,E>
 		return _queue->capacity() >= required_size;
 	}
 
-	template <typename T, enable_if_t<is_aggregate_initializable<E,T>::value,int> = 0>
+	template <typename T
+			, typename = decltype(decl<Queue<E,A> &>().push_noresize(decl<T>()))
+		>
 	inline bool 
 	insert(T && object)
 	{
