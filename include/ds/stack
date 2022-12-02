@@ -59,6 +59,25 @@ class Stack
 	size_t         _capacity = 0;
 	size_t         _size     = 0;
 
+	struct impossible_s
+	{
+		array_ptr_t<E> _array = nullptr;
+		size_t         _capacity = 0;
+		size_t         _size     = 0;
+		Stack _stack;
+		impossible_s() = default;
+
+		operator Stack const & () const noexcept { return _stack; }
+
+	};
+
+	struct impossible_t
+	{
+		impossible_t() = default;
+		impossible_t(E const &) {}
+
+	};
+
 	inline bool
 	_resize()
 	{
@@ -77,6 +96,8 @@ class Stack
 		}
 		return _array != nullptr;
 	}
+
+	Stack(conditional_t<is_copy_constructible<E>::value,impossible_s,Stack> const & rhs) = delete;
 
  public:
 	// Used when resizing internally.
@@ -127,7 +148,7 @@ class Stack
 		rhs._size     = 0;
 	}
 
-	Stack(Stack const & rhs)
+	Stack(conditional_t<is_copy_constructible<E>::value,Stack,impossible_s> const & rhs)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(rhs._capacity * sizeof(E), alignof(E))) }
 		, _capacity { _array == nullptr ? 0 : rhs._capacity }
 		, _size     { _array == nullptr ? 0 : rhs._size }
@@ -141,13 +162,15 @@ class Stack
 			else
 			{
 				for(size_t i = 0; i < _size; ++i)
-					construct_at<E>(&(*_array)[i], (*rhs._array)[i]);
+					construct_at<conditional_t<is_copy_constructible<E>::value,E,impossible_t>>(&(*_array)[i], (*rhs._array)[i]);
 			}
 		}
 	}
 
 	template <typename E_, class A_
-			, enable_if_t<is_aggregate_initializable<E,E_ const &>::value,int> = 0
+			, enable_if_t<(is_aggregate_initializable<E,E_ const &>::value
+			            || is_constructible<E,E_ const &>::value)
+				,int> = 0
 		>
 	Stack(Stack<E_,A_> const & rhs)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(rhs.capacity() * sizeof(E), alignof(E))) }
@@ -158,7 +181,7 @@ class Stack
 		{
 			auto * rhs_array = rhs.begin();
 			for(size_t i = 0; i < _size; ++i)
-				aggregate_init_at<E>(&(*_array)[i], rhs_array[i]);
+				aggregate_init_or_construct_at<E>(&(*_array)[i], rhs_array[i]);
 		}
 	}
 
@@ -195,7 +218,9 @@ class Stack
 	// Exact size copy
 	// (end_ - begin_) elements will be copied.
 	// Will attempt to allocate enough memory to store a maximum of (end_ - begin_) elements.
-	Stack(E const * begin_, E const * end_)
+	Stack(conditional_t<is_copy_constructible<E>::value,E,impossible_t> const * begin_
+		, conditional_t<is_copy_constructible<E>::value,E,impossible_t> const * end_
+	)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(size_t(end_ - begin_) * sizeof(E), alignof(E))) }
 		, _capacity { _array == nullptr ? 0 : size_t(end_ - begin_) }
 		, _size     { _array == nullptr ? 0 : _capacity }
@@ -209,7 +234,7 @@ class Stack
 			else
 			{
 				for(size_t i = 0; i < _size; ++i)
-					construct_at<E>(&(*_array)[i], begin_[i]);
+					construct_at<conditional_t<is_copy_constructible<E>::value,E,impossible_t>>(&(*_array)[i], begin_[i]);
 			}
 		}
 	}
@@ -217,7 +242,10 @@ class Stack
 	// Reserved copy
 	// Only the minimum of capacity_ and (end_ - begin_) elements will be copied.
 	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
-	Stack(E const * begin_, E const * end_, size_t capacity_)
+	Stack(conditional_t<is_copy_constructible<E>::value,E,impossible_t> const * begin_
+		, conditional_t<is_copy_constructible<E>::value,E,impossible_t> const * end_
+		, size_t capacity_
+	)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
 		, _capacity { _array == nullptr ? 0 : capacity_ }
 		, _size     { _array == nullptr ? 0 : min(size_t(end_ - begin_), capacity_) }
@@ -231,8 +259,48 @@ class Stack
 			else
 			{
 				for(size_t i = 0; i < _size; ++i)
-					construct_at<E>(&(*_array)[i], begin_[i]);
+					construct_at<conditional_t<is_copy_constructible<E>::value,E,impossible_t>>(&(*_array)[i], begin_[i]);
 			}
+		}
+	}
+
+	// Exact size copy
+	// (end_ - begin_) elements will be copied.
+	// Will attempt to allocate enough memory to store a maximum of (end_ - begin_) elements.
+	template <typename T
+			, enable_if_t<(is_aggregate_initializable<E,T>::value
+			            || is_constructible<E,T>::value)
+				,int> = 0
+		>
+	Stack(T * begin_, T * end_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(size_t(end_ - begin_) * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : size_t(end_ - begin_) }
+		, _size     { _array == nullptr ? 0 : _capacity }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_or_construct_at<E>(&(*_array)[i], begin_[i]);
+		}
+	}
+
+	// Reserved copy
+	// Only the minimum of capacity_ and (end_ - begin_) elements will be copied.
+	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
+	template <typename T
+			, enable_if_t<(is_aggregate_initializable<E,T>::value
+			            || is_constructible<E,T>::value)
+				,int> = 0
+		>
+	Stack(T * begin_, T * end_, size_t capacity_)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : min(_capacity, size_t(end_ - begin_)) }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_or_construct_at<E>(&(*_array)[i], begin_[i]);
 		}
 	}
 
@@ -240,7 +308,9 @@ class Stack
 	// Elements will be copied until end_ is reached or capacity_ elements have been copied.
 	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
 	template <typename It, typename E_ = decltype(*decl<It &>())
-			, enable_if_t<is_aggregate_initializable<E,E_>::value,int> = 0
+			, enable_if_t<(is_aggregate_initializable<E,E_>::value
+			            || is_constructible<E,E_>::value)
+				,int> = 0
 		>
 	Stack(It begin_, It end_, size_t capacity_)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
@@ -249,7 +319,7 @@ class Stack
 		if(_array)
 		{
 			for(auto it = begin_; it != end_ && _size < _capacity; ++it, ++_size)
-				aggregate_init_at<E>(&(*_array)[_size], *it);
+				aggregate_init_or_construct_at<E>(&(*_array)[_size], *it);
 		}
 	}
 
@@ -257,7 +327,9 @@ class Stack
 	// size_ elements will be moved.
 	// Will attempt to allocate enough memory to store a maximum of size_ elements.
 	template <typename T, size_t size_
-			, enable_if_t<is_aggregate_initializable<E,T &&>::value,int> = 0
+			, enable_if_t<(is_aggregate_initializable<E,T &&>::value
+			            || is_constructible<E,T &&>::value)
+				,int> = 0
 		>
 	Stack(T (&& array_)[size_])
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(size_ * sizeof(E), alignof(E))) }
@@ -267,7 +339,7 @@ class Stack
 		if(_array)
 		{
 			for(size_t i = 0; i < _size; ++i)
-				aggregate_init_at<E>(&(*_array)[i], ds::move(array_[i]));
+				aggregate_init_or_construct_at<E>(&(*_array)[i], ds::move(array_[i]));
 		}
 	}
 
@@ -275,7 +347,9 @@ class Stack
 	// Only the minimum of capacity_ and size_ elements will be moved.
 	// Will attempt to allocate enough memory to store a maximum of capacity_ elements.
 	template <typename T, size_t size_
-			, enable_if_t<is_aggregate_initializable<E,T &&>::value,int> = 0
+			, enable_if_t<(is_aggregate_initializable<E,T &&>::value
+			            || is_constructible<E,T &&>::value)
+				,int> = 0
 		>
 	Stack(T (&& array_)[size_], size_t capacity_)
 		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
@@ -285,7 +359,41 @@ class Stack
 		if(_array)
 		{
 			for(size_t i = 0; i < _size; ++i)
-				aggregate_init_at<E>(&(*_array)[i], ds::move(array_[i]));
+				aggregate_init_or_construct_at<E>(&(*_array)[i], ds::move(array_[i]));
+		}
+	}
+
+	template <class Arg
+			, enable_if_t<(is_aggregate_initializable<E,Arg>::value
+			            || is_constructible<E,Arg>::value)
+				,int> = 0
+		>
+	Stack(size_t capacity_, Arg && fill)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : capacity_ }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_or_construct_at<E>(&(*_array)[i], fill);
+		}
+	}
+
+	template <class Func
+			, enable_if_t<(is_aggregate_initializable<E,decltype(decl<Func>()())>::value
+			            || is_constructible<E,decltype(decl<Func>()())>::value)
+				,int> = 0
+		>
+	Stack(size_t capacity_, Func && fill)
+		: _array    { static_cast<array_ptr_t<E>>(A::allocate(capacity_ * sizeof(E), alignof(E))) }
+		, _capacity { _array == nullptr ? 0 : capacity_ }
+		, _size     { _array == nullptr ? 0 : capacity_ }
+	{
+		if(_array)
+		{
+			for(size_t i = 0; i < _size; ++i)
+				aggregate_init_or_construct_at<E>(&(*_array)[i], fill());
 		}
 	}
 
@@ -301,9 +409,9 @@ class Stack
 	}
 
 	Stack & 
-	operator=(Stack const & rhs) noexcept
+	operator=(conditional_t<is_copy_constructible<E>::value,Stack,impossible_s> const & rhs) noexcept
 	{
-		if(&rhs != this)
+		if(&static_cast<Stack const &>(rhs) != this)
 		{
 			this->~Stack();
 			construct_at<Stack>(this, rhs);
