@@ -181,11 +181,11 @@ class Tuple<T,Ts...> : protected Tuple<Ts...>
 template <typename... Ts>
 using tuple = Tuple<Ts...>;
 
-template <typename T, typename... Ts>
-static constexpr Tuple<T,Ts...>
-make_tuple(T && object, Ts &&... objects)
+template <typename... Ts>
+static constexpr Tuple<Ts...>
+make_tuple(Ts &&... objects)
 {
-	return { ds::forward<T>(object), ds::forward<Ts>(objects)... };
+	return { ds::forward<Ts>(objects)... };
 }
 
 } // namespace ds

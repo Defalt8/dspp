@@ -167,10 +167,8 @@ class StringStream
 		return *this;
 	}
 
-
-	template <typename T>
 	StringStream &
-	operator<<(T * ptr_)
+	operator<<(void const * ptr_)
 	{
 		constexpr size_t buff_size = 30;
 		char_t buffer[buff_size+2] { '0', 'x' };

@@ -1247,7 +1247,7 @@ struct Sequence
 	{
 		auto next_ = value;
 		value += step;
-		return next_;
+		return ds::move(next_);
 	}
 
 };
@@ -1554,6 +1554,27 @@ template <class OST, typename C
 	>
 static OST & 
 operator<<(OST && ost, C const & rhs)
+{
+	if(size(rhs) == 0)
+		return ost;
+	auto end_ = end(rhs);
+	for(auto it = begin(rhs);;)
+	{
+		ost << *it;
+		if(++it != end_)
+			ost << stream_separator;
+		else 
+			break;
+	}
+	return ost;
+}
+
+template <class OST, typename E, size_t size_
+		, enable_if_t<is_out_streamable<OST,E>::value,int> = 0
+		, enable_if_t<is_out_streamable<OST,char const *>::value,int> = 0
+	>
+static OST & 
+operator<<(OST && ost, E const (& rhs)[size_])
 {
 	if(size(rhs) == 0)
 		return ost;
