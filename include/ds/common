@@ -635,9 +635,6 @@ struct max_floating_point
 template <> struct max_floating_point<float>       { static constexpr float       value = 3.402823466e+38F; };
 template <> struct max_floating_point<double>      { static constexpr double      value = 1.7976931348623158e+308; };
 template <> struct max_floating_point<long double> { static constexpr long double value = 1.7976931348623158e+308L; };
-constexpr float       max_floating_point<float>::value;
-constexpr double      max_floating_point<double>::value;
-constexpr long double max_floating_point<long double>::value;
 
 template <typename T> 
 struct min_floating_point 
@@ -645,9 +642,6 @@ struct min_floating_point
 template <> struct min_floating_point<float>       { static constexpr float       value =-3.402823466e+38F; };
 template <> struct min_floating_point<double>      { static constexpr double      value =-1.7976931348623158e+308; };
 template <> struct min_floating_point<long double> { static constexpr long double value =-1.7976931348623158e+308L; };
-constexpr float       min_floating_point<float>::value;
-constexpr double      min_floating_point<double>::value;
-constexpr long double min_floating_point<long double>::value;
 
 template <typename T, int = (is_integral<T>::value ? 1 : (is_floating_point<T>::value ? 2 : 0))>
 struct max_limit 
