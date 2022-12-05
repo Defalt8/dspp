@@ -1123,6 +1123,12 @@ aligned_offset(void * block_, align_t align_)
 	return (~size_t(block_)+1) & (--align_);
 }
 
+static constexpr size_t
+aligned_offset(size_t begin_, align_t align_)
+{
+	return (~begin_+1) & (--align_);
+}
+
 
 template <typename T, bool = is_destructible<T>::value && !is_trivially_destructible<T>::value>
 struct safe_destructor
