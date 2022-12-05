@@ -306,7 +306,7 @@ class Callable<R(Args...),A>
 	
 	template <class C
 			, typename CS = _::_callable_s<R(C::*)(Args...)>
-			, typename = decltype(decl<C &>()(decl<Args>()...))
+			, typename = decltype(decl<CS &>()(decl<Args>()...))
 			, enable_if_t<is_constructible<storage_t,make<CS>,C &,R(C::*)(Args...)>::value,int> = 0
 		>
 	Callable(C & object_, R (C::* callable_)(Args...))
