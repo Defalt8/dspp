@@ -750,10 +750,11 @@ class List<1,E,A>
 		for(size_t i = 0; i < size_ && this->emplace_last(ds::move(array_[i])); ++i);
 	}
 
-	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T const &>::value,int> = 0>
-	List(T const (& array_)[size_])
+
+	template <typename D, typename T = E, size_t size_, enable_if_t<is_constructible<E,make<D>,T &&>::value,int> = 0>
+	List(make<D> make_, T (&& array_)[size_])
 	{
-		for(size_t i = 0; i < size_ && this->emplace_last(array_[i]); ++i);
+		for(size_t i = 0; i < size_ && this->emplace_last(make_, ds::move(array_[i])); ++i);
 	}
 
 	// generic move/copy constructor
@@ -1137,12 +1138,12 @@ class List<2,E,A>
 		for(size_t i = 0; i < size_ && this->insert_last(ds::move(array_[i])); ++i);
 	}
 
-	template <typename T = E, size_t size_, enable_if_t<is_constructible<E,T const &>::value,int> = 0>
-	List(T const (& array_)[size_])
+	template <typename D, typename T = E, size_t size_, enable_if_t<is_constructible<E,make<D>,T &&>::value,int> = 0>
+	List(make<D> make_, T (&& array_)[size_])
 	{
-		for(size_t i = 0; i < size_ && this->emplace_last(array_[i]); ++i);
+		for(size_t i = 0; i < size_ && this->emplace_last(make_, ds::move(array_[i])); ++i);
 	}
-
+	
 	// generic move/copy constructor
 	template <class C
 			, typename E_ = iterable_element_t<C>
@@ -1496,7 +1497,7 @@ using nt_list = List<type_,E,A>;
 template <int type_, typename E, class A, size_t size_>
 struct usage_s<List<type_,E,A>,size_> 
 {
-	using node_t    = ListNode<type_,E>;
+	using node_t = ListNode<type_,E>;
 	static constexpr size_t _single  = sizeof(node_t) + usage<E>::value;
 	static constexpr size_t _offsetn = aligned_offset(alignof(node_t) + _single, alignof(node_t));
 	static constexpr size_t value    = (_offsetn + _single * size_); 

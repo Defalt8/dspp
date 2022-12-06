@@ -506,13 +506,14 @@ class UnorderedList
 
 	template <typename T = E>
 	iterator_t
-	_insert_object(T && object) noexcept
+	_insert_object(T && object_) noexcept
 	{
-		auto & entry = _hash_entry(object);
-		node_t * const node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<T>(object));
+		auto & entry = _hash_entry(object_);
+		node_t * const node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<T>(object_));
 		if(!node)
 			return {};
-		auto * inode = entry;
+		auto const & object = node->object;
+		auto       * inode  = entry;
 		entry = node;
 		if(inode != nullptr)
 			return _insert_node_after(inode, node);
@@ -599,6 +600,27 @@ class UnorderedList
 					break;
 				case duplicate_rule::replace:
 					for(size_t i = 0; i < size_ && this->_insert_object_unique(ds::move(array_[i]), true); ++i);
+					break;
+			}
+		}
+	}
+
+	template <typename D, typename T = E, size_t size_, enable_if_t<is_constructible<E,make<D>,T &&>::value,int> = 0>
+	UnorderedList(make<D> make_, T (&& array_)[size_], duplicate_rule param = {})
+	{
+		if(m_data)
+		{
+			switch(param)
+			{
+				default:
+				case duplicate_rule::allow:
+					for(size_t i = 0; i < size_ && this->_insert_object({ make_, ds::move(array_[i]) }); ++i);
+					break;
+				case duplicate_rule::unique:
+					for(size_t i = 0; i < size_ && this->_insert_object_unique({ make_, ds::move(array_[i]) }, false); ++i);
+					break;
+				case duplicate_rule::replace:
+					for(size_t i = 0; i < size_ && this->_insert_object_unique({ make_, ds::move(array_[i]) }, true); ++i);
 					break;
 			}
 		}
@@ -866,8 +888,13 @@ using nt_unordered_list = UnorderedList<table_size_,E,A>;
 template <size_t table_size_, typename E, class A, size_t size_>
 struct usage_s<UnorderedList<table_size_,E,A>,size_> 
 { 
-	static constexpr size_t value = usage<typename UnorderedList<table_size_,E,A>::storage_t>::value +
-		(sizeof(UnorderedListNode<table_size_,E>) + usage<E>::value) * size_; 
+	using node_t    = UnorderedListNode<table_size_,E>;
+	using storage_t = typename UnorderedList<table_size_,E,A>::storage_t;
+	static constexpr size_t _offset  = aligned_offset(alignof(storage_t) + usage<storage_t>::value, alignof(node_t));
+	static constexpr size_t _single  = sizeof(node_t) + usage<E>::value;
+	static constexpr size_t _offsetn = aligned_offset(alignof(node_t) + _single, alignof(node_t));
+	static constexpr size_t value   = usage<storage_t>::value 
+		+ _offset + ((_offsetn + _single) * size_); 
 };
 
 template <size_t table_size_, typename E, class A, size_t size_, size_t count_>

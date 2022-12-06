@@ -554,13 +554,14 @@ class OrderedList
 
 	template <typename T = E>
 	iterator_t
-	_insert_object(T && object) noexcept
+	_insert_object(T && object_) noexcept
 	{
 		size_t ordered_index;
-		auto & entry = _ordered_entry_and_index(object, ordered_index);
-		node_t * node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<T>(object));
+		auto & entry = _ordered_entry_and_index(object_, ordered_index);
+		node_t * node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<T>(object_));
 		if(node == nullptr)
 			return {};
+		auto const & object = node->object;
 		if(entry != nullptr)
 		{
 			// check head
@@ -694,6 +695,27 @@ class OrderedList
 					break;
 				case duplicate_rule::replace:
 					for(size_t i = 0; i < size_ && this->_insert_object_unique(ds::move(array_[i]), true); ++i);
+					break;
+			}
+		}
+	}
+
+	template <typename D, typename T = E, size_t size_, enable_if_t<is_constructible<E,make<D>,T &&>::value,int> = 0>
+	OrderedList(make<D> make_, T (&& array_)[size_], duplicate_rule param = {})
+	{
+		if(m_data)
+		{
+			switch(param)
+			{
+				default:
+				case duplicate_rule::allow:
+					for(size_t i = 0; i < size_ && this->_insert_object({ make_, ds::move(array_[i]) }); ++i);
+					break;
+				case duplicate_rule::unique:
+					for(size_t i = 0; i < size_ && this->_insert_object_unique({ make_, ds::move(array_[i]) }, false); ++i);
+					break;
+				case duplicate_rule::replace:
+					for(size_t i = 0; i < size_ && this->_insert_object_unique({ make_, ds::move(array_[i]) }, true); ++i);
 					break;
 			}
 		}
