@@ -257,6 +257,10 @@ namespace _ {
 
 	};
 
+	template <class C, typename R, typename... Args>
+	class _callable_s<R (C::*)(Args...) const,C> : public _callable_s<R(C::* const)(Args...) const, C>
+	{};
+
 } // namespace _
 
 template <typename F, class A = default_allocator>
@@ -406,6 +410,43 @@ class Callable<R(Args...),A>
 
 template <typename F, class A = default_allocator>    using callable    = Callable<F,A>;
 template <typename F, class A = default_nt_allocator> using nt_callable = Callable<F,A>;
+
+template <typename... Args> using callable_impl = _::_callable_s<Args...>;
+
+template <class F, class A>
+struct usage<Callable<F,A>> 
+{
+	using storage_t = typename Callable<F,A>::storage_t;
+	static constexpr size_t value = sizeof(storage_t) + usage<storage_t>::value;; 
+};
+
+template <typename F, class A, size_t count_>
+struct usage_n<Callable<F,A>,count_> 
+{
+	static constexpr size_t _single = usage<Callable<F,A>>::value;
+	static constexpr size_t _offset = aligned_offset(_single, alignof(F));
+	static constexpr size_t value   = (_single + _offset) * count_; 
+};
+
+template <typename R, typename... Args, typename... Ts>
+struct usage<callable_impl<R(Args...),Ts...>> 
+{
+	static constexpr size_t value = sizeof(callable_impl<R(Args...),Ts...>); 
+};
+
+template <typename F, typename... Ts>
+struct usage<callable_impl<F,Ts...>> 
+{
+	static constexpr size_t value = sizeof(callable_impl<F,Ts...>); 
+};
+
+template <typename F, typename... Ts, size_t count_>
+struct usage_n<callable_impl<F,Ts...>,count_> 
+{
+	static constexpr size_t _single = usage<callable_impl<F,Ts...>>::value;
+	static constexpr size_t _offset = aligned_offset(_single, alignof(callable_impl<F,Ts...>));
+	static constexpr size_t value   = (_single + _offset) * count_; 
+};
 
 
 } // namespace ds

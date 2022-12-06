@@ -264,14 +264,17 @@ using nt_shared = Shared<T,A>;
 template <typename T, class A>
 struct usage<Shared<T,A>> 
 {
-	static constexpr size_t value = sizeof(typename Shared<T,A>::Storage) + alignof(T) + sizeof(T) + usage<T>::value;
+	using storage_t = typename Shared<T,A>::Storage;
+	static constexpr size_t _offset = aligned_offset(alignof(storage_t) + sizeof(storage_t), alignof(T));
+	static constexpr size_t value   = sizeof(storage_t) + _offset + sizeof(T) + usage<T>::value;
 };
 
 template <typename T, class A, size_t count_>
 struct usage_n<Shared<T,A>,count_> 
 {
+	using storage_t = typename Shared<T,A>::Storage;
 	static constexpr size_t _single = usage<Shared<T,A>>::value;
-	static constexpr size_t _offset = (~_single+1) & (alignof(T) - 1);
+	static constexpr size_t _offset = aligned_offset(_single, alignof(storage_t));
 	static constexpr size_t value   = (_single + _offset) * count_; 
 };
 

@@ -293,11 +293,73 @@ class Coroutine<void(Args...),A>
 };
 
 
-template <typename F, class A = default_allocator>
-using coroutine = Coroutine<F,A>;
+template <typename F, class A = default_allocator>    using coroutine    = Coroutine<F,A>;
+template <typename F, class A = default_nt_allocator> using nt_coroutine = Coroutine<F,A>;
 
-template <typename F, class A = default_nt_allocator>
-using nt_coroutine = Coroutine<F,A>;
+template <typename... Args> struct coroutine_impl { using type = callable_impl<Args...>; };
+
+template <typename F, class A>
+struct usage<Coroutine<F,A>> 
+{
+	using callable_t = typename Coroutine<F,A>::callable_t;
+	using data_t     = typename Coroutine<F,A>::data_t;
+	static constexpr size_t value = usage<callable_t>::value + usage<data_t>::value;
+};
+
+template <typename F, class A, size_t count_>
+struct usage_n<Coroutine<F,A>,count_> 
+{
+	static constexpr size_t _single = usage<Coroutine<F,A>>::value;
+	static constexpr size_t _offset = aligned_offset(_single, alignof(Coroutine<F,A>));
+	static constexpr size_t value   = (_single + _offset) * count_; 
+};
+
+
+template <typename R, typename... Args, typename... Ts>
+struct usage<coroutine_impl<R(Args...),Ts...>> 
+{
+	using data_t = typename Coroutine<R(Args...)>::data_t;
+	static constexpr size_t _callable = usage<callable_impl<R(Args...),Ts...>>::value;
+	static constexpr size_t _offset   = aligned_offset(_callable, alignof(data_t));
+	static constexpr size_t value     = _callable + _offset + usage<data_t>::value;
+};
+
+template <typename R, class C, typename... Args, typename... Ts>
+struct usage<coroutine_impl<R(C::*)(Args...),Ts...>> 
+{
+	using data_t = typename Coroutine<R(Args...)>::data_t;
+	static constexpr size_t _callable = usage<callable_impl<R(C::*)(Args...),Ts...>>::value;
+	static constexpr size_t _offset   = aligned_offset(_callable, alignof(data_t));
+	static constexpr size_t value     = _callable + _offset + usage<data_t>::value;
+};
+
+template <typename R, class C, typename... Args, typename... Ts>
+struct usage<coroutine_impl<R(C::*)(Args...) const,Ts...>> 
+{
+	using data_t = typename Coroutine<R(Args...)>::data_t;
+	static constexpr size_t _callable = usage<callable_impl<R(C::*)(Args...) const,Ts...>>::value;
+	static constexpr size_t _offset   = aligned_offset(_callable, alignof(data_t));
+	static constexpr size_t value     = _callable + _offset + usage<data_t>::value;
+};
+
+template <typename R, class C, typename... Args, typename... Ts>
+struct usage<coroutine_impl<R(C::* const)(Args...) const,Ts...>> 
+{
+	using data_t = typename Coroutine<R(Args...)>::data_t;
+	static constexpr size_t _callable = usage<callable_impl<R(C::* const)(Args...) const,Ts...>>::value;
+	static constexpr size_t _offset   = aligned_offset(_callable, alignof(data_t));
+	static constexpr size_t value     = _callable + _offset + usage<data_t>::value;
+};
+
+
+template <typename F, typename... Ts, size_t count_>
+struct usage_n<coroutine_impl<F,Ts...>,count_> 
+{
+	static constexpr size_t _single = usage<coroutine_impl<F,Ts...>>::value;
+	static constexpr size_t _offset = aligned_offset(_single, alignof(coroutine_impl<F,Ts...>));
+	static constexpr size_t value   = (_single + _offset) * count_; 
+};
+
 
 } // namespace ds
 

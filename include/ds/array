@@ -973,14 +973,14 @@ using nt_array = Array<E,A>;
 template <typename E, class A, size_t size_>
 struct usage_s<Array<E,A>,size_> 
 {
-	static constexpr size_t value = sizeof(E) * size_ + usage_n<E,size_>::value;
+	static constexpr size_t value = usage_n<E,size_>::value + (sizeof(E) * size_);
 };
 
 template <typename E, class A, size_t size_, size_t count_>
 struct usage_sn<Array<E,A>,size_,count_>
 {
 	static constexpr size_t _single = usage_s<Array<E,A>,size_>::value;
-	static constexpr size_t _offset = (~_single+1) & (alignof(E) - 1);
+	static constexpr size_t _offset = aligned_offset(_single, alignof(E));
 	static constexpr size_t value   = (_single + _offset) * count_;
 };
 
