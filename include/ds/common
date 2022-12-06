@@ -516,6 +516,45 @@ template <class OST, typename T> struct is_in_streamable  : decltype(_::is_in_st
 template <class OST, typename T> struct is_out_streamable : decltype(_::is_out_streamable<OST,T>(0)) {};
 
 
+namespace _ {
+	template <typename T, typename U
+			, typename = decltype(decl<T const &>() == decl<U const &>())
+		> true_type _test_is_eq_comparable(int);
+	template <typename T, typename U> false_type _test_is_eq_comparable(...);
+	
+	template <typename T, typename U
+			, typename = decltype(decl<T const &>() != decl<U const &>())
+		> true_type _test_is_neq_comparable(int);
+	template <typename T, typename U> false_type _test_is_neq_comparable(...);
+
+	template <typename T, typename U
+			, typename = decltype(decl<T const &>() <= decl<U const &>())
+		> true_type _test_is_leq_comparable(int);
+	template <typename T, typename U> false_type _test_is_leq_comparable(...);
+
+	template <typename T, typename U
+			, typename = decltype(decl<T const &>() >= decl<U const &>())
+		> true_type _test_is_geq_comparable(int);
+	template <typename T, typename U> false_type _test_is_geq_comparable(...);
+
+	template <typename T, typename U
+			, typename = decltype(decl<T const &>() < decl<U const &>())
+		> true_type _test_is_lt_comparable(int);
+	template <typename T, typename U> false_type _test_is_lt_comparable(...);
+
+	template <typename T, typename U
+			, typename = decltype(decl<T const &>() > decl<U const &>())
+		> true_type _test_is_gt_comparable(int);
+	template <typename T, typename U> false_type _test_is_gt_comparable(...);
+} // namespace _
+
+template <typename T, typename U = T> struct is_eq_comparable  : decltype(_::_test_is_eq_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_neq_comparable : decltype(_::_test_is_neq_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_leq_comparable : decltype(_::_test_is_leq_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_geq_comparable : decltype(_::_test_is_geq_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_lt_comparable  : decltype(_::_test_is_lt_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_gt_comparable  : decltype(_::_test_is_gt_comparable<T,U>(0)) {};
+
 template <typename T>
 static constexpr T const &
 min(T const & lhs, T const & rhs) noexcept
@@ -948,6 +987,11 @@ template <typename T, size_t start_, typename... Ts>             struct type_ind
 template <typename L, typename R = L>
 struct equal
 { constexpr bool operator() (L const & lhs, R const & rhs) const noexcept { return lhs == rhs; } };
+
+// not equal to
+template <typename L, typename R = L>
+struct not_equal
+{ constexpr bool operator() (L const & lhs, R const & rhs) const noexcept { return lhs != rhs; } };
 
 // less than
 template <typename L, typename R = L>
