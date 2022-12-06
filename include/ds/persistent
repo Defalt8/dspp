@@ -21,6 +21,20 @@ namespace traits {
 
 } // namespace trait
 
+namespace _ {
+	template <typename T, class S, class A, bool = is_constructible<T>::value>
+	struct _default_construct_persistent
+	{
+		static inline S * construct() { return nullptr; }
+	};
+
+	template <typename T, class S, class A>
+	struct _default_construct_persistent<T,S,A,true>
+	{
+		static inline S * construct() { return construct_at_safe<S>(A::allocate(sizeof(S), alignof(S))); }
+	};
+} // namespace _
+
 /// @brief  Manages the dynamic lifetime of an object of type `T`.  
 /// @brief   The object is destroyed when the last `Persistent` instance
 /// @brief    referencing the same object is destroyed.  
@@ -83,6 +97,24 @@ class Persistent
 		return A::allocate(size_, align_);
 	}
 
+	struct impossible_t
+	{};
+
+	template <class C>
+	inline bool 
+	_compare(impossible_t const &, C &&) const noexcept
+	{
+		return false;
+	} 
+
+	template <class C>
+	inline bool 
+	_compare(Persistent const & rhs, C && compare_) const noexcept
+	{
+		auto const & lhs = *this;
+		return (lhs && rhs) ? compare_(*lhs, *rhs) : false;
+	} 
+
  public:
 	struct null_pointer : public exception
 	{
@@ -102,7 +134,7 @@ class Persistent
 	{}
 
 	Persistent()
-		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage))) }
+		: _ptr { _::_default_construct_persistent<T,Storage,A>::construct() }
 	{}
 
 	template <typename D, typename... Args
@@ -221,6 +253,42 @@ class Persistent
 		ds::swap(_ptr, rhs._ptr);
 	}
 
+	inline bool 
+	operator==(conditional_t<is_eq_comparable<T>::value,Persistent,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, equal<T>()); 
+	}
+
+	inline bool 
+	operator!=(conditional_t<is_neq_comparable<T>::value,Persistent,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, not_equal<T>()); 
+	}
+
+	inline bool 
+	operator<=(conditional_t<is_leq_comparable<T>::value,Persistent,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, less_or_equal<T>()); 
+	}
+
+	inline bool 
+	operator>=(conditional_t<is_geq_comparable<T>::value,Persistent,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, greater_or_equal<T>()); 
+	}
+
+	inline bool 
+	operator<(conditional_t<is_lt_comparable<T>::value,Persistent,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, less<T>()); 
+	}
+
+	inline bool 
+	operator>(conditional_t<is_gt_comparable<T>::value,Persistent,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, greater<T>()); 
+	}
+
 };
 
 
@@ -246,6 +314,19 @@ struct usage_n<Persistent<T,A>,count_>
 	static constexpr size_t _single = usage<Persistent<T,A>>::value;
 	static constexpr size_t _offset = aligned_offset(_single, alignof(storage_t));
 	static constexpr size_t value   = (_single + _offset) * count_; 
+};
+
+
+template <typename E, class A>
+struct Hasher<Persistent<E,A>> : Hasher<E>
+{
+	static inline size_t hash(Persistent<E,A> const & rhs) noexcept { return rhs ? Hasher<E>::hash(*rhs) : 0; }
+};
+
+template <typename E, class A>
+struct OrderedHasher<Persistent<E,A>> : OrderedHasher<E>
+{
+	static inline size_t hash(Persistent<E,A> const & rhs) noexcept { return rhs ? OrderedHasher<E>::hash(*rhs) : 0; }
 };
 
 
