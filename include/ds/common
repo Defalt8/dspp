@@ -519,41 +519,41 @@ template <class OST, typename T> struct is_out_streamable : decltype(_::is_out_s
 namespace _ {
 	template <typename T, typename U
 			, typename = decltype(decl<T const &>() == decl<U const &>())
-		> true_type _test_is_eq_comparable(int);
-	template <typename T, typename U> false_type _test_is_eq_comparable(...);
+		> true_type _test_is_equal_comparable(int);
+	template <typename T, typename U> false_type _test_is_equal_comparable(...);
 	
 	template <typename T, typename U
 			, typename = decltype(decl<T const &>() != decl<U const &>())
-		> true_type _test_is_neq_comparable(int);
-	template <typename T, typename U> false_type _test_is_neq_comparable(...);
+		> true_type _test_is_not_equal_comparable(int);
+	template <typename T, typename U> false_type _test_is_not_equal_comparable(...);
 
 	template <typename T, typename U
 			, typename = decltype(decl<T const &>() <= decl<U const &>())
-		> true_type _test_is_leq_comparable(int);
-	template <typename T, typename U> false_type _test_is_leq_comparable(...);
+		> true_type _test_is_less_or_equal_comparable(int);
+	template <typename T, typename U> false_type _test_is_less_or_equal_comparable(...);
 
 	template <typename T, typename U
 			, typename = decltype(decl<T const &>() >= decl<U const &>())
-		> true_type _test_is_geq_comparable(int);
-	template <typename T, typename U> false_type _test_is_geq_comparable(...);
+		> true_type _test_is_greater_or_equal_comparable(int);
+	template <typename T, typename U> false_type _test_is_greater_or_equal_comparable(...);
 
 	template <typename T, typename U
 			, typename = decltype(decl<T const &>() < decl<U const &>())
-		> true_type _test_is_lt_comparable(int);
-	template <typename T, typename U> false_type _test_is_lt_comparable(...);
+		> true_type _test_is_less_than_comparable(int);
+	template <typename T, typename U> false_type _test_is_less_than_comparable(...);
 
 	template <typename T, typename U
 			, typename = decltype(decl<T const &>() > decl<U const &>())
-		> true_type _test_is_gt_comparable(int);
-	template <typename T, typename U> false_type _test_is_gt_comparable(...);
+		> true_type _test_is_greater_than_comparable(int);
+	template <typename T, typename U> false_type _test_is_greater_than_comparable(...);
 } // namespace _
 
-template <typename T, typename U = T> struct is_eq_comparable  : decltype(_::_test_is_eq_comparable<T,U>(0)) {};
-template <typename T, typename U = T> struct is_neq_comparable : decltype(_::_test_is_neq_comparable<T,U>(0)) {};
-template <typename T, typename U = T> struct is_leq_comparable : decltype(_::_test_is_leq_comparable<T,U>(0)) {};
-template <typename T, typename U = T> struct is_geq_comparable : decltype(_::_test_is_geq_comparable<T,U>(0)) {};
-template <typename T, typename U = T> struct is_lt_comparable  : decltype(_::_test_is_lt_comparable<T,U>(0)) {};
-template <typename T, typename U = T> struct is_gt_comparable  : decltype(_::_test_is_gt_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_equal_comparable             : decltype(_::_test_is_equal_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_not_equal_comparable         : decltype(_::_test_is_not_equal_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_less_or_equal_comparable     : decltype(_::_test_is_less_or_equal_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_greater_or_equal_comparable  : decltype(_::_test_is_greater_or_equal_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_less_than_comparable         : decltype(_::_test_is_less_than_comparable<T,U>(0)) {};
+template <typename T, typename U = T> struct is_greater_than_comparable      : decltype(_::_test_is_greater_than_comparable<T,U>(0)) {};
 
 template <typename T>
 static constexpr T const &
