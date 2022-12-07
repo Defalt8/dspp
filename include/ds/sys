@@ -790,6 +790,39 @@ namespace sys {
 		return sremove::invalid_path;
 	}
 
+	static void 
+	sleep(float sec) noexcept
+	{
+	  #ifdef _WIN32
+		::Sleep(static_cast<DWORD>((sec * 1E+3)));
+	  #else
+		::usleep(static_cast<__useconds_t>((sec * 1E+6)));
+	  #endif
+	}
+
+	static void 
+	msleep(uint32_t milli_sec) noexcept
+	{
+	  #ifdef _WIN32
+		::Sleep(static_cast<DWORD>(milli_sec));
+	  #else
+		::usleep(static_cast<__useconds_t>(milli_sec * 1000U));
+	  #endif
+	}
+
+	static size_t 
+	nprocessors() noexcept
+	{
+	  #ifdef _WIN32
+		::SYSTEM_INFO system_info;
+		::GetSystemInfo(&system_info);
+		return size_t(system_info.dwNumberOfProcessors);
+	  #else
+		auto count_ = ::sysconf(_SC_NPROCESSORS_ONLN);
+		return count_ < 0 ? 0 : size_t(count_);
+	  #endif
+	}
+
 } // namespace sys
 } // namespace ds
 
