@@ -263,37 +263,260 @@ class Shared
 	}
 
 	inline bool 
-	operator==(conditional_t<is_eq_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	operator==(conditional_t<is_equal_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
 	{
 		return this->_compare(rhs, equal<T>()); 
 	}
 
 	inline bool 
-	operator!=(conditional_t<is_neq_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	operator!=(conditional_t<is_not_equal_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
 	{
 		return this->_compare(rhs, not_equal<T>()); 
 	}
 
 	inline bool 
-	operator<=(conditional_t<is_leq_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	operator<=(conditional_t<is_less_or_equal_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
 	{
 		return this->_compare(rhs, less_or_equal<T>()); 
 	}
 
 	inline bool 
-	operator>=(conditional_t<is_geq_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	operator>=(conditional_t<is_greater_or_equal_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
 	{
 		return this->_compare(rhs, greater_or_equal<T>()); 
 	}
 
 	inline bool 
-	operator<(conditional_t<is_lt_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	operator<(conditional_t<is_less_than_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
 	{
 		return this->_compare(rhs, less<T>()); 
 	}
 
 	inline bool 
-	operator>(conditional_t<is_gt_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	operator>(conditional_t<is_greater_than_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, greater<T>()); 
+	}
+
+};
+
+template <typename T, class A>
+class Shared<T *,A>
+{
+ public:
+	using count_t = size_t;
+	
+	struct Storage
+	{
+		T      * object_ptr = nullptr;
+		count_t  references = 1;
+		Shared * owner = nullptr;
+
+		Storage(Storage &&) = delete;
+		Storage(Storage const &) = delete;
+
+		Storage(Shared * owner_, T * ptr_)
+			: object_ptr { ptr_ }
+			, owner      { owner_ }
+		{}
+
+	};
+
+ private:
+	Storage * _ptr = nullptr;
+
+	static inline void
+	_deallocate(void * block_) noexcept
+	{
+		A::deallocate(block_);
+	}
+
+	DS_nodiscard static inline void * 
+	_allocate(size_t size_, align_t align_)
+	{
+		return A::allocate(size_, align_);
+	}
+
+	struct impossible_t
+	{};
+
+	template <class C>
+	inline bool 
+	_compare(impossible_t const &, C &&) const noexcept
+	{
+		return false;
+	} 
+
+	template <class C>
+	inline bool 
+	_compare(Shared const & rhs, C && compare_) const noexcept
+	{
+		auto const & lhs = *this;
+		return (lhs && rhs) ? compare_(*lhs, *rhs) : false;
+	} 
+
+ public:
+	struct null_pointer : public exception
+	{
+		char const * what() const noexcept { return "null pointer"; }
+	};
+
+	~Shared() noexcept
+	{
+		this->destroy();
+	}
+
+	Shared(noinit_t)
+	{}
+
+	Shared()
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this) }
+	{}
+
+	Shared(T * ptr_)
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this, ptr_) }
+	{}
+
+	Shared(Unique<T *,A> && unique_)
+		: _ptr { construct_at_safe<Storage>(_allocate(sizeof(Storage), alignof(Storage)), this, unique_._ptr) }
+	{
+		unique_._ptr = nullptr;
+	}
+
+	Shared(Shared && rhs) noexcept
+		: _ptr { rhs._ptr }
+	{
+		rhs._ptr = nullptr;
+		if(_ptr && _ptr->owner == &rhs)
+			_ptr->owner = this;
+	}
+
+	Shared(Shared const & rhs) noexcept
+		: _ptr { rhs._ptr }
+	{
+		if(_ptr)
+			++_ptr->references;
+	}
+
+	Shared & 
+	operator=(Shared && rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->swap(rhs);
+			if(_ptr && _ptr->owner == &rhs)
+				_ptr->owner = this;
+			rhs.destroy();
+		}
+		return *this;
+	}
+
+	Shared & 
+	operator=(Shared const & rhs) noexcept
+	{
+		if(&rhs != this)
+		{
+			this->destroy();
+			if(rhs._ptr)
+			{
+				_ptr = rhs._ptr;
+				++_ptr->references;
+			}
+		}
+		return *this;
+	}
+	
+	inline bool operator!() const noexcept { return _ptr == nullptr || _ptr->object_ptr == nullptr; }
+
+	explicit inline operator bool()        noexcept { return _ptr != nullptr && _ptr->object_ptr != nullptr; }
+	explicit inline operator bool()  const noexcept { return _ptr != nullptr && _ptr->object_ptr != nullptr; }
+
+	inline T       & operator*()        noexcept { return *_ptr->object_ptr; }
+	inline T const & operator*()  const noexcept { return *_ptr->object_ptr; }
+
+	inline T       * operator->()       noexcept { return _ptr->object_ptr; }
+	inline T const * operator->() const noexcept { return _ptr->object_ptr; }
+
+	inline T       * ptr()       noexcept { return _ptr == nullptr ? nullptr : _ptr->object_ptr; }
+	inline T const * ptr() const noexcept { return _ptr == nullptr ? nullptr : _ptr->object_ptr; }
+
+	inline count_t ref_count()        noexcept { return _ptr == nullptr ? 0 : _ptr->references; }
+	inline count_t ref_count()  const noexcept { return _ptr == nullptr ? 0 : _ptr->references; }
+
+	inline bool is_owner()        noexcept { return _ptr != nullptr && _ptr->owner == this; }
+	inline bool is_owner()  const noexcept { return _ptr != nullptr && _ptr->owner == this; }
+
+	T & 
+	ref() noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr || _ptr->object_ptr == nullptr, null_pointer());
+		return *_ptr->object_ptr;
+	}
+
+	T const & 
+	ref() const noexcept(false)
+	{
+		ds_throw_if(_ptr == nullptr || _ptr->object_ptr == nullptr, null_pointer());
+		return *_ptr->object_ptr;
+	}
+
+	void 
+	destroy() noexcept
+	{
+		if(_ptr)
+		{
+			if(_ptr->object_ptr && _ptr->owner == this)
+			{
+				_ptr->object_ptr = nullptr;
+				_ptr->owner      = nullptr;
+			}
+			if(--_ptr->references == 0)
+			{
+				destruct(*_ptr);
+				_deallocate(_ptr);
+				_ptr = nullptr;
+			}
+		}
+	}
+
+	inline void 
+	swap(Shared & rhs) noexcept
+	{
+		ds::swap(_ptr, rhs._ptr);
+	}
+
+	inline bool 
+	operator==(conditional_t<is_equal_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, equal<T>()); 
+	}
+
+	inline bool 
+	operator!=(conditional_t<is_not_equal_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, not_equal<T>()); 
+	}
+
+	inline bool 
+	operator<=(conditional_t<is_less_or_equal_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, less_or_equal<T>()); 
+	}
+
+	inline bool 
+	operator>=(conditional_t<is_greater_or_equal_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, greater_or_equal<T>()); 
+	}
+
+	inline bool 
+	operator<(conditional_t<is_less_than_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
+	{
+		return this->_compare(rhs, less<T>()); 
+	}
+
+	inline bool 
+	operator>(conditional_t<is_greater_than_comparable<T>::value,Shared,impossible_t> const & rhs) const noexcept 
 	{
 		return this->_compare(rhs, greater<T>()); 
 	}
