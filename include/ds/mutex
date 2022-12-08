@@ -33,6 +33,13 @@ class Mutex
 	bool              _is_init = false;
   #endif
 
+	static inline bool
+	_release_and_lock(Mutex & mutex) noexcept
+	{
+		mutex.release();
+		return mutex.lock();
+	}
+	
 	Mutex(Mutex const & mutex) = delete;
 
  public:
@@ -109,19 +116,18 @@ class Mutex
 
 	Mutex(Mutex && mutex) noexcept
   #ifdef _WIN32
-		: _handle  { mutex.lock() ? ds::move(mutex._handle) : ds::move(mutex._handle) }
+		: _handle  { _release_and_lock(mutex) ? ds::move(mutex._handle) : ds::move(mutex._handle) }
 	{
 		mutex._handle = INVALID_HANDLE_VALUE;
 	  	this->release();
 	}
   #else
-		: _handle  { mutex.lock() ? ds::move(mutex._handle) : ds::move(mutex._handle) }
+		: _handle  { _release_and_lock(mutex) ? ds::move(mutex._handle) : ds::move(mutex._handle) }
 		, _is_init { mutex._is_init }
 	{
 		mutex._handle   = {};
 		mutex._is_init  = false;
 	  	this->release();
-
 	}
   #endif
 
@@ -166,16 +172,16 @@ class Mutex
 	void
 	swap(Mutex & rhs) noexcept
 	{
-		rhs.lock();
-		this->lock();
+		_release_and_lock(*this);
+		_release_and_lock(rhs);
 	  #ifdef _WIN32
 		ds::swap(_handle, rhs._handle);
 	  #else
 		ds::swap(_handle, rhs._handle);
 		ds::swap(_is_init, rhs._is_init);
 	  #endif
-		rhs.release();
 		this->release();
+		rhs.release();
 	}
 
 	inline bool 
@@ -183,14 +189,10 @@ class Mutex
 	{
 	  #ifdef _WIN32
 		if(_handle != INVALID_HANDLE_VALUE)
-		{
 			return ::WaitForSingleObject(_handle, INFINITE) == WAIT_OBJECT_0;
-		}
 	  #else
 		if(_is_init)
-		{
 			return ::pthread_mutex_lock(&_handle) == 0;
-		}
 	  #endif
 		return false;
 	}
@@ -200,16 +202,10 @@ class Mutex
 	{
 	  #ifdef _WIN32
 		if(_handle != INVALID_HANDLE_VALUE)
-		{
-			::ReleaseMutex(_handle);
 			return ::WaitForSingleObject(_handle, 0) == WAIT_OBJECT_0;
-		}
 	  #else
 		if(_is_init)
-		{
-			::pthread_mutex_unlock(&_handle);
 			return ::pthread_mutex_trylock(&_handle) == 0;
-		}
 	  #endif
 		return false;
 	}
@@ -222,6 +218,13 @@ class Mutex
 	  #else
 		return _is_init && ::pthread_mutex_unlock(&_handle) == 0;
 	  #endif
+	}
+
+	inline bool
+	release_then_lock() noexcept
+	{
+		this->release();
+		return this->lock();
 	}
 
 	inline bool
