@@ -273,6 +273,24 @@ class Coroutine<void(Args...),A>
 		return false;
 	}
 
+	bool
+	operator()()
+	{
+		return this->resume();
+	}
+
+	co
+	operator()(co_ _co_)
+	{
+		if(_co_ == co_::resume)
+			return this->resume() ? co::_yield : co::_return;
+		else
+		{
+			_state = state::done;
+			return co::_return;
+		}
+	}
+
 	bool 
 	is_done() const noexcept
 	{
