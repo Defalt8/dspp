@@ -109,6 +109,8 @@ struct ThreadInfo
 	
 	Mutex              & mutex()          noexcept { return _mutex; }
 	Mutex        const & mutex()    const noexcept { return _mutex; }
+	Semaphore          & sem()            noexcept { return _sem; }
+	Semaphore    const & sem()      const noexcept { return _sem; }
 	handle_t     const & handle()   const noexcept { return _handle; }
 	ThreadParams const & params()   const noexcept { return _params; }
 	string_view          name()     const noexcept { return _params.name.view(); }
@@ -264,7 +266,7 @@ class Thread
 							::SetThreadDescription(info->_handle, &_buffer[0]);
 					}
 				}
-				info->_sem.signal();
+				info->_sem.signal(2);
 				info->_routine();
 				if(info && info->_mutex.lock())
 				{
@@ -296,7 +298,7 @@ class Thread
 					return 0;
 				}
 				info->_is_running = true;
-				info->_sem.signal();
+				info->_sem.signal(2);
 				info->_routine();
 				if(info && info->_mutex.lock())
 				{
@@ -547,6 +549,7 @@ class Thread
 thread_local Persistent<ThreadInfo> Thread::current { noinit };
 
 using thread_params = ThreadParams;
+using thread_info   = ThreadInfo;
 using thread        = Thread;
 
 } // namespace ds

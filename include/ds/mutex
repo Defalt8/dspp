@@ -153,16 +153,16 @@ class Mutex
 	  #ifdef _WIN32
 		if(_handle != INVALID_HANDLE_VALUE) 
 		{
-			if(::ReleaseMutex(_handle) == FALSE)
-				::WaitForSingleObject(_handle, INFINITE);
+			::ReleaseMutex(_handle);
+			::WaitForSingleObject(_handle, INFINITE);
 			::CloseHandle(_handle);
 			_handle = INVALID_HANDLE_VALUE;
 		}
 	  #else
 		if(_is_init)
 		{
-			if(::pthread_mutex_unlock(&_handle) != 0)
-				::pthread_mutex_lock(&_handle);
+			::pthread_mutex_unlock(&_handle);
+			::pthread_mutex_lock(&_handle);
 			::pthread_mutex_destroy(&_handle);
 			_is_init = false;
 		}
