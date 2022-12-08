@@ -437,7 +437,7 @@ Test(fixed_test)
 		constexpr size_t size_ = 5;
 		using fixed_t   = ds::Fixed<size_,int> const;
 		AssertTrue(ds::iterable_has_element<fixed_t>::value);
-		AssertTrue(ds::is_same<ds::traits::iterable<fixed_t>::element_t,int>::value);
+		AssertTrue(ds::is_same<ds::traits::iterable<fixed_t>::element_t,int const>::value);
 	} TestcaseEnd(test_const_has_iterable_trait_element_t);
 
 	Testcase(test_has_iterable_trait_indexable_iterator_t)
