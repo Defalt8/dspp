@@ -56,7 +56,7 @@ struct ThreadInfo
 	Mutex        _mutex   {};
 	routine_t    _routine {};
   #ifdef _WIN32
-	handle_t     _handle  = INVALID_HANDLE;
+	handle_t     _handle  = INVALID_HANDLE_VALUE;
   #else
 	handle_t     _handle  {};
 	bool         _is_init = false;
@@ -111,9 +111,9 @@ struct ThreadInfo
 	size_t               id()       const noexcept { return _id; }
 
   #ifdef _WIN32
-	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE; }
-	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE; }
-	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE; }
+	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE_VALUE; }
+	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE_VALUE; }
+	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE_VALUE; }
   #else
 	inline bool operator!()         const noexcept { return !_is_init; }
 	explicit inline operator bool()       noexcept { return _is_init; }
@@ -345,17 +345,17 @@ class Thread
 				{
 					auto const & _params = info._params;
 					{
-						using dword_ptr_t = DWORD *;
+						using dword_ptr_t = DWORD_PTR;
 						dword_ptr_t affinity = dword_ptr_t(_params.affinity);
 						SetThreadAffinityMask(info._handle, affinity);
 					}
 					if(_params.name.size() > 0)
 					{
-						size_t  _max_size_ = 15;
+						constexpr size_t  _max_size_ = 15;
 						wchar_t _buffer[_max_size_ + 1] {};
-						size_t  min_size = min(_max_size_, _params.name.size());
-						size_t  i        = 0;
-						char *  cstr     = _params.name.begin();
+						size_t  min_size  = min(_max_size_, _params.name.size());
+						size_t  i         = 0;
+						char const * cstr = _params.name.begin();
 						for(; i < min_size; ++i)
 							_buffer[i] = wchar_t(cstr[i]);
 						_buffer[_max_size_] = L'\0';

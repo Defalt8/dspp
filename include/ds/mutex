@@ -27,7 +27,7 @@ class Mutex
 
  private:
   #ifdef _WIN32
-	handle_t          _handle = INVALID_HANDLE;
+	handle_t          _handle = INVALID_HANDLE_VALUE;
   #else
 	handle_t mutable  _handle {};
 	bool              _is_init = false;
@@ -55,7 +55,7 @@ class Mutex
   #ifdef _WIN32
 		: _handle  { ::CreateMutexA(nullptr, false, 0) }
 	{
-		ds_throw_if(_handle == INVALID_HANDLE, creation_failure());
+		ds_throw_if(_handle == INVALID_HANDLE_VALUE, creation_failure());
 	}
   #else
 		: _handle  {}
@@ -69,7 +69,7 @@ class Mutex
   #ifdef _WIN32
 		: _handle  { ::CreateMutexA(nullptr, false, 0) }
 	{
-		ds_throw_if(_handle == INVALID_HANDLE, creation_failure());
+		ds_throw_if(_handle == INVALID_HANDLE_VALUE, creation_failure());
 		ds_throw_if(!this->lock(), lock_failure());
 		ds_throw_if_alt(this->lock());
 	}
@@ -109,9 +109,9 @@ class Mutex
 
 	Mutex(Mutex && mutex) noexcept
   #ifdef _WIN32
-		: _handle  { mutex.lock() ? ds::(mutex._handle) : ds::(mutex._handle) }
+		: _handle  { mutex.lock() ? ds::move(mutex._handle) : ds::move(mutex._handle) }
 	{
-		mutex._handle = {};
+		mutex._handle = INVALID_HANDLE_VALUE;
 	  	this->release();
 	}
   #else
@@ -129,10 +129,10 @@ class Mutex
 	create() noexcept
 	{
 	  #ifdef _WIN32
-		if(_handle != INVALID_HANDLE) 
+		if(_handle != INVALID_HANDLE_VALUE) 
 			return true;
 		_handle = ::CreateMutexA(nullptr, false, 0);
-		return _handle != INVALID_HANDLE;
+		return _handle != INVALID_HANDLE_VALUE;
 	  #else
 		if(_is_init) 
 			return true;
@@ -145,12 +145,12 @@ class Mutex
 	destroy() noexcept
 	{
 	  #ifdef _WIN32
-		if(_handle != INVALID_HANDLE) 
+		if(_handle != INVALID_HANDLE_VALUE) 
 		{
 			if(::ReleaseMutex(_handle) == FALSE)
 				::WaitForSingleObject(_handle, INFINITE);
 			::CloseHandle(_handle);
-			_handle = INVALID_HANDLE;
+			_handle = INVALID_HANDLE_VALUE;
 		}
 	  #else
 		if(_is_init)
@@ -182,7 +182,7 @@ class Mutex
 	lock() noexcept
 	{
 	  #ifdef _WIN32
-		if(_handle != INVALID_HANDLE)
+		if(_handle != INVALID_HANDLE_VALUE)
 		{
 			return ::WaitForSingleObject(_handle, INFINITE) == WAIT_OBJECT_0;
 		}
@@ -199,7 +199,7 @@ class Mutex
 	try_lock() noexcept
 	{
 	  #ifdef _WIN32
-		if(_handle != INVALID_HANDLE)
+		if(_handle != INVALID_HANDLE_VALUE)
 		{
 			::ReleaseMutex(_handle);
 			return ::WaitForSingleObject(_handle, 0) == WAIT_OBJECT_0;
@@ -218,7 +218,7 @@ class Mutex
 	release() noexcept
 	{
 	  #ifdef _WIN32
-		return _handle != INVALID_HANDLE && ::ReleaseMutex(_handle) != FALSE;
+		return _handle != INVALID_HANDLE_VALUE && ::ReleaseMutex(_handle) != FALSE;
 	  #else
 		return _is_init && ::pthread_mutex_unlock(&_handle) == 0;
 	  #endif
@@ -249,9 +249,9 @@ class Mutex
 	handle_t const & handle() const noexcept { return _handle; }
 
   #ifdef _WIN32
-	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE; }
-	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE; }
-	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE; }
+	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE_VALUE; }
+	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE_VALUE; }
+	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE_VALUE; }
   #else
 	inline bool operator!()         const noexcept { return !_is_init; }
 	explicit inline operator bool()       noexcept { return _is_init; }

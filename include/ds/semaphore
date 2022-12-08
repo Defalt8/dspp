@@ -29,7 +29,7 @@ class Semaphore
  private:
 	Mutex    _mutex    {};
   #ifdef _WIN32
-	handle_t _handle   = INVALID_HANDLE;
+	handle_t _handle   = INVALID_HANDLE_VALUE;
   #else
 	handle_t _handle   {};
 	bool     _is_init  = false;
@@ -54,7 +54,7 @@ class Semaphore
   #ifdef _WIN32
 		: _handle   { ::CreateSemaphoreA(nullptr, 0, max_limit<LONG>::value, nullptr) }
 	{
-		ds_throw_if(_handle == INVALID_HANDLE, creation_failure());
+		ds_throw_if(_handle == INVALID_HANDLE_VALUE, creation_failure());
 	}
   #else
 		: _handle   {}
@@ -86,7 +86,7 @@ class Semaphore
 		, _waiting  { ds::move(semaphore._waiting) }
 	{
 	  #ifdef _WIN32
-		semaphore._handle   = INVALID_HANDLE;
+		semaphore._handle   = INVALID_HANDLE_VALUE;
 	  #else
 		semaphore._handle   = {};
 		semaphore._is_init  = false;
@@ -103,12 +103,11 @@ class Semaphore
 		if(_mutex.lock())
 		{
 		  #ifdef _WIN32
-			if(_handle != INVALID_HANDLE) 
+			if(_handle != INVALID_HANDLE_VALUE) 
 			{
+				::ReleaseSemaphore(_handle, min<int>(_waiting, max_limit<LONG>::value), nullptr);
 				::CloseHandle(_handle);
-				_handle  = INVALID_HANDLE;
-				_count   = 0;
-				_waiting = 0;
+				_handle = INVALID_HANDLE_VALUE;
 			}
 		  #else
 			if(_is_init) 
@@ -120,9 +119,9 @@ class Semaphore
 				}
 				::sem_destroy(&_handle);
 				_is_init = false;
-				_count   = 0;
-				_waiting = 0;
 			}
+			_count   = 0;
+			_waiting = 0;
 		  #endif
 			_mutex.destroy();
 		}
@@ -141,182 +140,144 @@ class Semaphore
 	  #endif
 		ds::swap(_count, rhs._count);
 		ds::swap(_waiting, rhs._waiting);
-		rhs._mutex.release();
 		this->_mutex.release();
+		rhs._mutex.release();
 	}
 
 	bool 
-	await() noexcept
+	await(int count_ = 1) noexcept
 	{
-	  #ifdef _WIN32
-		if(_mutex.lock())
-		{
-			if(_handle == INVALID_HANDLE) 
-			{
-				_mutex.release();
-				return false;
-			}
-			++_waiting;
-			_mutex.release();
-			if(::WaitForSingleObject(_handle, INFINITE) == WAIT_OBJECT_0 && _mutex.lock())
-			{
-				--_count;
-				--_waiting;
-				_mutex.release();
-				return true;
-			} 
-			else if(_mutex.lock())
-			{
-				--_waiting;
-				_mutex.release();
-			}
-		}
-	  #else
-		if(_mutex.lock())
-		{
-			if(!_is_init) 
-			{
-				_mutex.release();
-				return false;
-			}
-			++_waiting;
-			_mutex.release();
-			if(::sem_wait(&_handle) == 0 && _mutex.lock())
-			{
-				--_count;
-				--_waiting;
-				_mutex.release();
-				return true;
-			} 
-			else if(_mutex.lock())
-			{
-				--_waiting;
-				_mutex.release();
-			}
-		}
-	  #endif
-		return false;
-	}
-
-	bool 
-	try_await() noexcept
-	{
-	  #ifdef _WIN32
-		if(_mutex.lock())
-		{
-			if(_handle == INVALID_HANDLE) 
-			{
-				_mutex.release();
-				return false;
-			}
-			++_waiting;
-			_mutex.release();
-			if(::WaitForSingleObject(_handle, 0) == WAIT_OBJECT_0 && _mutex.lock())
-			{
-				--_count;
-				--_waiting;
-				_mutex.release();
-				return true;
-			} 
-			else if(_mutex.lock())
-			{
-				--_waiting;
-				_mutex.release();
-			}
-		}
-	  #else
-		if(_mutex.lock())
-		{
-			if(!_is_init) 
-			{
-				_mutex.release();
-				return false;
-			}
-			++_waiting;
-			_mutex.release();
-			if(::sem_trywait(&_handle) == 0 && _mutex.lock())
-			{
-				--_count;
-				--_waiting;
-				_mutex.release();
-				return true;
-			} 
-			else if(_mutex.lock())
-			{
-				--_waiting;
-				_mutex.release();
-			}
-		}
-	  #endif
-		return false;
-	}
-
-	bool 
-	signal_waiting(int min_count = 0) noexcept
-	{
-		int count_ = max(_waiting, min_count);
-		if(count_ <= 0)
-			return false;
-		if(_mutex.lock())
+		if(count_ > 0 && _mutex.lock())
 		{
 		  #ifdef _WIN32
-			if(_handle != INVALID_HANDLE && ::ReleaseSemaphore(_handle, count_, nullptr))
+			if(_handle != INVALID_HANDLE_VALUE) 
+		  #else
+			if(_is_init) 
+		  #endif
 			{
-				_count += count_;
+				if(count_ <= _count)
+				{
+					_count -= count_;
+					_mutex.release();
+					return true;
+				}
+				count_ -= _count;
+				_count  = 0;
+				_waiting += count_;
+				bool locked_ = false;
+			  #ifdef _WIN32
+				auto handle_ = _handle;
+				while(count_ > 0 
+					&& (locked_ = !_mutex.release())
+					&& ::WaitForSingleObject(handle_, INFINITE) == WAIT_OBJECT_0
+					&& (locked_ = _mutex.lock()))
+			  #else
+				while(count_ > 0 
+					&& (locked_ = !_mutex.release())
+					&& ::sem_wait(&_handle) == 0 
+					&& (locked_ = _mutex.lock()))
+			  #endif
+				{
+					if(_count <= 0)
+						continue;
+					--_count;
+					--_waiting;
+					--count_;
+				}
+				if(count_ > 0 && (locked_ || _mutex.lock()))
+				{
+					_waiting -= count_;
+					_mutex.release();
+					return false;
+				}
 				_mutex.release();
 				return true;
 			}
 			_mutex.release();
-			return false;
-		  #else
-			if(!_is_init) 
-			{
-				_mutex.release();
-				return false;
-			}
-			int i = 0;
-			for(; i < count_ && ::sem_post(&_handle) == 0; ++i)
-				++_count;
-			_mutex.release();
-			return i >= count_;
-		  #endif
 		}
 		return false;
 	}
 
-	bool 
+	// checks if count_ signals have been posted and returns what is left  
+	int 
+	try_await(int count_ = 1) noexcept
+	{
+		if(count_ > 0 && _mutex.lock())
+		{
+		  #ifdef _WIN32
+			if(_handle != INVALID_HANDLE_VALUE) 
+		  #else
+			if(_is_init) 
+		  #endif
+			{
+				if(count_ <= _count)
+				{
+					_count -= count_;
+					_mutex.release();
+					return 0;
+				}
+				count_ -= _count;
+				_count  = 0;
+				_waiting += count_;
+				_mutex.release();
+				return count_;
+			}
+			_mutex.release();
+		}
+		return count_;
+	}
+
+	// posts and returns the amount of signals posted 
+	int 
 	signal(int count_ = 1) noexcept
 	{
-		if(_mutex.lock())
+		if(count_ > 0 && _mutex.lock())
 		{
 		  #ifdef _WIN32
-			if(_handle != INVALID_HANDLE && ::ReleaseSemaphore(_handle, max<int>(count_, max_limit<LONG>::value), nullptr) != FALSE)
+			if(_handle != INVALID_HANDLE_VALUE && ::ReleaseSemaphore(_handle, min<int>(count_, max_limit<LONG>::value), nullptr) != FALSE)
 			{
 				_count += count_;
 				_mutex.release();
-				return true;
+				return count_;
 			}
-			_mutex.release();
-			return false;
 		  #else
-			if(!_is_init) 
+			if(_is_init) 
 			{
+				int i = 0;
+				for(; i < count_ && ::sem_post(&_handle) == 0; ++i)
+					++_count;
 				_mutex.release();
-				return false;
+				return i;
 			}
-			int i = 0;
-			for(; i < count_ && ::sem_post(&_handle) == 0; ++i)
-				++_count;
-			_mutex.release();
-			return i >= count_;
 		  #endif
+			_mutex.release();
 		}
+		return 0;
+	}
+
+	int 
+	signal_waiting(int min_count = 0) noexcept
+	{
+		if(_mutex.lock())
+		{
+			int count_ = max(_waiting, min_count);
+			_mutex.release();
+			if(count_ > 0)
+				return this->signal(count_);
+		}
+		return 0;
 	}
 
 	inline bool
 	await_and_signal(int count_ = 1) noexcept
 	{
 		return this->await() && this->signal(count_);
+	}
+
+	inline bool
+	await_and_signal_waiting(int min_count_ = 1) noexcept
+	{
+		return this->await() && this->signal_waiting(min_count_);
 	}
 
 	int 
@@ -328,6 +289,7 @@ class Semaphore
 			_mutex.release();
 			return count_;
 		}
+		return 0;
 	}
 
 	int 
@@ -339,6 +301,7 @@ class Semaphore
 			_mutex.release();
 			return waiting_;
 		}
+		return 0;
 	}
 
 	handle_t     const & handle() const noexcept { return _handle; }
@@ -346,9 +309,9 @@ class Semaphore
 	Mutex        const & mutex()  const noexcept { return _mutex; }
 
   #ifdef _WIN32
-	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE; }
-	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE; }
-	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE; }
+	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE_VALUE; }
+	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE_VALUE; }
+	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE_VALUE; }
   #else
 	inline bool operator!()         const noexcept { return !_is_init; }
 	explicit inline operator bool()       noexcept { return _is_init; }
