@@ -1,7 +1,7 @@
 cmake_minimum_required( VERSION 3.4 )
-project( dspp VERSION 0.30.115 LANGUAGES CXX )
+project( dspp VERSION 0.33.121 LANGUAGES CXX )
 
-option( BUILD_TESTS ON )
+set( BUILD_TESTS ON CACHE BOOL "" )
 
 set( DS_HEADER_FILES
 	include/ds/all
@@ -48,6 +48,11 @@ set( DS_ALLOCATORS_HEADER_FILES
  
 add_library( dspp INTERFACE )
 target_include_directories( dspp INTERFACE include )
+if( WIN32 )
+	target_link_libraries( dspp INTERFACE kernel32 )
+else()
+	target_link_libraries( dspp INTERFACE pthread )
+endif()
 install( FILES ${DS_HEADER_FILES}            DESTINATION include/ds )
 install( FILES ${DS_TRAITS_HEADER_FILES}     DESTINATION include/ds/traits )
 install( FILES ${DS_ALLOCATORS_HEADER_FILES} DESTINATION include/ds/allocators )

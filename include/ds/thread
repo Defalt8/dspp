@@ -33,7 +33,7 @@ struct ThreadParams
 
 	ThreadParams() = default;
 	
-	ThreadParams(affinity_t affinity_, String<> name_)
+	ThreadParams(affinity_t affinity_, nt_string<> name_)
 		: name     { ds::move(name_) }
 		, affinity { affinity_ }
 	{}
