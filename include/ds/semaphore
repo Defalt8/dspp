@@ -168,12 +168,12 @@ class Semaphore
 			  #ifdef _WIN32
 				auto handle_ = _handle;
 				while(count_ > 0 
-					&& (locked_ = !_mutex.release())
+					&& !(locked_ = !_mutex.release())
 					&& ::WaitForSingleObject(handle_, INFINITE) == WAIT_OBJECT_0
 					&& (locked_ = _mutex.lock()))
 			  #else
 				while(count_ > 0 
-					&& (locked_ = !_mutex.release())
+					&& !(locked_ = !_mutex.release())
 					&& ::sem_wait(&_handle) == 0 
 					&& (locked_ = _mutex.lock()))
 			  #endif
