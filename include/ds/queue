@@ -722,8 +722,11 @@ class Queue
 			return { _queue, size_t(-1) };
 		}
 
-		E       & operator*()       noexcept { return (*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
-		E const & operator*() const noexcept { return (*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
+		E       & operator*()        noexcept { return (*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
+		E const & operator*()  const noexcept { return (*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
+		
+		E       * operator->()       noexcept { return &(*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
+		E const * operator->() const noexcept { return &(*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
 
 		inline bool operator==(Iterator const & rhs) const noexcept { return _queue == rhs._queue && _index == rhs._index; }
 		inline bool operator!=(Iterator const & rhs) const noexcept { return _queue != rhs._queue || _index != rhs._index; }
@@ -817,7 +820,9 @@ class Queue
 			return { _queue, size_t(-1) };
 		}
 
-		E const & operator*() const noexcept { return (*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
+		E const & operator*()  const noexcept { return (*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
+		
+		E const * operator->() const noexcept { return &(*_queue->_array)[(_queue->_start + _index) % _queue->_capacity]; }
 
 		inline bool operator==(ConstIterator const & rhs) const noexcept { return _queue == rhs._queue && _index == rhs._index; }
 		inline bool operator!=(ConstIterator const & rhs) const noexcept { return _queue != rhs._queue || _index != rhs._index; }
