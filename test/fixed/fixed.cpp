@@ -15,17 +15,12 @@ template class ds::Fixed<5,NoCopy const>;
 template class ds::Fixed<5,NoMove>;
 template class ds::Fixed<5,NoMove const>;
 
+template <typename T>
+using Sequence = ds::Sequence<T>;
+
 Test(fixed_test)
 {
 	TestInit(fixed_test);
-
-	template <typename T>
-	struct Sequence 
-	{
-		T cur; 
-		constexpr Sequence(T start_ = {}) : cur { start_ } {}
-		constexpr operator T() { return cur++; }
-	};
 
 	template <typename E, size_t size1_, typename T, size_t size2_>
 	static bool
