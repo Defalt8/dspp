@@ -1,4 +1,4 @@
-name: CMake-MacOS
+name: CMake-MacOS-Cxx14
 
 on:
   push:
@@ -28,8 +28,8 @@ jobs:
 
     - name: Build
       run: |
-        cmake -B ${{env.CMAKE_BUILD_DIR}} -DCMAKE_INSTALL_PREFIX=${{env.CMAKE_INSTALL_DIR}} -DWORKFLOW_BUILD_TESTS:BOOL=${{env.CMAKE_BUILD_TESTS}}
-        cmake --build ${{env.CMAKE_BUILD_DIR}} --config ${{env.CMAKE_CONFIG}} 
+        cmake -B ${{env.CMAKE_BUILD_DIR}} -DCMAKE_INSTALL_PREFIX=${{env.CMAKE_INSTALL_DIR}} -DWORKFLOW_BUILD_TESTS:BOOL=${{env.CMAKE_BUILD_TESTS}} -DCMAKE_CXX_STANDARD=14
+        cmake --build ${{env.CMAKE_BUILD_DIR}} --config ${{env.CMAKE_CONFIG}}
 
     # - name: Install
     #   run: ./build install
