@@ -1170,7 +1170,7 @@ aligned_offset(void * block_, align_t align_)
 static constexpr size_t
 aligned_offset(size_t begin_, align_t align_)
 {
-	return (~begin_+1) & (--align_);
+	return (~begin_+1) & (align_ - 1);
 }
 
 
