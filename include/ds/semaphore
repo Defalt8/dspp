@@ -1,0 +1,430 @@
+#pragma once
+#ifndef DS_SEMAPHORE
+#define DS_SEMAPHORE
+
+#ifdef _WIN32
+#	define WIN32_LEAN_AND_MEAN
+#	include <Windows.h>
+#else
+#	include <semaphore.h>
+#endif
+
+#include "common"
+#include "mutex"
+
+namespace ds {
+
+class Semaphore;
+class SemaphoreLock;
+
+class Semaphore
+{
+ public:
+  #ifdef _WIN32
+	using handle_t = HANDLE;
+  #else
+	using handle_t = sem_t;
+  #endif
+
+ private:
+	Mutex    _mutex    {};
+  #ifdef _WIN32
+	handle_t _handle   = INVALID_HANDLE;
+  #else
+	handle_t _handle   {};
+	bool     _is_init  = false;
+  #endif
+	int      _count    = 0;
+	int      _waiting  = 0;
+	
+	Semaphore(Semaphore const &) = delete;
+
+ public:
+	struct creation_failure : exception 
+	{
+		char const * what() const noexcept { return "semaphore creation failure"; }
+	};
+
+	~Semaphore() noexcept
+	{
+		this->destroy();
+	}
+
+	Semaphore() noexcept(false)
+  #ifdef _WIN32
+		: _handle   { ::CreateSemaphoreA(nullptr, 0, max_limit<LONG>::value, nullptr) }
+	{
+		ds_throw_if(_handle == INVALID_HANDLE, creation_failure());
+	}
+  #else
+		: _handle   {}
+		, _is_init  { ::sem_init(&_handle, 0, 0) == 0 }
+	{
+		ds_throw_if(!_is_init, creation_failure());
+	}
+  #endif
+
+	Semaphore(nothrow_t) noexcept
+  #ifdef _WIN32
+		: _handle   { ::CreateSemaphoreA(nullptr, 0, max_limit<LONG>::value, nullptr) }
+	{}
+  #else
+		: _handle   {}
+		, _is_init  { ::sem_init(&_handle, 0, 0) == 0 }
+	{}
+  #endif
+
+	Semaphore(Semaphore && semaphore) noexcept
+		: _mutex    { semaphore._mutex.lock() || true }
+	  #ifdef _WIN32
+		, _handle   { ds::move(semaphore._handle) }
+	  #else
+		, _handle   { ds::move(semaphore._handle) }
+		, _is_init  { ds::move(semaphore._is_init) }
+	  #endif
+		, _count    { ds::move(semaphore._count) }
+		, _waiting  { ds::move(semaphore._waiting) }
+	{
+	  #ifdef _WIN32
+		semaphore._handle   = INVALID_HANDLE;
+	  #else
+		semaphore._handle   = {};
+		semaphore._is_init  = false;
+	  #endif
+		semaphore._count    = 0;
+		semaphore._waiting  = 0;
+		_mutex.release();
+		semaphore._mutex.release();
+	}
+
+	void 
+	destroy() noexcept
+	{
+		if(_mutex.lock())
+		{
+		  #ifdef _WIN32
+			if(_handle != INVALID_HANDLE) 
+			{
+				::CloseHandle(_handle);
+				_handle  = INVALID_HANDLE;
+				_count   = 0;
+				_waiting = 0;
+			}
+		  #else
+			if(_is_init) 
+			{
+				while(_waiting > 0)
+				{
+					::sem_post(&_handle);
+					--_waiting;
+				}
+				::sem_destroy(&_handle);
+				_is_init = false;
+				_count   = 0;
+				_waiting = 0;
+			}
+		  #endif
+			_mutex.destroy();
+		}
+	}
+
+	void
+	swap(Semaphore & rhs) noexcept
+	{
+		rhs._mutex.lock();
+		this->_mutex.lock();
+	  #ifdef _WIN32
+		ds::swap(_handle, rhs._handle);
+	  #else
+		ds::swap(_handle, rhs._handle);
+		ds::swap(_is_init, rhs._is_init);
+	  #endif
+		ds::swap(_count, rhs._count);
+		ds::swap(_waiting, rhs._waiting);
+		rhs._mutex.release();
+		this->_mutex.release();
+	}
+
+	bool 
+	await() noexcept
+	{
+	  #ifdef _WIN32
+		if(_mutex.lock())
+		{
+			if(_handle == INVALID_HANDLE) 
+			{
+				_mutex.release();
+				return false;
+			}
+			++_waiting;
+			_mutex.release();
+			if(::WaitForSingleObject(_handle, INFINITE) == WAIT_OBJECT_0 && _mutex.lock())
+			{
+				--_count;
+				--_waiting;
+				_mutex.release();
+				return true;
+			} 
+			else if(_mutex.lock())
+			{
+				--_waiting;
+				_mutex.release();
+			}
+		}
+	  #else
+		if(_mutex.lock())
+		{
+			if(!_is_init) 
+			{
+				_mutex.release();
+				return false;
+			}
+			++_waiting;
+			_mutex.release();
+			if(::sem_wait(&_handle) == 0 && _mutex.lock())
+			{
+				--_count;
+				--_waiting;
+				_mutex.release();
+				return true;
+			} 
+			else if(_mutex.lock())
+			{
+				--_waiting;
+				_mutex.release();
+			}
+		}
+	  #endif
+		return false;
+	}
+
+	bool 
+	try_await() noexcept
+	{
+	  #ifdef _WIN32
+		if(_mutex.lock())
+		{
+			if(_handle == INVALID_HANDLE) 
+			{
+				_mutex.release();
+				return false;
+			}
+			++_waiting;
+			_mutex.release();
+			if(::WaitForSingleObject(_handle, 0) == WAIT_OBJECT_0 && _mutex.lock())
+			{
+				--_count;
+				--_waiting;
+				_mutex.release();
+				return true;
+			} 
+			else if(_mutex.lock())
+			{
+				--_waiting;
+				_mutex.release();
+			}
+		}
+	  #else
+		if(_mutex.lock())
+		{
+			if(!_is_init) 
+			{
+				_mutex.release();
+				return false;
+			}
+			++_waiting;
+			_mutex.release();
+			if(::sem_trywait(&_handle) == 0 && _mutex.lock())
+			{
+				--_count;
+				--_waiting;
+				_mutex.release();
+				return true;
+			} 
+			else if(_mutex.lock())
+			{
+				--_waiting;
+				_mutex.release();
+			}
+		}
+	  #endif
+		return false;
+	}
+
+	bool 
+	signal_waiting(int min_count = 0) noexcept
+	{
+		int count_ = max(_waiting, min_count);
+		if(count_ <= 0)
+			return false;
+		if(_mutex.lock())
+		{
+		  #ifdef _WIN32
+			if(_handle != INVALID_HANDLE && ::ReleaseSemaphore(_handle, count_, nullptr))
+			{
+				_count += count_;
+				_mutex.release();
+				return true;
+			}
+			_mutex.release();
+			return false;
+		  #else
+			if(!_is_init) 
+			{
+				_mutex.release();
+				return false;
+			}
+			int i = 0;
+			for(; i < count_ && ::sem_post(&_handle) == 0; ++i)
+				++_count;
+			_mutex.release();
+			return i >= count_;
+		  #endif
+		}
+		return false;
+	}
+
+	bool 
+	signal(int count_ = 1) noexcept
+	{
+		if(_mutex.lock())
+		{
+		  #ifdef _WIN32
+			if(_handle != INVALID_HANDLE && ::ReleaseSemaphore(_handle, max<int>(count_, max_limit<LONG>::value), nullptr) != FALSE)
+			{
+				_count += count_;
+				_mutex.release();
+				return true;
+			}
+			_mutex.release();
+			return false;
+		  #else
+			if(!_is_init) 
+			{
+				_mutex.release();
+				return false;
+			}
+			int i = 0;
+			for(; i < count_ && ::sem_post(&_handle) == 0; ++i)
+				++_count;
+			_mutex.release();
+			return i >= count_;
+		  #endif
+		}
+	}
+
+	inline bool
+	await_and_signal(int count_ = 1) noexcept
+	{
+		return this->await() && this->signal(count_);
+	}
+
+	int 
+	count() noexcept
+	{
+		if(_mutex.lock())
+		{
+			auto count_ = _count;
+			_mutex.release();
+			return count_;
+		}
+	}
+
+	int 
+	waiting() noexcept
+	{
+		if(_mutex.lock())
+		{
+			auto waiting_ = _waiting;
+			_mutex.release();
+			return waiting_;
+		}
+	}
+
+	handle_t     const & handle() const noexcept { return _handle; }
+	Mutex              & mutex()        noexcept { return _mutex; }
+	Mutex        const & mutex()  const noexcept { return _mutex; }
+
+  #ifdef _WIN32
+	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE; }
+	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE; }
+	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE; }
+  #else
+	inline bool operator!()         const noexcept { return !_is_init; }
+	explicit inline operator bool()       noexcept { return _is_init; }
+	explicit inline operator bool() const noexcept { return _is_init; }
+  #endif
+
+};
+
+class SemaphoreLock
+{
+	Semaphore * _semaphore = nullptr;
+
+	SemaphoreLock(SemaphoreLock const &) noexcept = delete;
+
+ public:
+	~SemaphoreLock() noexcept 
+	{
+		_semaphore->mutex().release();
+	}
+
+	SemaphoreLock(SemaphoreLock && rhs) noexcept
+		: _semaphore { ds::move(rhs._semaphore) }
+	{
+		rhs._semaphore = nullptr;
+	}
+	
+	SemaphoreLock(Semaphore & semaphore_) noexcept
+		: _semaphore { &semaphore_ }
+	{
+		_semaphore->mutex().lock();
+	}
+	
+	inline Semaphore       & semaphore()       noexcept { return *_semaphore; }
+	inline Semaphore const & semaphore() const noexcept { return *_semaphore; }
+
+	inline Semaphore       * operator->()       noexcept { return _semaphore; }
+	inline Semaphore const * operator->() const noexcept { return _semaphore; }
+
+};
+
+class SemaphoreEcho
+{
+	Semaphore * _semaphore = nullptr;
+
+	SemaphoreEcho(SemaphoreEcho const &) noexcept = delete;
+
+ public:
+	~SemaphoreEcho() noexcept 
+	{
+		_semaphore->signal_waiting(1);
+	}
+
+	SemaphoreEcho(SemaphoreEcho && rhs) noexcept
+		: _semaphore { ds::move(rhs._semaphore) }
+	{
+		rhs._semaphore = nullptr;
+	}
+	
+	SemaphoreEcho(Semaphore & semaphore_) noexcept
+		: _semaphore { &semaphore_ }
+	{
+		_semaphore->await();
+	}
+	
+	inline Semaphore       & semaphore()       noexcept { return *_semaphore; }
+	inline Semaphore const & semaphore() const noexcept { return *_semaphore; }
+
+	inline Semaphore       * operator->()       noexcept { return _semaphore; }
+	inline Semaphore const * operator->() const noexcept { return _semaphore; }
+
+};
+
+using semaphore      = Semaphore;
+using semaphore_lock = SemaphoreLock;
+using semaphore_echo = SemaphoreEcho;
+
+} // namespace ds
+
+#endif // DS_SEMAPHORE

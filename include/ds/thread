@@ -1,0 +1,417 @@
+#pragma once
+#ifndef DS_THREAD
+#define DS_THREAD
+
+#ifdef _WIN32
+#	define WIN32_LEAN_AND_MEAN
+#	include <Windows.h>
+#else
+#	include <pthread.h>
+#endif
+
+#include "common"
+#include "sys"
+#include "mutex"
+#include "string"
+#include "persistent"
+#include "callable"
+
+namespace ds {
+
+struct ThreadParams;
+struct ThreadInfo;
+class  Thread;
+
+struct ThreadParams
+{
+	using affinity_t = uint64_t;
+
+	// max-size 15
+	String<>   name     = "ds_thread"_dsstrv; 
+	affinity_t affinity = 0;
+
+	ThreadParams() = default;
+	
+	ThreadParams(affinity_t affinity_, String<> name_)
+		: name     { ds::move(name_) }
+		, affinity { affinity_ }
+	{}
+
+};
+
+struct ThreadInfo
+{
+ public:
+  #ifdef _WIN32
+	using handle_t = HANDLE;
+  #else
+	using handle_t = pthread_t;
+  #endif
+	using affinity_t = ThreadParams::affinity_t;
+	using routine_t  = Callable<void()>;
+
+	friend class Thread;
+
+ private:
+	Mutex        _mutex   {};
+	routine_t    _routine {};
+  #ifdef _WIN32
+	handle_t     _handle  = INVALID_HANDLE;
+  #else
+	handle_t     _handle  {};
+	bool         _is_init = false;
+  #endif
+	bool         _is_running     = false;
+	bool         _is_terminating = false;
+	ThreadParams _params {};
+	size_t       _id     = 0;
+	
+	ThreadInfo(ThreadInfo &&) = delete;
+	ThreadInfo(ThreadInfo const &) = delete;
+
+ public:
+	ThreadInfo() = default;
+
+	template <typename... Args>
+	ThreadInfo(Args &&... callable_args)
+		: _routine { ds::forward<Args>(callable_args)... }
+	{}
+
+	template <typename... Args>
+	ThreadInfo(ThreadParams params_, Args &&... callable_args)
+		: _routine { ds::forward<Args>(callable_args)... }
+		, _params  { ds::move(params_) }
+	{}
+
+	void
+	swap(ThreadInfo & rhs) noexcept
+	{
+		ds::swap(_mutex, rhs._mutex);
+		ds::swap(_routine, rhs._routine);
+	  #ifdef _WIN32
+		ds::swap(_handle, rhs._handle);
+	  #else
+		ds::swap(_handle, rhs._handle);
+		ds::swap(_is_init, rhs._is_init);
+	  #endif
+		ds::swap(_is_running, rhs._is_running);
+		ds::swap(_is_terminating, rhs._is_terminating);
+		ds::swap(_id, rhs._id);
+	}
+
+	bool is_running()     const noexcept { return _is_running; }
+	bool is_terminating() const noexcept { return _is_terminating; }
+	
+	Mutex              & mutex()          noexcept { return _mutex; }
+	Mutex        const & mutex()    const noexcept { return _mutex; }
+	handle_t     const & handle()   const noexcept { return _handle; }
+	ThreadParams const & params()   const noexcept { return _params; }
+	String<>     const & name()     const noexcept { return _params.name; }
+	affinity_t   const & affinity() const noexcept { return _params.affinity; }
+	size_t               id()       const noexcept { return _id; }
+
+  #ifdef _WIN32
+	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE; }
+	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE; }
+	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE; }
+  #else
+	inline bool operator!()         const noexcept { return !_is_init; }
+	explicit inline operator bool()       noexcept { return _is_init; }
+	explicit inline operator bool() const noexcept { return _is_init; }
+  #endif
+
+};
+
+class Thread
+{
+ public:
+	using handle_t  = ThreadInfo::handle_t;
+	using routine_t = ThreadInfo::routine_t;
+
+ private:
+	Persistent<ThreadInfo>  _info {};
+
+	Thread(Thread const &) = delete;
+ 
+  #ifndef _WIN32
+	cpu_set_t
+	_get_cpu_set() const noexcept
+	{
+		cpu_set_t cpu_set;
+		CPU_ZERO(&cpu_set);
+		auto bit_count = ds::sys::nprocessors();
+		auto mask_     = uint64_t(1);
+		for(size_t i = 0; i < bit_count; ++i, mask_ <<= 1)
+		{
+			if(_info->_params.affinity & mask_)
+			{
+				CPU_SET(i, &cpu_set);
+			}
+		}
+		return ds::move(cpu_set);
+	}
+  #endif
+
+	void
+	_create() noexcept(false)
+	{
+	  #ifdef _WIN32
+		if(_info && _info->_routine)
+		{
+			auto & mutex = _info->_mutex;
+			if(!mutex.lock())
+			{
+				ds_throw(lock_failure());
+				return;
+			}
+			{
+				DWORD id_;
+				_info->_handle = ::CreateThread(nullptr, 0, _routine_impl, this, 0, &id_);
+				_info->_id     = size_t(id_);
+			}
+			mutex.release();
+		}
+	  #else
+		if(_info && _info->_routine)
+		{
+			auto & mutex = _info->_mutex;
+			if(!mutex.lock())
+			{
+				ds_throw(lock_failure());
+				return;
+			}
+			::pthread_attr_t attr;
+			::pthread_attr_init(&attr);
+			auto cpu_set = _get_cpu_set();
+			::pthread_attr_setaffinity_np(&attr, sizeof(cpu_set), &cpu_set);
+			auto & _handle  = _info->_handle;
+			auto & _params  = _info->_params;
+			auto & _is_init = _info->_is_init;
+			_is_init = ::pthread_create(&_handle, nullptr, _routine_impl, this) == 0;
+			if(_is_init)
+			{
+				_info->_id = size_t(_handle);
+				if(_params.name.size() > 0)
+					::pthread_setname_np(_handle, _params.name.begin());
+			}
+			mutex.release();
+		}
+	  #endif
+	}
+
+	bool 
+	_join(handle_t & handle_) noexcept
+	{
+	  #if _WIN32
+		return ::WaitForSingleObject(handle_, INFINITE) == WAIT_OBJECT_0;
+	  #else
+		return ::pthread_join(handle_, nullptr) == 0;
+	  #endif
+	}
+
+ public:
+	static thread_local Persistent<ThreadInfo> current;
+
+ public:
+	struct creation_failure : exception 
+	{
+		char const * what() const noexcept { return "thread creation failure"; }
+	};
+
+	struct lock_failure : exception 
+	{
+		char const * what() const noexcept { return "thread mutex-lock failure"; }
+	};
+
+	~Thread() noexcept
+	{
+		this->destroy();
+	}
+
+	template <typename... Args
+			, enable_if_t<is_constructible<routine_t,Args...>::value,int> = 0
+		>
+	Thread(Args &&... callable_args) noexcept(false)
+		: _info(ds::forward<Args>(callable_args)...)
+	{
+		this->_create();
+	}
+
+	template <typename... Args
+			, enable_if_t<is_constructible<routine_t,Args...>::value,int> = 0
+		>
+	Thread(ThreadParams params_, Args &&... callable_args) noexcept(false)
+		: _info(ds::move(params_), ds::forward<Args>(callable_args)...)
+	{
+		this->_create();
+	}
+
+	void 
+	destroy(bool join_ = true) noexcept
+	{
+		if(this->terminate(join_) && _info)
+		{
+			auto & mutex = _info->_mutex;
+			if(mutex.lock())
+			{
+			  #ifdef _WIN32
+				::CloseHandle(_info->_handle);
+			  #endif
+				_info.destroy();
+				mutex.release();
+			}
+		}
+	}
+
+	void 
+	detach() noexcept
+	{
+		if(_info)
+		{
+			auto & mutex = _info->_mutex;
+			if(mutex.lock())
+			{
+			  #ifdef _WIN32
+				::CloseHandle(_info->_handle);
+			  #endif
+				_info.destroy();
+				mutex.release();
+			}
+		}
+	}
+
+	void
+	swap(Thread & rhs) noexcept
+	{
+		ds::swap(_info, rhs._info);
+	}
+
+	bool 
+	terminate(bool join_ = true) noexcept
+	{
+		if(_info)
+		{
+			auto & mutex = _info->_mutex;
+			if(mutex.lock())
+			{
+				auto & _is_terminating = _info->_is_terminating;
+				if(_is_terminating && !join_) 
+					return mutex.release();
+				_is_terminating = true;
+				if(join_) 
+				{
+					auto ret = this->_join(_info->_handle);
+					mutex.release();
+					return ret;
+				}
+				return mutex.release();
+			}
+		}
+		return false;
+	}
+
+	bool 
+	join() noexcept
+	{
+		if(_info)
+			this->_join(_info->_handle);
+		return false;
+	}
+
+	bool is_running()     const noexcept { return _info && _info->is_running(); }
+	bool is_terminating() const noexcept { return _info && _info->is_terminating(); }
+	
+	ThreadInfo       & info()       noexcept(false) { return _info.ref(); }
+	ThreadInfo const & info() const noexcept(false) { return _info.ref(); }
+
+	inline bool operator!()         const noexcept { return !_info || !(*_info); }
+	explicit inline operator bool()       noexcept { return bool(_info) && bool(*_info); }
+	explicit inline operator bool() const noexcept { return bool(_info) && bool(*_info); }
+
+  #ifdef _WIN32
+
+	static DWORD __stdcall 
+	_routine_impl(void * data) noexcept
+	{
+		Thread * thread = static_cast<Thread *>(data);
+		if(thread != nullptr)
+		{
+			auto & info = *(thread->_info);
+			if(info._routine && info._mutex.lock())
+			{
+				info._is_running = true;
+				Thread::current  = thread->_info;
+				// settings
+				{
+					auto const & _params = info._params;
+					{
+						using dword_ptr_t = DWORD *;
+						dword_ptr_t affinity = dword_ptr_t(_params.affinity);
+						SetThreadAffinityMask(info._handle, affinity);
+					}
+					if(_params.name.size() > 0)
+					{
+						size_t  _max_size_ = 15;
+						wchar_t _buffer[_max_size_ + 1] {};
+						size_t  min_size = min(_max_size_, _params.name.size());
+						size_t  i        = 0;
+						char *  cstr     = _params.name.begin();
+						for(; i < min_size; ++i)
+							_buffer[i] = wchar_t(cstr[i]);
+						_buffer[_max_size_] = L'\0';
+						if(i > 0)
+							::SetThreadDescription(info._handle, &_buffer[0]);
+					}
+				}
+				info._mutex.release();
+				info._routine();
+				if(info._mutex.lock())
+				{
+					info._is_terminating = false;
+					info._is_running     = false;
+					info._mutex.release();
+				}
+			}
+			return 0;
+		} 
+		return -1;
+	}
+
+  #else
+
+	static void * 
+	_routine_impl(void * data) noexcept
+	{
+		Thread * thread = static_cast<Thread *>(data);
+		if(thread != nullptr)
+		{
+			auto & info = *(thread->_info);
+			if(info._routine && info._mutex.lock())
+			{
+				info._is_running = true;
+				Thread::current  = thread->_info;
+				info._mutex.release();
+				info._routine();
+				if(info._mutex.lock())
+				{
+					info._is_terminating = false;
+					info._is_running     = false;
+					info._mutex.release();
+				}
+			}
+		} 
+		return nullptr;
+	}
+
+  #endif
+
+}; 
+
+thread_local Persistent<ThreadInfo> Thread::current { noinit };
+
+using thread_params = ThreadParams;
+using thread        = Thread;
+
+} // namespace ds
+
+#endif // DS_THREAD

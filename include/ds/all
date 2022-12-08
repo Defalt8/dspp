@@ -30,5 +30,8 @@
 #include "ordered_list"
 #include "ordered_map"
 #include "coroutine"
+#include "mutex"
+#include "semaphore"
+#include "thread"
 
 #endif // DS_ALL
