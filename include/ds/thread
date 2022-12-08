@@ -236,45 +236,41 @@ class Thread
 			auto & info     = Thread::current;
 			if(info)
 			{
-				if(_release_and_lock(info->_mutex))
+				if(!info->_routine)
 				{
-					if(!info->_routine)
-					{
-						info->_mutex.release();
-						return 0;
-					}
-					info->_is_running = true;
-					// settings
-					{
-						auto const & _params = info->_params;
-						{
-							using dword_ptr_t = DWORD_PTR;
-							dword_ptr_t affinity = dword_ptr_t(_params.affinity);
-							SetThreadAffinityMask(info->_handle, affinity);
-						}
-						if(_params.name.size() > 0)
-						{
-							constexpr size_t  _max_size_ = 15;
-							wchar_t _buffer[_max_size_ + 1] {};
-							size_t  min_size  = min(_max_size_, _params.name.size());
-							size_t  i         = 0;
-							char const * cstr = _params.name.begin();
-							for(; i < min_size; ++i)
-								_buffer[i] = wchar_t(cstr[i]);
-							_buffer[_max_size_] = L'\0';
-							if(i > 0)
-								::SetThreadDescription(info->_handle, &_buffer[0]);
-						}
-					}
 					info->_mutex.release();
-					info->_sem.signal();
-					info->_routine();
-					if(info && info->_mutex.lock())
+					return 0;
+				}
+				info->_is_running = true;
+				// settings
+				{
+					auto const & _params = info->_params;
 					{
-						info->_is_terminating = false;
-						info->_is_running     = false;
-						info->_mutex.release();
+						using dword_ptr_t = DWORD_PTR;
+						dword_ptr_t affinity = dword_ptr_t(_params.affinity);
+						SetThreadAffinityMask(info->_handle, affinity);
 					}
+					if(_params.name.size() > 0)
+					{
+						constexpr size_t  _max_size_ = 15;
+						wchar_t _buffer[_max_size_ + 1] {};
+						size_t  min_size  = min(_max_size_, _params.name.size());
+						size_t  i         = 0;
+						char const * cstr = _params.name.begin();
+						for(; i < min_size; ++i)
+							_buffer[i] = wchar_t(cstr[i]);
+						_buffer[_max_size_] = L'\0';
+						if(i > 0)
+							::SetThreadDescription(info->_handle, &_buffer[0]);
+					}
+				}
+				info->_sem.signal();
+				info->_routine();
+				if(info && info->_mutex.lock())
+				{
+					info->_is_terminating = false;
+					info->_is_running     = false;
+					info->_mutex.release();
 				}
 			}
 			return 0;
@@ -294,23 +290,19 @@ class Thread
 			auto & info     = Thread::current;
 			if(info)
 			{
-				if(_release_and_lock(info->_mutex))
+				if(!info->_routine)
 				{
-					if(!info->_routine)
-					{
-						info->_mutex.release();
-						return 0;
-					}
-					info->_is_running = true;
 					info->_mutex.release();
-					info->_sem.signal();
-					info->_routine();
-					if(info && info->_mutex.lock())
-					{
-						info->_is_terminating = false;
-						info->_is_running     = false;
-						info->_mutex.release();
-					}
+					return 0;
+				}
+				info->_is_running = true;
+				info->_sem.signal();
+				info->_routine();
+				if(info && info->_mutex.lock())
+				{
+					info->_is_terminating = false;
+					info->_is_running     = false;
+					info->_mutex.release();
 				}
 			}
 		} 
