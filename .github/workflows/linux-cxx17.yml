@@ -31,7 +31,7 @@ jobs:
 
     - name: Build
       run: |
-        cmake -B ${{env.CMAKE_BUILD_DIR}} -DCMAKE_INSTALL_PREFIX=${{env.CMAKE_INSTALL_DIR}} -DWORKFLOW_BUILD_TESTS:BOOL=${{env.CMAKE_BUILD_TESTS}} -DCMAKE_CXX_STANDARD=17
+        cmake -B ${{env.CMAKE_BUILD_DIR}} -DCMAKE_INSTALL_PREFIX=${{env.CMAKE_INSTALL_DIR}} -DBUILD_TESTS:BOOL=${{env.CMAKE_BUILD_TESTS}} -DCMAKE_CXX_STANDARD=17
         cmake --build ${{env.CMAKE_BUILD_DIR}} --config ${{env.CMAKE_CONFIG}}
 
     # - name: Install
