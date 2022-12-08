@@ -806,7 +806,7 @@ namespace sys {
 	  #ifdef _WIN32
 		::Sleep(static_cast<DWORD>(milli_sec));
 	  #else
-		::usleep(static_cast<__useconds_t>(milli_sec * 1000U));
+		::usleep(milli_sec * 1000U);
 	  #endif
 	}
 
