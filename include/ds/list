@@ -77,7 +77,7 @@ namespace traits {
 } // namespace trait
 
 template <int type_, typename E>
-struct ListNode {};
+struct ListNode;
 
 template <typename E>
 struct ListNode<1,E>
@@ -108,10 +108,7 @@ struct ListNode<2,E>
 
 
 template <int type_, typename E, class A>
-class ListIterator 
-{
-	ListIterator() = delete;
-};
+class ListIterator;
 
 template <typename E, class A>
 class ListIterator<1,E,A>
@@ -362,10 +359,7 @@ class ListIterator<2,E,A>
 
 
 template <int type_, typename E, class A>
-class ConstListIterator 
-{
-	ConstListIterator() = delete;
-};
+class ConstListIterator;
 
 template <typename E, class A>
 class ConstListIterator<1,E,A>
@@ -597,10 +591,7 @@ class ConstListIterator<2,E,A>
 
 
 template <int type_, typename E, class A> 
-class List 
-{
-	List() = delete;
-};
+class List;
 
 // no references
 template <int type_, typename E, class A> 
@@ -862,6 +853,22 @@ class List<1,E,A>
 		if(position.m_node == nullptr)
 			return _insert_node_last(node);
 		return _insert_node_after(position.m_node, node);
+	}
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	iterator_t
+	insert_last(T && object)
+	{
+		node_t * const node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)), ds::forward<T>(object));
+		return _insert_node_last(node);
+	}
+
+	template <typename T, enable_if_t<is_constructible<E,T>::value,int> = 0>
+	iterator_t
+	insert_first(T && object)
+	{
+		node_t * const node = construct_at_safe<node_t>(_allocate(sizeof(node_t), alignof(node_t)),ds::forward<T>(object));
+		return _insert_node_first(node);
 	}
 
 	bool
@@ -1527,7 +1534,7 @@ struct inserter<List<1,E,A>,E>
 	inline bool 
 	insert(T && object)
 	{
-		return bool(_list.insert_first(ds::forward<T>(object)));
+		return bool(_list.insert_last(ds::forward<T>(object)));
 	}
 };
 
