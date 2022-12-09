@@ -32,9 +32,35 @@ struct allocator<Coroutine<F,A>> : allocator_traits<A> {};
 
 } // namespace trait
 
+class ICoroutine
+{
+ public:
+	virtual ~ICoroutine() = default;
+	virtual co operator()(co_) = 0;
+	virtual void destroy()           noexcept = 0;
+	virtual bool is_done()     const noexcept = 0;
+	virtual bool is_not_done() const noexcept = 0;
+
+	virtual bool operator!()         const noexcept = 0;
+	explicit virtual operator bool()       noexcept = 0;
+	explicit virtual operator bool() const noexcept = 0;
+
+	bool 
+	operator()()
+	{
+		if(this->is_not_done())
+		{
+			this->operator()(co_::resume);
+			return true;
+		}
+		return false;
+	}
+
+};
+
 
 template <class A, typename R, typename... Args>
-class Coroutine<R(Args...),A>
+class Coroutine<R(Args...),A> : public ICoroutine
 {
 	static_assert(are_all_false<is_reference<Args>...>::value, "no reference types");
 
@@ -52,7 +78,7 @@ class Coroutine<R(Args...),A>
 	static constexpr auto _index_seq = make_index_sequence_t<0,sizeof...(Args)+1>();
 
 	template <size_t... indices_>
-	co
+	inline co
 	_call(co_ _co_, index_sequence<indices_...>)
 	{
 		return _callable(_co_, _data->template at<indices_>()...);
@@ -107,7 +133,7 @@ class Coroutine<R(Args...),A>
 	}
 
 	void 
-	destroy() noexcept
+	destroy() noexcept override
 	{
 		_callable.destroy();
 		_data.destroy();
@@ -135,7 +161,25 @@ class Coroutine<R(Args...),A>
 		return nullptr;
 	}
 
-	R * 
+	inline R *
+	operator()()
+	{
+		return this->resume();
+	}
+
+	co
+	operator()(co_ _co_) override
+	{
+		if(_co_ == co_::resume)
+			return this->resume() != nullptr ? co::_yield : co::_return;
+		else
+		{
+			_state = state::done;
+			return co::_return;
+		}
+	}
+
+	inline R * 
 	get_yield() noexcept 
 	{
 		if(_data)
@@ -143,7 +187,7 @@ class Coroutine<R(Args...),A>
 		return nullptr;
 	}
 
-	R const * 
+	inline R const * 
 	get_yield() const noexcept 
 	{
 		if(_data)
@@ -151,28 +195,28 @@ class Coroutine<R(Args...),A>
 		return nullptr;
 	}
 
-	bool 
-	is_done() const noexcept
+	inline bool 
+	is_done() const noexcept override
 	{
 		return _state == state::done;
 	}
 
-	bool 
-	is_not_done() const noexcept
+	inline bool 
+	is_not_done() const noexcept override
 	{
 		return _state != state::done;
 	}
 
-	bool operator!() const noexcept { return !_callable || !_data; } 
+	inline bool operator!() const noexcept override { return !_callable || !_data; } 
 
-	explicit inline operator bool()       noexcept { return bool(_callable) && bool(_data); } 
-	explicit inline operator bool() const noexcept { return bool(_callable) && bool(_data); } 
+	explicit inline operator bool()       noexcept override { return bool(_callable) && bool(_data); } 
+	explicit inline operator bool() const noexcept override { return bool(_callable) && bool(_data); } 
 
 };
 
 
 template <class A, typename... Args>
-class Coroutine<void(Args...),A>
+class Coroutine<void(Args...),A> : public ICoroutine
 {
 	static_assert(are_all_false<is_reference<Args>...>::value, "no reference types");
 
@@ -190,7 +234,7 @@ class Coroutine<void(Args...),A>
 	static constexpr auto _index_seq = make_index_sequence_t<0,sizeof...(Args)>();
 
 	template <size_t... indices_>
-	co
+	inline co
 	_call(co_ _co_, index_sequence<indices_...>)
 	{
 		return _callable(_co_, _data->template at<indices_>()...);
@@ -245,7 +289,7 @@ class Coroutine<void(Args...),A>
 	}
 
 	void 
-	destroy() noexcept
+	destroy() noexcept override
 	{
 		_callable.destroy();
 		_data.destroy();
@@ -273,14 +317,14 @@ class Coroutine<void(Args...),A>
 		return false;
 	}
 
-	bool
+	inline bool
 	operator()()
 	{
 		return this->resume();
 	}
 
-	co
-	operator()(co_ _co_)
+	inline co
+	operator()(co_ _co_) override
 	{
 		if(_co_ == co_::resume)
 			return this->resume() ? co::_yield : co::_return;
@@ -291,25 +335,27 @@ class Coroutine<void(Args...),A>
 		}
 	}
 
-	bool 
-	is_done() const noexcept
+	inline bool 
+	is_done() const noexcept override
 	{
 		return _state == state::done;
 	}
 
-	bool 
-	is_not_done() const noexcept
+	inline bool 
+	is_not_done() const noexcept override
 	{
 		return _state != state::done;
 	}
 
-	bool operator!() const noexcept { return !_callable || !_data; } 
+	inline bool operator!() const noexcept override { return !_callable || !_data; } 
 
-	explicit inline operator bool()       noexcept { return bool(_callable) && bool(_data); } 
-	explicit inline operator bool() const noexcept { return bool(_callable) && bool(_data); } 
+	explicit inline operator bool()       noexcept override { return bool(_callable) && bool(_data); } 
+	explicit inline operator bool() const noexcept override { return bool(_callable) && bool(_data); } 
 
 };
 
+
+using icoroutine = ICoroutine;
 
 template <typename F, class A = default_allocator>    using coroutine    = Coroutine<F,A>;
 template <typename F, class A = default_nt_allocator> using nt_coroutine = Coroutine<F,A>;
