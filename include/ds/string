@@ -1095,6 +1095,34 @@ operator>>(IST && ist, ds::String<A> & rhs)
 	return ist;
 }
 
+
+template <class A = default_allocator, typename... Args>
+static String<A>
+format_string(size_t max_size_, char const * format_, Args &&... args)
+{
+	auto string_ = String<A>(max_size_, noinit);
+	if(string_.size() >= max_size_)
+	{
+		auto size_ = size_t(max<int>(0, snprintf(string_.begin(), max_size_ + 1, format_, ds::forward<Args>(args)...)));
+		return { ds::move(string_), size_ };
+	}
+	return {};
+}
+
+template <class A = default_nt_allocator, typename... Args>
+static String<A>
+format_string_nt(size_t max_size_, char const * format_, Args &&... args)
+{
+	auto string_ = String<A>(max_size_, noinit);
+	if(string_.size() >= max_size_)
+	{
+		auto size_ = size_t(max<int>(0, snprintf(string_.begin(), max_size_ + 1, format_, ds::forward<Args>(args)...)));
+		return { ds::move(string_), size_ };
+	}
+	return {};
+}
+
+
 } // namespace ds
 
 static constexpr ds::StringView operator"" 
