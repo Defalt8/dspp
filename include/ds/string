@@ -521,7 +521,7 @@ class String
 			(*m_array)[0] = '\0';
 	}
 	
-	String(size_t size_)
+	String(size_t size_, noinit_t noinit_ = {})
 		: m_array { static_cast<array_ptr_t<char_t>>(_allocate(_size_ * (size_ + 1), _align_)) }
 		, m_size  { m_array != nullptr ? (size_ + 1) : 0 }
 	{
