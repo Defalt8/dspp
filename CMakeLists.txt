@@ -1,5 +1,5 @@
 cmake_minimum_required( VERSION 3.4 )
-project( dspp VERSION 0.33.121 LANGUAGES CXX )
+project( dspp VERSION 0.35.127 LANGUAGES CXX )
 
 set( BUILD_TESTS ON CACHE BOOL "" )
 
