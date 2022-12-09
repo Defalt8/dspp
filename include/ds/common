@@ -1442,24 +1442,29 @@ string_partial_compare(char const * lhs, char const * rhs, size_t lsize, size_t 
 template <typename E, size_t size_> static constexpr size_t size(E (& array_)[size_])       { return size_; }
 template <typename E, size_t size_> static constexpr size_t size(E const (& array_)[size_]) { return size_; }
 
-template <typename E, size_t size_> static constexpr E       * begin(E (& array_)[size_])       { return &array_[0]; }
-template <typename E, size_t size_> static constexpr E       * end(E (& array_)[size_])         { return &array_[size_]; }
-template <typename E, size_t size_> static constexpr E const * begin(E const (& array_)[size_]) { return &array_[0]; }
-template <typename E, size_t size_> static constexpr E const * end(E const (& array_)[size_])   { return &array_[size_]; }
+template <typename E, size_t size_> static DS_constexpr14 E       * begin(E (& array_)[size_])       { return &array_[0]; }
+template <typename E, size_t size_> static DS_constexpr14 E       * end(E (& array_)[size_])         { return &array_[size_]; }
+template <typename E, size_t size_> static DS_constexpr14 E const * begin(E const (& array_)[size_]) { return &array_[0]; }
+template <typename E, size_t size_> static DS_constexpr14 E const * end(E const (& array_)[size_])   { return &array_[size_]; }
+
+template <typename E, size_t size_> static DS_constexpr14 E       * rbegin(E (& array_)[size_])       { return &array_[size_] - 1; }
+template <typename E, size_t size_> static DS_constexpr14 E       * rend(E (& array_)[size_])         { return &array_[0] - 1; }
+template <typename E, size_t size_> static DS_constexpr14 E const * rbegin(E const (& array_)[size_]) { return &array_[size_] - 1; }
+template <typename E, size_t size_> static DS_constexpr14 E const * rend(E const (& array_)[size_])   { return &array_[0] - 1; }
 
 template <class C, typename sz_t = decltype(decl<C &>().size())>       static constexpr sz_t size(C & object_)           { return object_.size(); }
 template <class C, typename sz_t = decltype(decl<C const &>().size())> static constexpr sz_t size(C const & object_)     { return object_.size(); }
 
 
-template <class C, typename it_t = decltype(decl<C &>().begin())>       static constexpr it_t begin(C & object_)         { return object_.begin(); }
-template <class C, typename it_t = decltype(decl<C &>().end())>         static constexpr it_t end(C & object_)           { return object_.end(); }
-template <class C, typename it_t = decltype(decl<C const &>().begin())> static constexpr it_t begin(C const & object_)   { return object_.begin(); }
-template <class C, typename it_t = decltype(decl<C const &>().end())>   static constexpr it_t end(C const & object_)     { return object_.end(); }
+template <class C, typename it_t = decltype(decl<C &>().begin())>       static DS_constexpr14 it_t begin(C & object_)         { return object_.begin(); }
+template <class C, typename it_t = decltype(decl<C &>().end())>         static DS_constexpr14 it_t end(C & object_)           { return object_.end(); }
+template <class C, typename it_t = decltype(decl<C const &>().begin())> static DS_constexpr14 it_t begin(C const & object_)   { return object_.begin(); }
+template <class C, typename it_t = decltype(decl<C const &>().end())>   static DS_constexpr14 it_t end(C const & object_)     { return object_.end(); }
 
-template <class C, typename it_t = decltype(decl<C &>().rbegin())>       static constexpr it_t rbegin(C & object_)       { return object_.rbegin(); }
-template <class C, typename it_t = decltype(decl<C &>().rend())>         static constexpr it_t rend(C & object_)         { return object_.rend(); }
-template <class C, typename it_t = decltype(decl<C const &>().rbegin())> static constexpr it_t rbegin(C const & object_) { return object_.rbegin(); }
-template <class C, typename it_t = decltype(decl<C const &>().rend())>   static constexpr it_t rend(C const & object_)   { return object_.rend(); }
+template <class C, typename it_t = decltype(decl<C &>().rbegin())>       static DS_constexpr14 it_t rbegin(C & object_)       { return object_.rbegin(); }
+template <class C, typename it_t = decltype(decl<C &>().rend())>         static DS_constexpr14 it_t rend(C & object_)         { return object_.rend(); }
+template <class C, typename it_t = decltype(decl<C const &>().rbegin())> static DS_constexpr14 it_t rbegin(C const & object_) { return object_.rbegin(); }
+template <class C, typename it_t = decltype(decl<C const &>().rend())>   static DS_constexpr14 it_t rend(C const & object_)   { return object_.rend(); }
 
 namespace traits {
 	template <typename T> struct iterable;
@@ -2147,6 +2152,163 @@ heapify(It begin_, It end_, C && compare = {})
 				i = p;
 			}
 		}
+	}
+}
+
+template <class C, typename E = remove_cvref_t<decltype(*begin(decl<C>()))>
+		, typename P = less<E>
+		, typename   = decltype(ds::heapify(begin(decl<C>()), end(decl<C>()), decl<P>()))
+	>
+static DS_constexpr14 C && 
+heapify(C && idx_iterable, P && compare = {})
+{
+	ds::heapify(begin(idx_iterable), end(idx_iterable), ds::forward<P>(compare));
+	return ds::forward<C>(idx_iterable);
+}
+
+template <class C
+		, typename    = decltype(size(decl<C>()))
+		, typename It = decltype(begin(decl<C>()))
+		, typename E  = decltype(*decl<It &>())
+		, class    P  = less<remove_cvref_t<E>>
+		, typename    = decltype(decl<It &>() + decl<size_t>())
+		, typename    = decltype(decl<E &>() = decl<E &>())
+	>
+static DS_constexpr14 It
+bubble_to_top(C && idx_iterable, P && compare = {})
+{
+	auto size_ = size(idx_iterable);
+	if(size_ <= 1)
+		return begin(idx_iterable);
+	else
+	{
+		It   begin_ = begin(idx_iterable);
+		It   it_    = begin_;
+		auto size_1 = size_ - 1;
+		for(size_t c, i = 0; i < size_1; it_ = (begin_ + i))
+		{
+			c = 2 * i + 1;
+			if(c > size_1)
+			{
+				auto rbegin_ = begin_ + size_1;
+				if(it_ != rbegin_)
+				{
+					ds::swap(*it_, *rbegin_);
+					// bubble down
+					for(size_t p, j = i; j > 0; j = p)
+					{
+						p = (j - 1) / 2;
+						auto & parent_ = *(begin_ + p);
+						auto & child_  = *(begin_ + j);
+						if(compare(child_, parent_))
+							swap(child_, parent_);
+						else
+							break;
+					}
+					return ds::move(rbegin_);
+				}
+			}
+			else if(c < size_1)
+			{
+				auto & parent  = *(begin_ + i);
+				auto & child_1 = *(begin_ + c);
+				auto & child_2 = *(begin_ + c + 1);
+				if(compare(child_1, child_2))
+				{
+					if(compare(parent, child_1))
+						ds::swap(parent, child_1);
+					i = c;
+				}
+				else
+				{
+					if(compare(parent, child_2))
+						ds::swap(parent, child_2);
+					i = c + 1;
+				}
+			}
+			else
+			{
+				auto & parent  = *(begin_ + i);
+				auto & child_1 = *(begin_ + c);
+				if(compare(parent, child_1))
+					ds::swap(parent, child_1);
+				i = c;
+			}
+		}
+		return ds::move(it_);
+	}
+}
+
+template <class C
+		, typename    = decltype(size(decl<C>()))
+		, typename It = decltype(begin(decl<C>()))
+		, typename E  = decltype(*decl<It &>())
+		, class    P  = less<remove_cvref_t<E>>
+		, typename    = decltype(decl<It &>() + decl<size_t>())
+		, typename    = decltype(decl<E &>() = decl<E &>())
+	>
+static DS_constexpr14 It
+bubble_down(C && idx_iterable, P && compare = {})
+{
+	auto size_ = size(idx_iterable);
+	if(size_ <= 1)
+		return begin(idx_iterable);
+	else
+	{
+		It begin_ = begin(idx_iterable);
+		It it_    = begin_ + (size_ - 1);
+		for(size_t p, i = size_ - 1; i > 0; i = p, it_ = (begin_ + i))
+		{
+			p = (i - 1) / 2;
+			auto & parent = *(begin_ + p);
+			auto & child  = *it_;
+			if(compare(child, parent))
+				ds::swap(child, parent);
+			else
+				break;
+		}
+		return ds::move(it_);
+	}
+}
+
+template <class C
+		, typename It = decltype(begin(decl<C>()))
+		, typename E  = decltype(*decl<It &>())
+		, class    P  = less<remove_cvref_t<E>>
+	>
+static bool
+validate_heap(C && idx_iterable, P && compare = {})
+{
+	auto size_ = size(idx_iterable);
+	if(size_ <= 1)
+		return true;
+	else
+	{
+		It   begin_ = begin(idx_iterable);
+		auto size_1 = size_ - 1;
+		for(size_t i = 0; i < size_1; ++i)
+		{
+			size_t c = 2 * i + 1;
+			if(c > size_1)
+				continue;
+			else if(c < size_1)
+			{
+				auto & parent_ = *(begin_ + i);
+				auto & child_1 = *(begin_ + c);
+				auto & child_2 = *(begin_ + c + 1);
+				if(compare(child_1, parent_) 
+				|| compare(child_2, parent_))
+					return false;
+			}
+			else
+			{
+				auto & parent_ = *(begin_ + i);
+				auto & child_1 = *(begin_ + c);
+				if(compare(child_1, parent_))
+					return false;
+			}
+		}
+		return true;
 	}
 }
 
