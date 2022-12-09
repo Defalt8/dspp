@@ -477,6 +477,9 @@ template <typename T> using is_move_assignable              = is_assignable<T,re
 template <typename T> using is_trivially_copy_assignable    = is_trivially_assignable<T,remove_cvref_t<T> const &>;
 template <typename T> using is_trivially_move_assignable    = is_trivially_assignable<T,remove_cvref_t<T> &&>;
 
+template <typename T, typename... Args>
+struct is_aggregate_initializable_or_constructible : bool_constant<is_aggregate_initializable<T,Args...>::value || is_constructible<T,Args...>::value> {};
+
 template <typename T> 
 struct is_signed : bool_constant<bool(T(-1) < T(0))> {};
 
@@ -2767,6 +2770,130 @@ find_max(C && iterable, P && compare = {})
 	return _candidate;
 }
 
+
+namespace _ {
+	
+	static DS_constexpr14 size_t _concat_total_size() noexcept { return 0; }
+
+	template <typename Arg, typename... Args>
+	static DS_constexpr14 size_t
+	_concat_total_size(Arg && arg, Args &&... args) noexcept
+	{
+		return ds::size(arg) + _concat_total_size(args...);
+	}
+
+	template <typename... Args>
+	static DS_constexpr14 size_t
+	_concat_total_size(char const * cstr, Args &&... args) noexcept
+	{
+		return ds::string_length(cstr) + _concat_total_size(args...);
+	}
+	
+
+	template <typename E, class C, typename It>
+	static DS_constexpr14 void _concat_copy_construct_it(C && object, It it_) {}
+
+	template <typename E, class C, typename It, typename Arg, typename... Args
+			, typename T = remove_reference_t<decltype(*begin(decl<Arg>()))>
+			, enable_if_t<(
+					   is_same<T,remove_reference_t<E>>::value
+					&& is_trivially_copy_constructible<E>::value
+				),int> = 0
+		>
+	static DS_constexpr14 void
+	_concat_copy_construct_it(C && object, It it_, Arg && arg, Args &&... args) 
+	{
+		auto size_ = size(arg);
+		memcpy(&(*it_), begin(arg), size_);
+		_concat_copy_construct_it<E>(ds::forward<C>(object), it_ + size_, ds::forward<Args>(args)...);
+	}
+
+	template <typename E, class C, typename It, typename Arg, typename... Args
+			, typename T = remove_reference_t<decltype(*begin(decl<Arg>()))>
+			, enable_if_t<!(
+					   is_same<T,E>::value
+					&& is_trivially_copy_constructible<E>::value
+				),int> = 0
+		>
+	static DS_constexpr14 void
+	_concat_copy_construct_it(C && object, It it_, Arg && arg, Args &&... args) 
+	{
+		auto cend_ = end(arg);
+		for(auto cit = begin(arg); cit != cend_; ++cit, ++it_)
+			aggregate_init_or_construct_at<E>(&(*it_), *cit);
+		_concat_copy_construct_it<E>(ds::forward<C>(object), it_, ds::forward<Args>(args)...);
+	}
+
+	template <typename E, class C, typename It, typename... Args>
+	static DS_constexpr14 void
+	_concat_copy_construct_it(C && object, It it_, char const * cstr, Args &&... args) 
+	{
+		auto size_ = ds::string_length(cstr);
+		memcpy(&(*it_), cstr, size_);
+		_concat_copy_construct_it<E>(ds::forward<C>(object), it_ + size_, ds::forward<Args>(args)...);
+	}
+
+	template <typename E, class C>
+	static DS_constexpr14 void _concat_copy_construct_ins(ds::inserter<C,E> & inserter_) {}
+
+	template <typename E, class C, typename Arg, typename... Args>
+	static DS_constexpr14 void
+	_concat_copy_construct_ins(ds::inserter<C,E> & inserter_, Arg && arg, Args &&... args) 
+	{
+		auto cend_ = end(arg);
+		for(auto cit = begin(arg); cit != cend_; ++cit)
+			inserter_.insert(*cit);
+		_concat_copy_construct_ins<E>(inserter_, ds::forward<Args>(args)...);
+	}
+
+	template <typename E, class C, typename... Args>
+	static DS_constexpr14 void
+	_concat_copy_construct_ins(ds::inserter<C,E> & inserter_, char const * cstr, Args &&... args) 
+	{
+		size_t size_ = ds::string_length(cstr);
+		for(size_t i = 0; i < size_; ++i)
+			inserter_.insert(cstr[i]);
+		_concat_copy_construct_ins<E>(inserter_, ds::forward<Args>(args)...);
+	}
+	
+} // namespace _
+
+template <class C
+		, typename E = remove_reference_t<decltype(*begin(decl<C &>()))>
+		, enable_if_t<has_inserter<C,E>::value,int> = 0
+		, typename Ins = enabled_inserter_t<C,E>
+		, typename... Args
+		, enable_if_t<are_all_true<is_aggregate_initializable_or_constructible<E,decltype(*begin(decl<Args>()))>...>::value,int> = 0
+	>
+static DS_constexpr14 C
+concat(Args &&... args)
+{
+	auto total_size_   = _::_concat_total_size(args...);
+	auto concatenated_ = C();
+	auto inserter_     = Ins { concatenated_ };
+	if(inserter_.init(total_size_))
+		_::_concat_copy_construct_ins<E>(inserter_, ds::forward<Args>(args)...);
+	return ds::move(concatenated_);
+}
+
+template <class C
+		, typename E = remove_reference_t<decltype(*begin(decl<C &>()))>
+		, enable_if_t<(
+				   !has_inserter<C,E>::value
+				&& is_constructible<C,size_t,ds::noinit_t>::value
+			),int> = 0
+		, typename... Args
+		, enable_if_t<are_all_true<is_aggregate_initializable_or_constructible<E,decltype(*begin(decl<Args>()))>...>::value,int> = 0
+	>
+static DS_constexpr14 C
+concat(Args &&... args)
+{
+	auto total_size_   = _::_concat_total_size(args...);
+	auto concatenated_ = C(total_size_, noinit);
+	if(size(concatenated_) >= total_size_)
+		_::_concat_copy_construct_it<E>(concatenated_, begin(concatenated_), ds::forward<Args>(args)...);
+	return ds::move(concatenated_);
+}
 
 } // namespace ds
 
