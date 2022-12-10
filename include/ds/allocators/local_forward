@@ -14,17 +14,26 @@ template <size_t sz_, size_t al_ = alignof(max_align_t)>
 class LocalForward : public Base
 {
 	using bytes_t = AlignedBytes<sz_,al_>;
-	bytes_t    _mem { noinit };
+	bytes_t    _mem  { noinit };
 	byte_ptr_t _head = &_mem.bytes[0];
-
-	LocalForward(LocalForward &&) = delete;
-	LocalForward(LocalForward const &) = delete;
 
  public:
 	struct allocation_failure : public bad_alloc
 	{
 		char const * what() const noexcept override { return "allocation failure"; }
 	};
+	
+	LocalForward(LocalForward && rhs)
+		: _mem  { ds::move(rhs._mem) }
+		, _head { &rhs._mem.bytes[0] + (rhs._head - &rhs._mem.bytes[0]) }
+	{
+		rhs._head = &rhs._mem.bytes[0];
+	}
+	
+	LocalForward(LocalForward const & rhs)
+		: _mem  { rhs._mem }
+		, _head { &rhs._mem.bytes[0] + (rhs._head - &rhs._mem.bytes[0]) }
+	{}
 
 	LocalForward(noinit_t)
 	{}
@@ -62,13 +71,22 @@ template <size_t sz_, size_t al_ = alignof(max_align_t)>
 class NTLocalForward : public NTBase
 {
 	using bytes_t = AlignedBytes<sz_,al_>;
-	bytes_t    _mem { noinit };
+	bytes_t    _mem  { noinit };
 	byte_ptr_t _head = &_mem.bytes[0];
 
-	NTLocalForward(NTLocalForward &&) = delete;
-	NTLocalForward(NTLocalForward const &) = delete;
-	
  public:
+	NTLocalForward(NTLocalForward && rhs)
+		: _mem  { ds::move(rhs._mem) }
+		, _head { &rhs._mem.bytes[0] + (rhs._head - &rhs._mem.bytes[0]) }
+	{
+		rhs._head = &rhs._mem.bytes[0];
+	}
+	
+	NTLocalForward(NTLocalForward const & rhs)
+		: _mem  { rhs._mem }
+		, _head { &rhs._mem.bytes[0] + (rhs._head - &rhs._mem.bytes[0]) }
+	{}
+
 	NTLocalForward(noinit_t)
 	{}
 	
