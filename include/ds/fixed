@@ -283,8 +283,8 @@ class Fixed<size_,E &>
 
 	template <typename T, typename... Ts
 			, enable_if_t<((sizeof...(Ts)+1 <= size_) 
-				&& are_all_true<is_constructible<E *, decltype(&decl<T>())>
-				              , is_constructible<E *, decltype(&decl<Ts>())>...>::value)
+				&& are_all_true<is_static_castable<E *, decltype(&decl<T>())>
+				              , is_static_castable<E *, decltype(&decl<Ts>())>...>::value)
 			,int> = 0
 		>
 	constexpr Fixed(T && value, Ts &&... values)
