@@ -1,0 +1,380 @@
+#pragma once
+#ifndef DS_SWITCH
+#define DS_SWITCH
+
+#include "common"
+#include "tuple"
+
+namespace ds {
+
+template <typename En, typename Fn>
+struct Case
+{
+	En en {};
+	Fn fn {};
+
+	constexpr Case() = default;
+	constexpr Case(Case &&) = default;
+	constexpr Case(Case const &) = default;
+	Case & operator=(Case &&) = default;
+	Case & operator=(Case const &) = default;
+
+	constexpr Case(En && en_, Fn && fn_)
+		: en { ds::move(en_) }
+		, fn { ds::move(fn_) }
+	{}
+
+};
+
+
+struct SwitchParams
+{
+	size_t scale  = 1;
+	int    offset = 0;
+	size_t mod    = size_t(-1);
+
+	constexpr SwitchParams() = default;
+	constexpr SwitchParams(SwitchParams &&) = default;
+	constexpr SwitchParams(SwitchParams const &) = default;
+	SwitchParams & operator=(SwitchParams &&) = default;
+	SwitchParams & operator=(SwitchParams const &) = default;
+	
+	constexpr SwitchParams(size_t scale_, int offset_, size_t mod_)
+		: scale  { scale_ }
+		, offset { offset_ }
+		, mod    { mod_ }
+	{}
+
+};
+
+using switch_params = SwitchParams;
+
+template <class OST>
+static OST &
+operator<<(OST & ostream, SwitchParams const & rhs)
+{
+	return ostream << rhs.scale << stream_separator << rhs.offset << stream_separator << rhs.mod;
+}
+
+struct bad_switch_hasher : public exception
+{
+	char const * 
+	what() const noexcept override
+	{
+		return "bad switch hasher!";
+	}
+
+};
+
+struct expensive_switch_params : public exception
+{
+	char const * 
+	what() const noexcept override
+	{
+		return "switch params too expensive to calculate!";
+	}
+
+};
+
+struct imperfect_switch_params : public exception
+{
+	char const * 
+	what() const noexcept override
+	{
+		return "imperfect switch params!";
+	}
+
+};
+
+namespace _ {
+
+	template <size_t index, typename... Fn>
+	static constexpr void
+	_call_case(Tuple<Fn...> const & cases_)
+	{
+		cases_.template at<index>()();
+	}
+
+} // namespace _
+
+// - Best switch using a perfectly pre/calculated call table and 
+//    a hash function using ds::Hasher<En> and parameters SwitchParams.
+// - Construction will fail, in debug mode, if the parameters given or calculated 
+//    do not produce a perfect call table with zero collisions for the given cases.
+// - The calculated SwitchParams can be used directly during construction to avoid 
+//    redundant SwitchParams calculations, provided that the cases are not going to change. 
+// - Using an imperfect SwitchParams will result in missed cases.
+// - If a perfect SwitchParams cannot be calculated. I suggest you do the calculations yourself
+//    with larger limits and use that, or resort to using regular switch.
+template <typename En, typename DefFn, typename... Fn>
+class Switch
+{
+	static_assert(is_same<decltype(Hasher<En>::hash(decl<En const &>())),size_t>::value, "ds::Hasher specialization for En is required!");
+	
+ public:
+	static constexpr size_t _size = sizeof...(Fn);
+
+	using tuple_t   = Tuple<Fn...>;
+	using def_t     = DefFn;
+	using key_t     = En;
+	using val_t     = void(*)(tuple_t const &);
+	using keys_t    = key_t[_size];
+	using vals_t    = val_t[_size];
+	using idxs_t    = size_t[_size];
+	using hashes_t  = size_t[_size];
+	using params_t  = SwitchParams;
+
+ private:
+	tuple_t  _cases;
+	def_t    _default;
+	keys_t   _keys;
+	vals_t   _vals;
+	idxs_t   _idxs;
+	hashes_t _hashes;
+	params_t _params { 1, 0, _size };
+
+	DS_constexpr14 bool
+	_validate_params()
+	{
+		size_t hashes_[_size];
+		bool   unique_ = true;
+		for(size_t i = 0; unique_ && i < _size; ++i)
+		{
+			hashes_[i] = _hash(_keys[i]);
+			for(size_t j = 0; j < i; ++j)
+			{
+				if(hashes_[i] == hashes_[j])
+				{
+					unique_ = false;
+					break;
+				}
+			}
+		}
+		return unique_;
+	}
+
+	DS_constexpr14 bool
+	_find_best_params()
+	{
+		auto _max_scale  = size_t(_size * 1);
+		auto _max_offset = int(_size) * 2;
+		auto _max_mod    = size_t(_size * 3);
+		for(size_t i = 0; i < _size; ++i)
+		{
+			auto _2_hash = _hashes[i] * 2;
+			if(_2_hash > _max_mod)
+				_max_mod = _2_hash;
+		}
+		for(size_t _scale = 1; _scale < _max_scale; ++_scale)
+		{
+			for(size_t _mod = _size; _mod < _max_mod; ++_mod)
+			{
+				for(int _offset = 0; _offset < _max_offset; ++_offset)
+				{
+					size_t hashes_[_size];
+					bool   unique_ = true;
+					for(size_t i = 0; unique_ && i < _size; ++i)
+					{
+						hashes_[i] = ((_scale * (_hashes[i] + _offset)) % _mod) % _size;
+						for(size_t j = 0; j < i; ++j)
+						{
+							if(hashes_[i] == hashes_[j])
+							{
+								unique_ = false;
+								break;
+							}
+						}
+					}
+					if(unique_)
+					{
+						_params = { _scale, _offset, _mod };
+						return true;
+					}
+					if(_offset == 0)
+						continue;
+					unique_ = true;
+					for(size_t i = 0; unique_ && i < _size; ++i)
+					{
+						hashes_[i] = ((_scale * (_hashes[i] - _offset)) % _mod) % _size;
+						for(size_t j = 0; j < i; ++j)
+						{
+							if(hashes_[i] == hashes_[j])
+							{
+								unique_ = false;
+								break;
+							}
+						}
+					}
+					if(unique_)
+					{
+						_params = { _scale, -_offset, _mod };
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	DS_constexpr14 size_t 
+	_hash(En const & en_) const
+	{
+		return ((_params.scale * (Hasher<En>::hash(en_) + _params.offset)) % _params.mod) % _size;
+	}
+
+	Switch() = delete;
+	Switch(Switch const &) = delete;
+
+ public:
+	constexpr Switch(Switch &&) = default;
+	Switch & operator=(Switch &&) = default;
+
+	template <size_t... indices_>
+	DS_constexpr14 Switch(DefFn && default_, Case<En,Fn> &&... cases_, index_sequence<indices_...> _seq_ = make_index_sequence_t<0,_size>())
+		: _cases   { ds::move(cases_.fn)... }
+		, _default { ds::move(default_) }
+		, _keys    { ds::move(cases_.en)... }
+		, _vals    { _::_call_case<indices_,Fn...>... }
+		, _idxs    {}
+	{
+		// store raw hashes and assert uniqueness
+		for(size_t i = 0; i < _size; ++i)
+		{
+			size_t hash_ = Hasher<En>::hash(_keys[i]);
+			_hashes[i] = hash_;
+			for(size_t j = 0; j < i; ++j)
+			{
+				ds_throw_if(_hashes[j] == _hashes[i], bad_switch_hasher());
+				ds_throw_alt(assert(_hashes[j] == _hashes[i]));
+			}
+		}
+		{
+			auto best_params_found = _find_best_params();
+			ds_throw_if(!best_params_found, expensive_switch_params());
+			ds_throw_alt(assert(best_params_found));
+		}
+		for(size_t i = 0; i < _size; ++i)
+		{
+			size_t hash_ = _hash(_keys[i]);
+			_idxs[hash_] = i;
+		}
+	}
+
+	template <size_t... indices_>
+	DS_constexpr14 Switch(params_t params_, DefFn && default_, Case<En,Fn> &&... cases_, index_sequence<indices_...> _seq_ = make_index_sequence_t<0,_size>())
+		: _cases   { ds::move(cases_.fn)... }
+		, _default { ds::move(default_) }
+		, _keys    { ds::move(cases_.en)... }
+		, _vals    { &_::_call_case<indices_,Fn...>... }
+		, _idxs    {}
+		, _params  { ds::move(params_) }
+	{
+		ds_throw_if(!_validate_params(), imperfect_switch_params());
+		ds_throw_alt(assert(_validate_params()));
+		for(size_t i = 0; i < _size; ++i)
+		{
+			size_t hash_ = _hash(_keys[i]);
+			_idxs[hash_] = i;
+		}
+	}
+
+	DS_constexpr14 void
+	operator()(En const & en_) const
+	{
+		size_t hash_  = this->_hash(en_);
+		size_t index_ = _idxs[hash_];
+		(_keys[index_] == en_) ? (void)_vals[index_](_cases) : (void)_default(en_);
+	}
+
+	constexpr params_t const & params() const noexcept { return _params; }
+
+};
+
+template <typename En>
+struct switch_en_value_validator
+{
+	size_t     _i;
+	En const & _en;
+
+	struct duplicate_cases : public exception
+	{
+		size_t index1;
+		size_t index2;
+		En const & en1;
+		En const & en2;
+
+		duplicate_cases(size_t index1_, size_t index2_, En const & en1_, En const & en2_)
+			: index1 { index1_ }
+			, index2 { index2_ }
+			, en1    { en1_ }
+			, en2    { en2_ }
+		{}
+
+		char const * 
+		what() const noexcept override
+		{
+			return "duplicate fast switch cases";
+		}
+	
+	};
+
+	DS_constexpr14 void
+	operator()(size_t i_, En const & en_) const
+	{
+		if(i_ != _i)
+		{
+			ds_throw_if(en_ == _en, duplicate_cases(_i, i_, _en, en_));
+			ds_throw_alt(assert(en_ != _en));
+		}
+	}
+
+};
+
+template <typename En, class Tup>
+struct switch_en_validator
+{
+	Tup & _tuple;
+
+	DS_constexpr14 void
+	operator()(size_t i, En const & en_) const
+	{
+		auto validator_ = switch_en_value_validator<En>{ i, en_ };
+		_tuple.for_each(validator_);
+	}
+};
+
+template <typename En, typename Fn>
+static constexpr Case<remove_reference_t<En>,remove_reference_t<Fn>>
+make_case(En && en_, Fn && fn_)
+{
+	return { ds::forward<En>(en_), ds::forward<Fn>(fn_) };
+}
+
+template <typename En, typename DefFn, typename... Fn
+		, enable_if_t<is_same<decltype(Hasher<En>::hash(decl<En const &>())),size_t>::value,int> = 0
+	>
+static DS_constexpr14 Switch<En,DefFn,Fn...>
+make_switch(DefFn && default_, Case<En,Fn> &&... cases_)
+{
+	auto tuple_     = make_tuple(cref(cases_.en)...); 
+	auto validator_ = switch_en_validator<En,decltype(tuple_)>{ tuple_ };
+	tuple_.for_each(validator_);
+	return { ds::forward<DefFn>(default_), ds::move(cases_)..., make_index_sequence_t<0,sizeof...(Fn)>() };
+}
+
+template <typename En, typename DefFn, typename... Fn
+		, enable_if_t<is_same<decltype(Hasher<En>::hash(decl<En const &>())),size_t>::value,int> = 0
+	>
+static DS_constexpr14 Switch<En,DefFn,Fn...>
+make_switch(SwitchParams params_, DefFn && default_, Case<En,Fn> &&... cases_)
+{
+	auto tuple_     = make_tuple(cref(cases_.en)...); 
+	auto validator_ = switch_en_validator<En,decltype(tuple_)>{ tuple_ };
+	tuple_.for_each(validator_);
+	return { ds::move(params_), ds::forward<DefFn>(default_), ds::move(cases_)..., make_index_sequence_t<0,sizeof...(Fn)>() };
+}
+
+
+} // namespace ds
+
+#endif // DS_SWITCH

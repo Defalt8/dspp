@@ -31,7 +31,11 @@ set( DS_HEADER_FILES
 	include/ds/ordered_list
 	include/ds/ordered_map
 	include/ds/coroutine
-)
+	include/ds/mutex
+	include/ds/semaphore
+	include/ds/thread
+	include/ds/switch
+	)
  
 set( DS_TRAITS_HEADER_FILES
 	include/ds/traits/allocator

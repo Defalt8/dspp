@@ -33,5 +33,6 @@
 #include "mutex"
 #include "semaphore"
 #include "thread"
+#include "switch"
 
 #endif // DS_ALL
