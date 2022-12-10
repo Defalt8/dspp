@@ -54,6 +54,10 @@ class UnorderedMap : protected UnorderedList<table_size_,Entry<K,V>,A>
 	UnorderedMap & operator=(UnorderedMap &&) = default;
 	UnorderedMap & operator=(UnorderedMap const &) = default;
 
+	UnorderedMap(noinit_t) noexcept
+		: UnorderedList<table_size_,entry_t,A>(noinit)
+	{}
+
 	template <size_t size_
 		, enable_if_t<is_constructible<UnorderedList<table_size_,entry_t,A>,entry_t(&&)[size_],duplicate_rule>::value,int> = 0>
 	UnorderedMap(entry_t (&& array_)[size_], duplicate_rule param = {})
@@ -163,6 +167,7 @@ class UnorderedMap : protected UnorderedList<table_size_,Entry<K,V>,A>
 	using UnorderedList<table_size_,entry_t,A>::end;
 	using UnorderedList<table_size_,entry_t,A>::rbegin;
 	using UnorderedList<table_size_,entry_t,A>::rend;
+	using UnorderedList<table_size_,entry_t,A>::destroy;
 	using UnorderedList<table_size_,entry_t,A>::remove_at;
 	using UnorderedList<table_size_,entry_t,A>::remove;
 	using UnorderedList<table_size_,entry_t,A>::swap;

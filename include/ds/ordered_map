@@ -53,6 +53,10 @@ class OrderedMap : protected OrderedList<table_size_,Entry<K,V>,A>
 	OrderedMap & operator=(OrderedMap &&) = default;
 	OrderedMap & operator=(OrderedMap const &) = default;
 
+	OrderedMap(noinit_t) noexcept
+		: OrderedList<table_size_,entry_t,A>(noinit)
+	{}
+
 	template <typename K_ = K, size_t size_
 		, enable_if_t<is_constructible<OrderedList<table_size_,entry_t,A>,K_(&&)[size_],duplicate_rule>::value,int> = 0>
 	OrderedMap(K_ (&& array_)[size_], duplicate_rule param = {})
@@ -177,6 +181,7 @@ class OrderedMap : protected OrderedList<table_size_,Entry<K,V>,A>
 	using OrderedList<table_size_,entry_t,A>::end;
 	using OrderedList<table_size_,entry_t,A>::rbegin;
 	using OrderedList<table_size_,entry_t,A>::rend;
+	using OrderedList<table_size_,entry_t,A>::destroy;
 	using OrderedList<table_size_,entry_t,A>::remove_at;
 	using OrderedList<table_size_,entry_t,A>::remove;
 	using OrderedList<table_size_,entry_t,A>::swap;
