@@ -6,10 +6,6 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #ifdef _WIN32
-#	ifndef WIN32_LEAN_AND_MEAN
-#		define WIN32_LEAN_AND_MEAN
-#	endif
-#	include <Windows.h>
 #	include <direct.h>
 #	include <io.h>
 #else
@@ -24,7 +20,7 @@ namespace ds {
 namespace sys {
 
   #ifdef _WIN32
-	static constexpr size_t max_path = 260;
+	static constexpr size_t max_path = ds::_win::MAX_PATH_;
   #elif defined(__APPLE__ )
 	static constexpr size_t max_path = 1024;
   #else
@@ -287,9 +283,10 @@ namespace sys {
 						_new_size += 2;
 					}
 				}
-				WIN32_FIND_DATAA fdata {}; 
-				HANDLE _handle = FindFirstFileA(&_path_buffer[0], &fdata);
-				if(_handle != INVALID_HANDLE_VALUE)
+				using namespace ds::_win;
+				WIN32_FIND_DATAA_ fdata {}; 
+				HANDLE_ _handle = FindFirstFileA(&_path_buffer[0], &fdata);
+				if(_handle != INVALID_HANDLE_VALUE_)
 				{
 					// remove *
 					{
@@ -316,12 +313,12 @@ namespace sys {
 					auto err = GetLastError();
 					switch(err)
 					{
-						case ERROR_INVALID_DRIVE: 
-						case ERROR_FILE_NOT_FOUND: return sls::dir_not_found;
-						case ERROR_DIRECTORY:      return sls::not_a_dir;
-						case ERROR_ACCESS_DENIED:  return sls::access_denied;
-						case ERROR_PATH_BUSY:      return sls::busy;
-						default:                   return sls::other;
+						case ERROR_INVALID_DRIVE_: 
+						case ERROR_FILE_NOT_FOUND_: return sls::dir_not_found;
+						case ERROR_DIRECTORY_:      return sls::not_a_dir;
+						case ERROR_ACCESS_DENIED_:  return sls::access_denied;
+						case ERROR_PATH_BUSY_:      return sls::busy;
+						default:                    return sls::other;
 					}
 				}
 			  #else
@@ -794,7 +791,8 @@ namespace sys {
 	sleep(float sec) noexcept
 	{
 	  #ifdef _WIN32
-		::Sleep(static_cast<DWORD>((sec * 1E+3)));
+		using namespace ds::_win;
+		Sleep(static_cast<DWORD_>((sec * 1E+3)));
 	  #else
 		::usleep(sec * 1E+6);
 	  #endif
@@ -804,7 +802,8 @@ namespace sys {
 	msleep(uint32_t milli_sec) noexcept
 	{
 	  #ifdef _WIN32
-		::Sleep(static_cast<DWORD>(milli_sec));
+		using namespace ds::_win;
+		Sleep(static_cast<DWORD_>(milli_sec));
 	  #else
 		::usleep(milli_sec * 1000U);
 	  #endif
@@ -814,8 +813,9 @@ namespace sys {
 	nprocessors() noexcept
 	{
 	  #ifdef _WIN32
-		::SYSTEM_INFO system_info;
-		::GetSystemInfo(&system_info);
+		using namespace ds::_win;
+		SYSTEM_INFO_ system_info;
+		GetSystemInfo(&system_info);
 		return size_t(system_info.dwNumberOfProcessors);
 	  #else
 		auto count_ = ::sysconf(_SC_NPROCESSORS_ONLN);

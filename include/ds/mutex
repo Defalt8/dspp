@@ -2,10 +2,7 @@
 #ifndef DS_MUTEX
 #define DS_MUTEX
 
-#ifdef _WIN32
-#	define WIN32_LEAN_AND_MEAN
-#	include <Windows.h>
-#else
+#ifndef _WIN32
 #	include <pthread.h>
 #endif
 
@@ -20,14 +17,14 @@ class Mutex
 {
  public:
   #ifdef _WIN32
-	using handle_t = HANDLE;
+	using handle_t = ds::_win::HANDLE_;
   #else
 	using handle_t = pthread_mutex_t;
   #endif
 
  private:
   #ifdef _WIN32
-	handle_t          _handle = INVALID_HANDLE_VALUE;
+	handle_t          _handle = ds::_win::INVALID_HANDLE_VALUE_;
   #else
 	handle_t mutable  _handle {};
 	bool              _is_init = false;
@@ -57,12 +54,12 @@ class Mutex
 	{
 		this->destroy();
 	}
-	
 	Mutex() noexcept(false)
   #ifdef _WIN32
-		: _handle  { ::CreateMutexA(nullptr, false, 0) }
+		: _handle  { ds::_win::CreateMutexA(nullptr, false, 0) }
 	{
-		ds_throw_if(_handle == INVALID_HANDLE_VALUE, creation_failure());
+		using namespace ds::_win;
+		ds_throw_if(_handle == INVALID_HANDLE_VALUE_, creation_failure());
 	}
   #else
 		: _handle  {}
@@ -74,9 +71,10 @@ class Mutex
 
 	Mutex(bool lock_) noexcept(false)
   #ifdef _WIN32
-		: _handle  { ::CreateMutexA(nullptr, false, 0) }
+		: _handle  { ds::_win::CreateMutexA(nullptr, false, 0) }
 	{
-		ds_throw_if(_handle == INVALID_HANDLE_VALUE, creation_failure());
+		using namespace ds::_win;
+		ds_throw_if(_handle == INVALID_HANDLE_VALUE_, creation_failure());
 		ds_throw_if(!this->lock(), lock_failure());
 		ds_throw_if_alt(this->lock());
 	}
@@ -92,7 +90,7 @@ class Mutex
 
 	Mutex(nothrow_t) noexcept
   #ifdef _WIN32
-		: _handle  { ::CreateMutexA(nullptr, false, 0) }
+		: _handle  { ds::_win::CreateMutexA(nullptr, false, 0) }
 	{}
   #else
 		: _handle  {}
@@ -102,7 +100,7 @@ class Mutex
 
 	Mutex(bool lock_, nothrow_t) noexcept
   #ifdef _WIN32
-		: _handle  { ::CreateMutexA(nullptr, false, 0) }
+		: _handle  { ds::_win::CreateMutexA(nullptr, false, 0) }
 	{
 		this->lock();
 	}
@@ -118,7 +116,8 @@ class Mutex
   #ifdef _WIN32
 		: _handle  { _release_and_lock(mutex) ? ds::move(mutex._handle) : ds::move(mutex._handle) }
 	{
-		mutex._handle = INVALID_HANDLE_VALUE;
+		using namespace ds::_win;
+		mutex._handle = INVALID_HANDLE_VALUE_;
 	  	this->release();
 	}
   #else
@@ -135,10 +134,11 @@ class Mutex
 	create() noexcept
 	{
 	  #ifdef _WIN32
-		if(_handle != INVALID_HANDLE_VALUE) 
+		using namespace ds::_win;
+		if(_handle != INVALID_HANDLE_VALUE_) 
 			return true;
-		_handle = ::CreateMutexA(nullptr, false, 0);
-		return _handle != INVALID_HANDLE_VALUE;
+		_handle = CreateMutexA(nullptr, false, 0);
+		return _handle != INVALID_HANDLE_VALUE_;
 	  #else
 		if(_is_init) 
 			return true;
@@ -151,12 +151,13 @@ class Mutex
 	destroy() noexcept
 	{
 	  #ifdef _WIN32
-		if(_handle != INVALID_HANDLE_VALUE) 
+		using namespace ds::_win;
+		if(_handle != INVALID_HANDLE_VALUE_) 
 		{
-			::ReleaseMutex(_handle);
-			::WaitForSingleObject(_handle, INFINITE);
-			::CloseHandle(_handle);
-			_handle = INVALID_HANDLE_VALUE;
+			ReleaseMutex(_handle);
+			WaitForSingleObject(_handle, INFINITE_);
+			CloseHandle(_handle);
+			_handle = INVALID_HANDLE_VALUE_;
 		}
 	  #else
 		if(_is_init)
@@ -188,8 +189,9 @@ class Mutex
 	lock() noexcept
 	{
 	  #ifdef _WIN32
-		if(_handle != INVALID_HANDLE_VALUE)
-			return ::WaitForSingleObject(_handle, INFINITE) == WAIT_OBJECT_0;
+		using namespace ds::_win;
+		if(_handle != INVALID_HANDLE_VALUE_)
+			return WaitForSingleObject(_handle, INFINITE_) == WAIT_OBJECT_0_;
 	  #else
 		if(_is_init)
 			return ::pthread_mutex_lock(&_handle) == 0;
@@ -201,8 +203,9 @@ class Mutex
 	try_lock() noexcept
 	{
 	  #ifdef _WIN32
-		if(_handle != INVALID_HANDLE_VALUE)
-			return ::WaitForSingleObject(_handle, 0) == WAIT_OBJECT_0;
+		using namespace ds::_win;
+		if(_handle != INVALID_HANDLE_VALUE_)
+			return WaitForSingleObject(_handle, 0) == WAIT_OBJECT_0_;
 	  #else
 		if(_is_init)
 			return ::pthread_mutex_trylock(&_handle) == 0;
@@ -214,7 +217,8 @@ class Mutex
 	release() noexcept
 	{
 	  #ifdef _WIN32
-		return _handle != INVALID_HANDLE_VALUE && ::ReleaseMutex(_handle) != FALSE;
+		using namespace ds::_win;
+		return _handle != INVALID_HANDLE_VALUE_ && ReleaseMutex(_handle) != 0;
 	  #else
 		return _is_init && ::pthread_mutex_unlock(&_handle) == 0;
 	  #endif
@@ -237,9 +241,10 @@ class Mutex
 	is_locked() noexcept
 	{
 	  #ifdef _WIN32
+		using namespace ds::_win;
 		if(!this->try_lock())
 			return true;
-		::ReleaseMutex(_handle);
+		ReleaseMutex(_handle);
 		return false;
 	  #else
 		if(!this->try_lock())
@@ -252,9 +257,9 @@ class Mutex
 	handle_t const & handle() const noexcept { return _handle; }
 
   #ifdef _WIN32
-	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE_VALUE; }
-	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE_VALUE; }
-	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE_VALUE; }
+	inline bool operator!()         const noexcept { return _handle == ds::_win::INVALID_HANDLE_VALUE_; }
+	explicit inline operator bool()       noexcept { return _handle != ds::_win::INVALID_HANDLE_VALUE_; }
+	explicit inline operator bool() const noexcept { return _handle != ds::_win::INVALID_HANDLE_VALUE_; }
   #else
 	inline bool operator!()         const noexcept { return !_is_init; }
 	explicit inline operator bool()       noexcept { return _is_init; }

@@ -2,10 +2,7 @@
 #ifndef DS_THREAD
 #define DS_THREAD
 
-#ifdef _WIN32
-#	define WIN32_LEAN_AND_MEAN
-#	include <Windows.h>
-#else
+#ifndef _WIN32
 #	include <pthread.h>
 #endif
 
@@ -44,7 +41,7 @@ struct ThreadInfo
 {
  public:
   #ifdef _WIN32
-	using handle_t = HANDLE;
+	using handle_t = ds::_win::HANDLE_;
   #else
 	using handle_t = pthread_t;
   #endif
@@ -58,7 +55,7 @@ struct ThreadInfo
 	Semaphore    _sem     {};
 	routine_t    _routine {};
   #ifdef _WIN32
-	handle_t     _handle  = INVALID_HANDLE_VALUE;
+	handle_t     _handle  = ds::_win::INVALID_HANDLE_VALUE_;
   #else
 	handle_t     _handle  {};
 	bool         _is_init = false;
@@ -118,9 +115,9 @@ struct ThreadInfo
 	size_t               id()       const noexcept { return _id; }
 
   #ifdef _WIN32
-	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE_VALUE; }
-	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE_VALUE; }
-	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE_VALUE; }
+	inline bool operator!()         const noexcept { return _handle == ds::_win::INVALID_HANDLE_VALUE_; }
+	explicit inline operator bool()       noexcept { return _handle != ds::_win::INVALID_HANDLE_VALUE_; }
+	explicit inline operator bool() const noexcept { return _handle != ds::_win::INVALID_HANDLE_VALUE_; }
   #else
 	inline bool operator!()         const noexcept { return !_is_init; }
 	explicit inline operator bool()       noexcept { return _is_init; }
@@ -164,6 +161,7 @@ class Thread
 	_create() noexcept(false)
 	{
 	  #ifdef _WIN32
+		using namespace ds::_win;
 		if(_info && _info->_routine)
 		{
 			auto & info_mutex = _info->_mutex;
@@ -173,8 +171,8 @@ class Thread
 				return;
 			}
 			{
-				DWORD id_;
-				_info->_handle = ::CreateThread(nullptr, 0, _routine_impl, &_info, 0, &id_);
+				DWORD_ id_;
+				_info->_handle = CreateThread(nullptr, 0, _routine_impl, &_info, 0, &id_);
 				_info->_id     = size_t(id_);
 			}
 			_info->_sem.await();
@@ -213,7 +211,8 @@ class Thread
 	_join(handle_t & handle_) noexcept
 	{
 	  #if _WIN32
-		return ::WaitForSingleObject(handle_, INFINITE) == WAIT_OBJECT_0;
+		using namespace ds::_win;
+		return WaitForSingleObject(handle_, INFINITE_) == WAIT_OBJECT_0_;
 	  #else
 		return ::pthread_join(handle_, nullptr) == 0;
 	  #endif
@@ -228,14 +227,16 @@ class Thread
 	
   #ifdef _WIN32
 
-	static DWORD __stdcall 
+	static ds::_win::DWORD_ __stdcall 
 	_routine_impl(void * data) noexcept
 	{
+		using namespace ds::_win;
 		Persistent<ThreadInfo> * thread_info = static_cast<Persistent<ThreadInfo> *>(data);
 		if(thread_info != nullptr)
 		{
-			Thread::current = *thread_info;
-			auto & info     = Thread::current;
+			auto & _current_thread = Thread::current();
+			_current_thread = *thread_info;
+			auto & info     = _current_thread;
 			if(info)
 			{
 				if(!info->_routine)
@@ -248,7 +249,7 @@ class Thread
 				{
 					auto const & _params = info->_params;
 					{
-						using dword_ptr_t = DWORD_PTR;
+						using dword_ptr_t = DWORD_PTR_;
 						dword_ptr_t affinity = dword_ptr_t(_params.affinity);
 						SetThreadAffinityMask(info->_handle, affinity);
 					}
@@ -263,7 +264,7 @@ class Thread
 							_buffer[i] = wchar_t(cstr[i]);
 						_buffer[_max_size_] = L'\0';
 						if(i > 0)
-							::SetThreadDescription(info->_handle, &_buffer[0]);
+							SetThreadDescription(info->_handle, &_buffer[0]);
 					}
 				}
 				info->_sem.signal(2);
@@ -288,8 +289,9 @@ class Thread
 		Persistent<ThreadInfo> * thread_info = static_cast<Persistent<ThreadInfo> *>(data);
 		if(thread_info != nullptr)
 		{
-			Thread::current = *thread_info;
-			auto & info     = Thread::current;
+			auto & _current_thread = Thread::current();
+			_current_thread = *thread_info;
+			auto & info     = _current_thread;
 			if(info)
 			{
 				if(!info->_routine)
@@ -314,7 +316,12 @@ class Thread
   #endif
 
  public:
-	static thread_local Persistent<ThreadInfo> current;
+	static Persistent<ThreadInfo> & 
+	current()
+	{
+		static thread_local Persistent<ThreadInfo> _current { noinit };
+		return _current;
+	}
 
  public:
 	struct creation_failure : exception 
@@ -389,9 +396,10 @@ class Thread
 				auto & info_mutex = _info->_mutex;
 				if(_release_and_lock(info_mutex))
 				{
-				#ifdef _WIN32
-					::CloseHandle(_info->_handle);
-				#endif
+				  #ifdef _WIN32
+					using namespace ds::_win;
+					CloseHandle(_info->_handle);
+				  #endif
 					_info->_is_detatched = true;
 					info_mutex.release();
 					_info.destroy();
@@ -410,7 +418,8 @@ class Thread
 			if(_release_and_lock(info_mutex))
 			{
 			  #ifdef _WIN32
-				::CloseHandle(_info->_handle);
+				using namespace ds::_win;
+				CloseHandle(_info->_handle);
 			  #endif
 				_info->_is_detatched = true;
 				info_mutex.release();
@@ -545,8 +554,6 @@ class Thread
 	explicit inline operator bool() const noexcept { return bool(_info) && bool(*_info); }
 
 }; 
-
-thread_local Persistent<ThreadInfo> Thread::current { noinit };
 
 using thread_params = ThreadParams;
 using thread_info   = ThreadInfo;

@@ -2,10 +2,7 @@
 #ifndef DS_SEMAPHORE
 #define DS_SEMAPHORE
 
-#ifdef _WIN32
-#	define WIN32_LEAN_AND_MEAN
-#	include <Windows.h>
-#else
+#ifndef _WIN32
 #	include <semaphore.h>
 #endif
 
@@ -21,7 +18,7 @@ class Semaphore
 {
  public:
   #ifdef _WIN32
-	using handle_t = HANDLE;
+	using handle_t = ds::_win::HANDLE_;
   #else
 	using handle_t = sem_t;
   #endif
@@ -29,7 +26,7 @@ class Semaphore
  private:
 	Mutex    _mutex    {};
   #ifdef _WIN32
-	handle_t _handle   = INVALID_HANDLE_VALUE;
+	handle_t _handle   = ds::_win::INVALID_HANDLE_VALUE_;
   #else
 	handle_t _handle   {};
 	bool     _is_init  = false;
@@ -52,9 +49,10 @@ class Semaphore
 
 	Semaphore() noexcept(false)
   #ifdef _WIN32
-		: _handle   { ::CreateSemaphoreA(nullptr, 0, max_limit<LONG>::value, nullptr) }
+		: _handle   { ds::_win::CreateSemaphoreA(nullptr, 0, max_limit<long>::value, nullptr) }
 	{
-		ds_throw_if(_handle == INVALID_HANDLE_VALUE, creation_failure());
+		using namespace ds::_win;
+		ds_throw_if(_handle == INVALID_HANDLE_VALUE_, creation_failure());
 	}
   #else
 		: _handle   {}
@@ -66,7 +64,7 @@ class Semaphore
 
 	Semaphore(nothrow_t) noexcept
   #ifdef _WIN32
-		: _handle   { ::CreateSemaphoreA(nullptr, 0, max_limit<LONG>::value, nullptr) }
+		: _handle   { ds::_win::CreateSemaphoreA(nullptr, 0, max_limit<long>::value, nullptr) }
 	{}
   #else
 		: _handle   {}
@@ -86,7 +84,8 @@ class Semaphore
 		, _waiting  { ds::move(semaphore._waiting) }
 	{
 	  #ifdef _WIN32
-		semaphore._handle   = INVALID_HANDLE_VALUE;
+		using namespace ds::_win;
+		semaphore._handle   = INVALID_HANDLE_VALUE_;
 	  #else
 		semaphore._handle   = {};
 		semaphore._is_init  = false;
@@ -103,11 +102,12 @@ class Semaphore
 		if(_mutex.lock())
 		{
 		  #ifdef _WIN32
-			if(_handle != INVALID_HANDLE_VALUE) 
+			using namespace ds::_win;
+			if(_handle != INVALID_HANDLE_VALUE_) 
 			{
-				::ReleaseSemaphore(_handle, min<int>(_waiting, max_limit<LONG>::value), nullptr);
-				::CloseHandle(_handle);
-				_handle = INVALID_HANDLE_VALUE;
+				ReleaseSemaphore(_handle, min<int>(_waiting, max_limit<long>::value), nullptr);
+				CloseHandle(_handle);
+				_handle = INVALID_HANDLE_VALUE_;
 			}
 		  #else
 			if(_is_init) 
@@ -150,7 +150,8 @@ class Semaphore
 		if(count_ > 0 && _mutex.lock())
 		{
 		  #ifdef _WIN32
-			if(_handle != INVALID_HANDLE_VALUE) 
+			using namespace ds::_win;
+			if(_handle != INVALID_HANDLE_VALUE_) 
 		  #else
 			if(_is_init) 
 		  #endif
@@ -169,7 +170,7 @@ class Semaphore
 				auto handle_ = _handle;
 				while(count_ > 0 
 					&& !(locked_ = !_mutex.release())
-					&& ::WaitForSingleObject(handle_, INFINITE) == WAIT_OBJECT_0
+					&& WaitForSingleObject(handle_, INFINITE_) == WAIT_OBJECT_0_
 					&& (locked_ = _mutex.lock()))
 			  #else
 				while(count_ > 0 
@@ -205,7 +206,8 @@ class Semaphore
 		if(count_ > 0 && _mutex.lock())
 		{
 		  #ifdef _WIN32
-			if(_handle != INVALID_HANDLE_VALUE) 
+			using namespace ds::_win;
+			if(_handle != INVALID_HANDLE_VALUE_) 
 		  #else
 			if(_is_init) 
 		  #endif
@@ -234,7 +236,8 @@ class Semaphore
 		if(count_ > 0 && _mutex.lock())
 		{
 		  #ifdef _WIN32
-			if(_handle != INVALID_HANDLE_VALUE && ::ReleaseSemaphore(_handle, min<int>(count_, max_limit<LONG>::value), nullptr) != FALSE)
+			using namespace ds::_win;
+			if(_handle != INVALID_HANDLE_VALUE_ && ReleaseSemaphore(_handle, min<int>(count_, max_limit<long>::value), nullptr) != 0)
 			{
 				_count += count_;
 				_mutex.release();
@@ -309,9 +312,9 @@ class Semaphore
 	Mutex        const & mutex()  const noexcept { return _mutex; }
 
   #ifdef _WIN32
-	inline bool operator!()         const noexcept { return _handle == INVALID_HANDLE_VALUE; }
-	explicit inline operator bool()       noexcept { return _handle != INVALID_HANDLE_VALUE; }
-	explicit inline operator bool() const noexcept { return _handle != INVALID_HANDLE_VALUE; }
+	inline bool operator!()         const noexcept { return _handle == ds::_win::INVALID_HANDLE_VALUE_; }
+	explicit inline operator bool()       noexcept { return _handle != ds::_win::INVALID_HANDLE_VALUE_; }
+	explicit inline operator bool() const noexcept { return _handle != ds::_win::INVALID_HANDLE_VALUE_; }
   #else
 	inline bool operator!()         const noexcept { return !_is_init; }
 	explicit inline operator bool()       noexcept { return _is_init; }

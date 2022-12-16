@@ -2903,4 +2903,130 @@ concat(Args &&... args)
 
 } // namespace ds
 
+#ifdef _WIN32
+
+namespace ds {
+namespace _win {
+
+#if defined(_DLL)
+#	define DS_WINAPI extern "C" __declspec(dllimport)
+#else
+#	define DS_WINAPI extern "C"
+#endif
+
+#if defined(_WIN64)
+using INT_PTR_   = long long;
+using UINT_PTR_  = unsigned long long;
+using LONG_PTR_  = long long;
+using ULONG_PTR_ = unsigned long long;
+#else
+using INT_PTR_   = int;
+using UINT_PTR_  = unsigned int;
+using LONG_PTR_  = long;
+using ULONG_PTR_ = unsigned long;
+#endif
+using BOOL_      = int;
+using BYTE_      = unsigned char;
+using WORD_      = unsigned short;
+using CHAR_      = char;
+using SHORT_     = short;
+using USHORT_    = unsigned short;
+using LONG_      = long;
+using INT_       = int;
+using UINT_      = unsigned int;
+using DWORD_     = unsigned long;
+using ATOM_      = WORD_;
+using LONG_      = long;
+using WPARAM_    = UINT_PTR_;
+using LPARAM_    = LONG_PTR_;
+using LRESULT_   = LONG_PTR_;
+using HRESULT_   = LONG_;
+using LPCSTR_    = char const *;
+using PCWSTR_    = wchar_t const *;
+using HANDLE_    = void *;
+using DWORD_PTR_ = DWORD_ *;
+using THREAD_START_ROUTINE_ = DWORD_ (__stdcall *)(void *);
+
+static           HANDLE_ INVALID_HANDLE_VALUE_ = HANDLE_(size_t(-1));
+static constexpr DWORD_  WAIT_FAILED_          = 0xFFFFFFFF;
+static constexpr DWORD_  WAIT_OBJECT_0_        = 0;
+static constexpr DWORD_  INFINITE_             = 0xFFFFFFFF;
+static constexpr DWORD_  MAX_PATH_             = 260;
+static constexpr DWORD_  ERROR_FILE_NOT_FOUND_ = 2L;
+static constexpr DWORD_  ERROR_ACCESS_DENIED_  = 5L;
+static constexpr DWORD_  ERROR_INVALID_HANDLE_ = 6L;
+static constexpr DWORD_  ERROR_INVALID_DRIVE_  = 15L;
+static constexpr DWORD_  ERROR_PATH_BUSY_      = 148L;
+static constexpr DWORD_  ERROR_DIRECTORY_      = 267L;
+
+struct FILETIME_ 
+{
+	DWORD_ dwLowDateTime;
+	DWORD_ dwHighDateTime;
+};
+
+struct WIN32_FIND_DATAA_ 
+{
+	DWORD_    dwFileAttributes;
+	FILETIME_ ftCreationTime;
+	FILETIME_ ftLastAccessTime;
+	FILETIME_ ftLastWriteTime;
+	DWORD_    nFileSizeHigh;
+	DWORD_    nFileSizeLow;
+	DWORD_    dwReserved0;
+	DWORD_    dwReserved1;
+	char      cFileName[MAX_PATH_];
+	char      cAlternateFileName[14];
+};
+
+struct SECURITY_ATTRIBUTES_
+{
+	DWORD_   nLength;
+	void   * lpSecurityDescriptor;
+	BOOL_    bInheritHandle;
+};
+
+struct SYSTEM_INFO_
+{
+	union 
+	{
+		DWORD_ dwOemId;
+		struct 
+		{
+			WORD_ wProcessorArchitecture;
+			WORD_ wReserved;
+		} DUMMYSTRUCTNAME;
+	} DUMMYUNIONNAME;
+	DWORD_     dwPageSize;
+	void     * lpMinimumApplicationAddress;
+	void     * lpMaximumApplicationAddress;
+	DWORD_PTR_ dwActiveProcessorMask;
+	DWORD_     dwNumberOfProcessors;
+	DWORD_     dwProcessorType;
+	DWORD_     dwAllocationGranularity;
+	WORD_      wProcessorLevel;
+	WORD_      wProcessorRevision;
+};
+
+DS_WINAPI HANDLE_     __stdcall CreateThread(SECURITY_ATTRIBUTES_ *, size_t, THREAD_START_ROUTINE_, void *, DWORD_, DWORD_ *);
+DS_WINAPI HANDLE_     __stdcall CreateSemaphoreA(SECURITY_ATTRIBUTES_ *,LONG_, LONG_, LPCSTR_);
+DS_WINAPI HANDLE_     __stdcall CreateMutexA(SECURITY_ATTRIBUTES_ *, BOOL_, LPCSTR_);
+DS_WINAPI BOOL_       __stdcall ReleaseSemaphore(HANDLE_, LONG_, LONG_ *);
+DS_WINAPI BOOL_       __stdcall ReleaseMutex(HANDLE_);
+DS_WINAPI DWORD_      __stdcall WaitForSingleObject(HANDLE_, DWORD_);
+DS_WINAPI BOOL_       __stdcall CloseHandle(HANDLE_);
+DS_WINAPI DWORD_PTR_  __stdcall SetThreadAffinityMask(HANDLE_, DWORD_PTR_);
+DS_WINAPI HRESULT_    __stdcall SetThreadDescription(HANDLE_, PCWSTR_);
+DS_WINAPI HANDLE_     __stdcall FindFirstFileA(LPCSTR_, WIN32_FIND_DATAA_ *);
+DS_WINAPI BOOL_       __stdcall FindNextFileA(HANDLE_, WIN32_FIND_DATAA_ *);
+DS_WINAPI BOOL_       __stdcall FindClose(HANDLE_);
+DS_WINAPI DWORD_      __stdcall GetLastError();
+DS_WINAPI void        __stdcall Sleep(DWORD_);
+DS_WINAPI void        __stdcall GetSystemInfo(SYSTEM_INFO_ *);
+
+} // namespace _win
+} // namespace ds
+
+#endif // _WIN32
+
 #endif // DS_COMMON
